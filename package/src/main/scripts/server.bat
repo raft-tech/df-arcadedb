@@ -23,7 +23,7 @@ echo ██╔══██║██╔══██╗██║     ██╔═�
 echo ██║  ██║██║  ██║╚██████╗██║  ██║██████╔╝███████╗██████╔╝██████╔╝
 echo ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═════╝ ╚══════╝╚═════╝ ╚═════╝
 :afterBanner
-echo PLAY WITH DATA                             https://arcadedb.com
+echo PLAY WITH DATAAAA                             https://arcadedb.com
 echo:
 
 @setlocal

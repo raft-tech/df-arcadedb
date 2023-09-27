@@ -4,6 +4,7 @@ import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.http.HttpServer;
 import com.arcadedb.server.security.ServerSecurityUser;
 import io.undertow.server.HttpServerExchange;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URI;
@@ -13,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 public class PostRefreshTokenHandler extends AbstractHandler {
     public PostRefreshTokenHandler(final HttpServer httpServer) {
         super(httpServer);
@@ -21,7 +23,8 @@ public class PostRefreshTokenHandler extends AbstractHandler {
     @Override
     protected ExecutionResponse execute(HttpServerExchange exchange, ServerSecurityUser user) throws Exception {
         final JSONObject payload = new JSONObject(parseRequestPayload(exchange));
-
+        log.info("refreshtoken payload {}", payload.toString());
+      //  log.info("parsed payload", exchange.get);
         final String refreshToken = payload.has("refreshToken") ? payload.getString("refreshToken") : null;
         if (refreshToken == null) {
             // TODO return error

@@ -26,8 +26,11 @@ import com.arcadedb.security.SecurityManager;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.*;
 
+@Slf4j
 public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   private static final JSONObject  NO_ACCESS_GROUP   = new JSONObject().put("types",
       new JSONObject().put(SecurityManager.ANY, new JSONObject().put("access", new JSONArray())));
@@ -75,12 +78,16 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnDatabase(final DATABASE_ACCESS access) {
+    log.info("requestAccessOnDatabase: access: {}, decision: {}", access, databaseAccessMap[access.ordinal()]);
     return databaseAccessMap[access.ordinal()];
   }
 
   @Override
   public boolean requestAccessOnFile(final int fileId, final ACCESS access) {
+    
     final boolean[] permissions = fileAccessMap[fileId];
+    log.info("requestAccessOnFile: fileId: {}, access: {}, permissions: {}", fileId, access, permissions);
+    log.info("requestAccessOnFile decision {}", permissions == null || permissions[access.ordinal()]);
     return permissions == null || permissions[access.ordinal()];
   }
 

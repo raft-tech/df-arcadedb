@@ -24,6 +24,7 @@ import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.exception.CommandExecutionException;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
@@ -36,15 +37,27 @@ import com.arcadedb.server.ha.message.ServerShutdownRequest;
 import com.arcadedb.server.http.HttpServer;
 import com.arcadedb.server.security.ServerSecurityException;
 import com.arcadedb.server.security.ServerSecurityUser;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.nimbusds.oauth2.sdk.util.StringUtils;
+
 import io.undertow.server.HttpServerExchange;
+import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.rmi.*;
 import java.util.*;
+import java.util.logging.Level;
 
+import org.jboss.resteasy.spi.NotImplementedYetException;
+
+@Slf4j
 public class PostServerCommandHandler extends AbstractHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {
     super(httpServer);
+    log.info("postServerCommandHandler init");
   }
 
   @Override
@@ -54,47 +67,69 @@ public class PostServerCommandHandler extends AbstractHandler {
 
   @Override
   public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user) throws IOException {
-    final JSONObject payload = new JSONObject(parseRequestPayload(exchange));
+String payloadString = parseRequestPayload(exchange);
+      log.info("postServerCommandHandler execute payload {}", payloadString);
+    log.info("postServerCommandHandler execute asdf {} {}", payloadString != null, StringUtils.isNotBlank(payloadString));
+   // LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute %s %s", parseRequestPayload(exchange) != null, parseRequestPayload(exchange).trim().length() > 0);
 
-    final String command = payload.has("command") ? payload.getString("command") : null;
-    if (command == null)
-      return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
+    
 
-    if (!command.equals("list databases"))
-      checkRootUser(user);
+    if (payloadString != null && StringUtils.isNotBlank(payloadString)) {
+      final var payload =JsonParser.parseString(payloadString).getAsJsonObject();
+      log.info("postServerCommandHandler execute parsed {}", payload);
 
-    if (command.startsWith("shutdown"))
-      shutdownServer(command);
-    else if (command.startsWith("create database "))
-      createDatabase(command);
-    else if (command.equals("list databases")) {
-      return listDatabases(user);
-    } else if (command.startsWith("drop database "))
-      dropDatabase(command);
-    else if (command.startsWith("close database "))
-      closeDatabase(command);
-    else if (command.startsWith("open database "))
-      openDatabase(command);
-    else if (command.startsWith("create user "))
-      createUser(command);
-    else if (command.startsWith("drop user "))
-      dropUser(command);
-    else if (command.startsWith("connect cluster ")) {
-      if (!connectCluster(command, exchange))
-        return null;
-    } else if (command.equals("disconnect cluster"))
-      disconnectCluster();
-    else if (command.startsWith("set database setting "))
-      setDatabaseSetting(command);
-    else if (command.startsWith("set server setting "))
-      setServerSetting(command);
-    else if (command.startsWith("get server events"))
-      return getServerEvents(command);
-    else if (command.startsWith("align database "))
-      alignDatabase(command);
-    else {
-      httpServer.getServer().getServerMetrics().meter("http.server-command.invalid").hit();
-      return new ExecutionResponse(400, "{ \"error\" : \"Server command not valid\"}");
+
+      //final JSONObject payload = new JSONObject(parseRequestPayload(exchange), true);
+
+      LogManager.instance().log(this, Level.INFO, "ASDF execute: " + payload.toString());
+      LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute "+ payload.toString() + "adf");
+
+      final String command = payload.has("command") ? payload.get("command").getAsString() : null;
+      if (command == null)
+        return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
+
+      log.info("execute: " + payload.toString());
+      LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute 2");
+
+      if (!command.equals("list databases")) {
+        checkRootUser(user);
+        LogManager.instance().log(this, Level.INFO, "postServerCommandHandler not = list databases");
+      }
+
+      if (command.startsWith("shutdown"))
+        shutdownServer(command);
+      else if (command.startsWith("create database "))
+        createDatabase(command);
+      else if (command.equals("list databases")) {
+        return listDatabases(user);
+      } else if (command.startsWith("drop database "))
+        dropDatabase(command);
+      else if (command.startsWith("close database "))
+        closeDatabase(command);
+      else if (command.startsWith("open database "))
+        openDatabase(command);
+      else if (command.startsWith("create user ")) {
+        //createUser(command);
+        return new ExecutionResponse(400, "{ \"error\" : \"Please create new users through keycloak.\"}");
+      } else if (command.startsWith("drop user "))
+        dropUser(command);
+      else if (command.startsWith("connect cluster ")) {
+        if (!connectCluster(command, exchange))
+          return null;
+      } else if (command.equals("disconnect cluster"))
+        disconnectCluster();
+      else if (command.startsWith("set database setting "))
+        setDatabaseSetting(command);
+      else if (command.startsWith("set server setting "))
+        setServerSetting(command);
+      else if (command.startsWith("get server events"))
+        return getServerEvents(command);
+      else if (command.startsWith("align database "))
+        alignDatabase(command);
+      else {
+        httpServer.getServer().getServerMetrics().meter("http.server-command.invalid").hit();
+        return new ExecutionResponse(400, "{ \"error\" : \"Server command not valid\"}");
+      }
     }
 
     return new ExecutionResponse(200, "{ \"result\" : \"ok\"}");
@@ -192,12 +227,18 @@ public class PostServerCommandHandler extends AbstractHandler {
   }
 
   private ExecutionResponse listDatabases(final ServerSecurityUser user) {
+    LogManager.instance().log(this, Level.INFO, "listDatabases");
+    log.info("listDatabases");
     final ArcadeDBServer server = httpServer.getServer();
     server.getServerMetrics().meter("http.list-databases").hit();
 
     final Set<String> installedDatabases = new HashSet<>(server.getDatabaseNames());
     final Set<String> allowedDatabases = user.getAuthorizedDatabases();
 
+    log.info("listDatabases installed: {}, allowed: {}", installedDatabases, allowedDatabases);
+    LogManager.instance().log(this, Level.INFO, "list databases installed " + installedDatabases + " " + allowedDatabases);
+    
+    
     if (!allowedDatabases.contains("*"))
       installedDatabases.retainAll(allowedDatabases);
 
@@ -252,23 +293,24 @@ public class PostServerCommandHandler extends AbstractHandler {
   }
 
   private void createUser(final String command) {
-    final String payload = command.substring("create user ".length()).trim();
-    final JSONObject json = new JSONObject(payload);
+    // final String payload = command.substring("create user ".length()).trim();
+    // final JSONObject json = new JSONObject(payload);
 
-    if (!json.has("name"))
-      throw new IllegalArgumentException("User name is null");
+    // if (!json.has("name"))
+    //   throw new IllegalArgumentException("User name is null");
 
-    final String userPassword = json.getString("password");
-    if (userPassword.length() < 4)
-      throw new ServerSecurityException("User password must be 5 minimum characters");
-    if (userPassword.length() > 256)
-      throw new ServerSecurityException("User password cannot be longer than 256 characters");
+    // final String userPassword = json.getString("password");
+    // if (userPassword.length() < 4)
+    //   throw new ServerSecurityException("User password must be 5 minimum characters");
+    // if (userPassword.length() > 256)
+    //   throw new ServerSecurityException("User password cannot be longer than 256 characters");
 
-    json.put("password", httpServer.getServer().getSecurity().encodePassword(userPassword));
+    // json.put("password", httpServer.getServer().getSecurity().encodePassword(userPassword));
 
-    httpServer.getServer().getServerMetrics().meter("http.create-user").hit();
+    // httpServer.getServer().getServerMetrics().meter("http.create-user").hit();
 
-    httpServer.getServer().getSecurity().createUser(json);
+    // httpServer.getServer().getSecurity().createUser(json);
+    throw new NotImplementedYetException("Please create new user through keycloak");
   }
 
   private void dropUser(final String command) {

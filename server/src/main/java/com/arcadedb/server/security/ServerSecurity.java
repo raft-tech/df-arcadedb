@@ -30,43 +30,95 @@ import com.arcadedb.server.ServerException;
 import com.arcadedb.server.ServerPlugin;
 import com.arcadedb.server.security.credential.CredentialsValidator;
 import com.arcadedb.server.security.credential.DefaultCredentialsValidator;
+import com.arcadedb.server.security.oidc.ArcadeRole;
+import com.arcadedb.server.security.oidc.Group;
+import com.arcadedb.server.security.oidc.GroupMap;
+import com.arcadedb.server.security.oidc.GroupTypeAccess;
+import com.arcadedb.server.security.oidc.KeycloakClient;
+import com.arcadedb.server.security.oidc.KeycloakUser;
+import com.arcadedb.server.security.oidc.User;
 import com.arcadedb.utility.AnsiCode;
 import com.arcadedb.utility.LRUCache;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+
+import lombok.extern.slf4j.Slf4j;
+
 import com.arcadedb.serializer.json.JSONException;
 import com.arcadedb.serializer.json.JSONObject;
 
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
+
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.KeycloakBuilder;
+import org.keycloak.representations.idm.UserRepresentation;
+
 import java.io.*;
 import java.nio.charset.*;
 import java.security.*;
 import java.security.spec.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.*;
+import java.util.stream.Collectors;
 
 import static com.arcadedb.GlobalConfiguration.SERVER_SECURITY_ALGORITHM;
 import static com.arcadedb.GlobalConfiguration.SERVER_SECURITY_SALT_CACHE_SIZE;
 import static com.arcadedb.GlobalConfiguration.SERVER_SECURITY_SALT_ITERATIONS;
 
+@Slf4j
 public class ServerSecurity implements ServerPlugin, com.arcadedb.security.SecurityManager {
 
-  public static final  int                             LATEST_VERSION             = 1;
-  private static final int                             CHECK_USER_RELOAD_EVERY_MS = 5_000;
-  private final        ArcadeDBServer                  server;
-  private final        SecurityUserFileRepository      usersRepository;
-  private final        SecurityGroupFileRepository     groupRepository;
-  private final        String                          algorithm;
-  private final        SecretKeyFactory                secretKeyFactory;
-  private final        Map<String, String>             saltCache;
-  private final        int                             saltIteration;
-  private final        Map<String, ServerSecurityUser> users                      = new HashMap<>();
-  private              CredentialsValidator            credentialsValidator       = new DefaultCredentialsValidator();
-  private static final Random                          RANDOM                     = new SecureRandom();
-  public static final  int                             SALT_SIZE                  = 32;
-  private              Timer                           reloadConfigurationTimer;
+  public static final int LATEST_VERSION = 1;
+  private static final int CHECK_USER_RELOAD_EVERY_MS = 5_000;
+  private final ArcadeDBServer server;
+  private final SecurityUserFileRepository usersRepository;
+  private final SecurityGroupFileRepository groupRepository;
+  private final String algorithm;
+  private final SecretKeyFactory secretKeyFactory;
+  private final Map<String, String> saltCache;
+  private final int saltIteration;
+  private final ConcurrentHashMap<String, ServerSecurityUser> users = new ConcurrentHashMap<>();
+  private CredentialsValidator credentialsValidator = new DefaultCredentialsValidator();
+  private static final Random RANDOM = new SecureRandom();
+  public static final int SALT_SIZE = 32;
+  private Timer reloadConfigurationTimer;
 
-  public ServerSecurity(final ArcadeDBServer server, final ContextConfiguration configuration, final String configPath) {
+  /**
+   * 1. request comes in
+   * 2. check cache for user
+   * 3. if user not in cache, check keycloak for user
+   * 4. if user not in keycloak, throw error
+   * 5. if user in keycloak, check if user is authorized to hit arcade
+   * 6. if user is authorized to hit arcade, get arcade roles from jwt
+   * 7. convert arcade roles to groups
+   * 8. get current groups
+   * 9. compare current groups to needed groups
+   * 10. create missing groups
+   * 11. create user if doesn't already exist
+   * 12. overwrite user group memberships
+   * 13. put user in local map
+   * 14. return new/updated user
+   */
+
+  // TODO create job to refresh user permissions from keycloak frequently
+
+  // TODO create job to remove users from map after extended inactivity
+
+  // TODO listen to kafka events for role updates, update local users
+
+  // TODO use PG database repo for users and groups
+
+  // TODO periodically save users and groups to file repositories
+
+  private ConcurrentHashMap<String, GroupMap> groups = new ConcurrentHashMap<>();
+
+  public ServerSecurity(final ArcadeDBServer server, final ContextConfiguration configuration,
+      final String configPath) {
     this.server = server;
     this.algorithm = configuration.getValueAsString(SERVER_SECURITY_ALGORITHM);
 
@@ -121,6 +173,9 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
         }
       }
 
+      // TODO load users from keycloak?
+      // add to map
+
       if (users.isEmpty() || (users.containsKey("root") && users.get("root").getPassword() == null))
         askForRootPassword();
 
@@ -153,16 +208,264 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       groupRepository.stop();
   }
 
+  // public class KeycloakUser {
+  // public String username;
+  // public String[] roles;
+  // public String[] groups;
+  // }
+
+  // private Keycloak getKeycloakAdminApiClient() {
+  // log.info("getKeycloakAdminApiClient {}-{}-{}",
+  // GlobalConfiguration.KEYCLOAK_ROOT_URL.getValueAsString(),
+  // GlobalConfiguration.KEYCLOAK_ADMIN_USERNAME.getValueAsString()
+  // , System.getenv("KEYCLOAK_ADMIN_PASSWORD"));
+  // // Keycloak keycloakAdmin = KeycloakBuilder.builder()
+  // // .serverUrl(GlobalConfiguration.KEYCLOAK_ROOT_URL.getValueAsString())
+  // // .realm("master")
+  // // .username(GlobalConfiguration.KEYCLOAK_ADMIN_USERNAME.getValueAsString())
+  // // .password(System.getenv("KEYCLOAK_ADMIN_PASSWORD"))
+  // // .clientId("admin-cli")
+  // // .build();
+  // Keycloak keycloakAdmin = KeycloakBuilder.builder()
+  // .serverUrl("http://df-keycloak.auth:8080")
+  // .realm("master")
+  // .username("admin")
+  // .password("jeTKq1T0fSQrabOjZJEY5u3j")
+  // .clientId("admin-cli")
+  // .build();
+
+  // // log.info("getKeycloakadmiapiclient {}", keycloakAdmin == null ? "null" :
+  // keycloakAdmin.);
+
+  // return keycloakAdmin;
+  // }
+
+  // make rest call to keycloak api to get user and roles
+
+  private KeycloakUser getKeycloakUser(String username) {
+
+    List<String> roles = KeycloakClient.getUserRoles(username);
+    return new KeycloakUser(username, roles);
+
+    // TODO replace with env vars
+    // var token = KeycloakClient.login("admin", "jeTKq1T0fSQrabOjZJEY5u3j");
+    // var token = KeycloakClient.impersonateLogin(username);
+    // log.info("getKC token other {} {}", username, token);
+
+    // if (token != null) {
+    // JSONObject tokenJO = new JSONObject(token);
+    // String accessTokenString = tokenJO.getString("access_token");
+    // String encodedString =
+    // accessTokenString.substring(accessTokenString.indexOf(".")+1,
+    // accessTokenString.lastIndexOf("."));
+    // byte[] decodedBytes = Base64.getDecoder().decode(encodedString);
+    // String decodedString = new String(decodedBytes);
+    // JSONObject accessToken = new JSONObject(decodedString);
+    // log.info("getKC token {}", accessToken.toString());
+
+    // if (accessToken.has("resource_access") &&
+    // accessToken.getJSONObject("resource_access").has("df-backend") &&
+    // accessToken.getJSONObject("resource_access").getJSONObject("df-backend").has("roles"))
+    // {
+    // var roles =
+    // accessToken.getJSONObject("resource_access").getJSONObject("df-backend").getJSONArray("roles");
+    // log.info("Roles {}", roles.toString());
+    // List<String> roleStrings = roles.toList().stream().map(r ->
+    // r.toString()).collect(Collectors.toList());
+    // return new KeycloakUser(username, roleStrings);
+    // }
+
+    // }
+
+    // Keycloak keycloakAdmin = getKeycloakAdminApiClient();
+    // String realm = GlobalConfiguration.KEYCLOAK_REALM.getValueAsString();
+    // log.info("getKeycloakuser {} {}", username, realm);
+    // // LogManager.instance().log(this, Level.INFO, "gKU {} {}", username, realm);
+
+    // var realmResource =
+    // keycloakAdmin.realm("data-fabric").toRepresentation().getClients().size();
+
+    // log.info("gKU num client {}", realmResource);
+    // var userResource = keycloakAdmin.realm(realm).users().get(username);
+
+    // if (userResource != null) {
+    // return userResource.toRepresentation();
+    // }
+
+    // return null;
+  }
+
+  private List<ArcadeRole> getArcadeRolesFromJwtRoles(List<String> jwtRoles) {
+    List<ArcadeRole> arcadeRoles = new ArrayList<>();
+    for (String role : jwtRoles) {
+      if (ArcadeRole.isArcadeRole(role)) {
+        arcadeRoles.add(ArcadeRole.valueOf(role));
+      }
+    }
+    return arcadeRoles;
+  }
+
+  private Group getGroupFromArcadeRole(ArcadeRole arcadeRole) {
+    Group group = new Group();
+    group.setName(arcadeRole.getName());
+
+    if (arcadeRole.getDatabase() != null) {
+      group.setDatabase(arcadeRole.getDatabase());
+    }
+
+    // TODO test this
+    if (arcadeRole.getAdminRole() != null) {
+      group.setAccess(List.of(arcadeRole.getAdminRole().getArcadeName()));
+    }
+    group.setReadTimeout(arcadeRole.getReadTimeout());
+    group.setResultSetLimit(arcadeRole.getResultSetLimit());
+
+    if (arcadeRole.getDatabase() != null) {
+      GroupTypeAccess typeAccess = new GroupTypeAccess(arcadeRole.getCrudPermissions());
+      group.setTypes(Map.of(arcadeRole.getDatabase(), typeAccess));
+    }
+
+    // TODO add type regex support
+    // need to get all types for database from arcade, and apply the regex match to
+    // get the types that match
+    // then add the types to the group
+    // skip regex support for now
+    return group;
+  }
+
+  /**
+   * Returns a user from local cache if found, or creates a new user from keycloak
+   * 
+   * @param username
+   * @return
+   * @throws JsonProcessingException
+   */
+  private ServerSecurityUser getOrCreateUser(final String username) {
+
+    // Return user from local cache if found. If not, continue
+    if (users.containsKey(username) && username.equals("root")) {
+      return users.get(username);
+    }
+    // TODO
+    // 0. recieve keycloak admin password from env. if not set, throw error
+
+    // 1. get user from keycloak
+    KeycloakUser keycloakUser = getKeycloakUser(username);
+
+    if (keycloakUser == null) {
+      // user doesn't exist in keycloak
+      throw new ServerSecurityException("User not found");
+    }
+
+    // 2. Check if user is authoried to hit arcade
+    List<String> arcadeJwtRoles = keycloakUser.getRoles()
+        .stream()
+        .filter(r -> ArcadeRole.isArcadeRole(r))
+        .collect(Collectors.toList());
+
+    if (arcadeJwtRoles.isEmpty()) {
+      // not an authorized arcade user
+      throw new ServerSecurityException("User not authorized");
+    }
+
+    // 3. get any arcade roles from jwt
+    List<ArcadeRole> arcadeRoles = getArcadeRolesFromJwtRoles(arcadeJwtRoles);
+
+    // 4. Convert arcade roles to groups
+    List<Group> neededGroups = arcadeRoles.stream()
+        .map(this::getGroupFromArcadeRole)
+        .collect(Collectors.toList());
+
+    // 5. Create and add any missing groups
+    neededGroups.stream().forEach(g -> {
+      // if group isn't in currentGroups, add it
+      if (g.getDatabase() != null) {
+        if (groups.containsKey(g.getDatabase())) {
+          groups.get(g.getDatabase()).getGroups().put(g.getArcadeName(), g);
+        } else {
+          GroupMap groupMap = new GroupMap();
+          groupMap.getGroups().put(g.getArcadeName(), g);
+          groups.put(g.getDatabase(), groupMap);
+        }
+      } else {
+        // Get or create admin group without database name
+
+      }
+      // creating an edge is technically 2 operations: (1) create a new edge record
+      // and (2) update the vertices with
+      // the reference. For this reason, if you want to allow a user to create edges,
+      // you have to grant the createRecord
+      // permission on the edge type and updateRecord on the vertex type.
+    });
+
+    // 6. Create new user config
+    Map<String, List<String>> groupMap = new HashMap<>();
+    for (Group group : neededGroups) {
+      if (!groupMap.containsKey(group.getDatabase())) {
+        groupMap.put(group.getDatabase(), new ArrayList<>());
+      }
+      groupMap.get(group.getDatabase()).add(group.getArcadeName());
+    }
+    User user = new User(keycloakUser.getUsername(), groupMap);
+    log.info("384ish user {}", user.toString());
+
+    JSONObject userJson = new JSONObject();
+    userJson.put("name", user.getName());
+
+    JSONObject databases = new JSONObject();
+    for (String database : user.getDatabaseGroups().keySet()) {
+      databases.put(database, user.getDatabaseGroups().get(database));
+    }
+    userJson.put("databases", databases);
+
+    log.info("387ish 2 {}", userJson.toString());
+
+    // try {
+    // ObjectMapper objectMapper = new ObjectMapper();
+    // objectMapper.w
+    // String userConfig = objectMapper.writeValueAsString(user);
+    return new ServerSecurityUser(server, userJson);
+    // JsonParser parser = new JsonParser();
+    // parser.
+    // } catch (JsonProcessingException e) {
+    // throw new ServerSecurityException("Cannot save new user configuration");
+    // }
+
+    // TODO improvement. Cache local perms. Listen for kafka events for role
+    // updates?
+    // or remove users on logout, and recreate. probably much easier
+
+    // return new/updated user
+    // return users.get(username);
+  }
+
+  // TODO more improvements
+  // 0. figure out service account usage from this app
+  // 0.5. implement service account usage from this app
+  // 0.7 helm chart update to enable SA usage? could hardcode for now
+
+  // TODO create logout method
+
+  // TODO add prop for last activity
+  // TODO create job to remove users from map after extended inactivity
+
+  // TODO store hash of user roles in jwt in the local hashmap. Skip user if hash
+  // matches and database schema last updated is older than expiration time.
+
   public ServerSecurityUser authenticate(final String userName, final String databaseName) {
 
-    final ServerSecurityUser su = users.get(userName);
-    if (su == null)
+    final ServerSecurityUser su = getOrCreateUser(userName);
+    if (su == null) {
+      log.info("authenticate user not found");
       throw new ServerSecurityException("User not valid");
+    }
 
     if (databaseName != null) {
       final Set<String> allowedDatabases = su.getAuthorizedDatabases();
-      if (!allowedDatabases.contains(SecurityManager.ANY) && !su.getAuthorizedDatabases().contains(databaseName))
+      if (!allowedDatabases.contains(SecurityManager.ANY) && !su.getAuthorizedDatabases().contains(databaseName)) {
+        log.info("User does not have access to database {}", databaseName);
         throw new ServerSecurityException("User does not have access to database '" + databaseName + "'");
+      }
     }
 
     return su;
@@ -175,11 +478,14 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       throw new ServerSecurityException("User/Password not valid");
     }
 
+    users.put(su.getName(), su);
+
     return su;
   }
 
   /**
-   * Override the default @{@link CredentialsValidator} implementation (@{@link DefaultCredentialsValidator}) providing a custom one.
+   * Override the default @{@link CredentialsValidator} implementation
+   * (@{@link DefaultCredentialsValidator}) providing a custom one.
    */
   public void setCredentialsValidator(final CredentialsValidator credentialsValidator) {
     this.credentialsValidator = credentialsValidator;
@@ -190,7 +496,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public ServerSecurityUser getUser(final String userName) {
-    return users.get(userName);
+    return getOrCreateUser(userName);
+    // return users.get(userName);
   }
 
   public ServerSecurityUser createUser(final JSONObject userConfiguration) {
@@ -220,6 +527,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     for (final ServerSecurityUser user : users.values()) {
       final ServerSecurityDatabaseUser databaseUser = user.getDatabaseUser(database);
       if (databaseUser != null) {
+
+        // TODO update
         final JSONObject groupConfiguration = getDatabaseGroupsConfiguration(database.getName());
         if (groupConfiguration == null)
           continue;
@@ -231,7 +540,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
   public String getEncodedHash(final String password, final String salt, final int iterations) {
     // Returns only the last part of whole encoded password
-    final KeySpec keySpec = new PBEKeySpec(password.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), iterations, 256);
+    final KeySpec keySpec = new PBEKeySpec(password.toCharArray(), salt.getBytes(StandardCharsets.UTF_8), iterations,
+        256);
     final SecretKey secret;
     try {
       secret = secretKeyFactory.generateSecret(keySpec);
@@ -314,7 +624,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     try {
       usersRepository.save(usersToJSON());
     } catch (final IOException e) {
-      LogManager.instance().log(this, Level.SEVERE, "Error on saving security configuration to file '%s'", e, SecurityUserFileRepository.FILE_NAME);
+      LogManager.instance().log(this, Level.SEVERE, "Error on saving security configuration to file '%s'", e,
+          SecurityUserFileRepository.FILE_NAME);
     }
   }
 
@@ -322,21 +633,26 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     try {
       groupRepository.save(groupsToJSON());
     } catch (final IOException e) {
-      LogManager.instance().log(this, Level.SEVERE, "Error on saving security configuration to file '%s'", e, SecurityGroupFileRepository.FILE_NAME);
+      LogManager.instance().log(this, Level.SEVERE, "Error on saving security configuration to file '%s'", e,
+          SecurityGroupFileRepository.FILE_NAME);
     }
   }
 
   protected void askForRootPassword() throws IOException {
-    String rootPassword = server != null ?
-        server.getConfiguration().getValueAsString(GlobalConfiguration.SERVER_ROOT_PASSWORD) :
-        GlobalConfiguration.SERVER_ROOT_PASSWORD.getValueAsString();
+    String rootPassword = server != null
+        ? server.getConfiguration().getValueAsString(GlobalConfiguration.SERVER_ROOT_PASSWORD)
+        : GlobalConfiguration.SERVER_ROOT_PASSWORD.getValueAsString();
 
     if (rootPassword == null) {
-      if (server != null ? server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_K8S) : GlobalConfiguration.HA_K8S.getValueAsBoolean()) {
-        // UNDER KUBERNETES IF THE ROOT PASSWORD IS NOT SET (USUALLY WITH A SECRET) THE POD MUST TERMINATE
+      if (server != null ? server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_K8S)
+          : GlobalConfiguration.HA_K8S.getValueAsBoolean()) {
+        // UNDER KUBERNETES IF THE ROOT PASSWORD IS NOT SET (USUALLY WITH A SECRET) THE
+        // POD MUST TERMINATE
         LogManager.instance()
-            .log(this, Level.SEVERE, "Unable to start a server under Kubernetes if the environment variable `arcadedb.server.rootPassword` is not set");
-        throw new ServerSecurityException("Unable to start a server under Kubernetes if the environment variable `arcadedb.server.rootPassword` is not set");
+            .log(this, Level.SEVERE,
+                "Unable to start a server under Kubernetes if the environment variable `arcadedb.server.rootPassword` is not set");
+        throw new ServerSecurityException(
+            "Unable to start a server under Kubernetes if the environment variable `arcadedb.server.rootPassword` is not set");
       }
 
       LogManager.instance().flush();
@@ -345,16 +661,26 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
       System.out.println();
       System.out.println();
-      System.out.println(AnsiCode.format("$ANSI{yellow +--------------------------------------------------------------------+}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow |                WARNING: FIRST RUN CONFIGURATION                    |}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow +--------------------------------------------------------------------+}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow | This is the first time the server is running. Please type a        |}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow | password of your choice for the 'root' user or leave it blank      |}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow | to auto-generate it.                                               |}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow |                                                                    |}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow | To avoid this message set the environment variable or JVM          |}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow | setting `arcadedb.server.rootPassword` to the root password to use.|}"));
-      System.out.println(AnsiCode.format("$ANSI{yellow +--------------------------------------------------------------------+}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow +--------------------------------------------------------------------+}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow |                WARNING: FIRST RUN CONFIGURATION                    |}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow +--------------------------------------------------------------------+}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow | This is the first time the server is running. Please type a        |}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow | password of your choice for the 'root' user or leave it blank      |}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow | to auto-generate it.                                               |}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow |                                                                    |}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow | To avoid this message set the environment variable or JVM          |}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow | setting `arcadedb.server.rootPassword` to the root password to use.|}"));
+      System.out.println(
+          AnsiCode.format("$ANSI{yellow +--------------------------------------------------------------------+}"));
 
       final DefaultConsoleReader console = new DefaultConsoleReader();
 
@@ -371,11 +697,13 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
         if (rootPassword == null) {
           rootPassword = credentialsValidator.generateRandomPassword();
-          System.out.print(AnsiCode.format("Automatic generated password: $ANSI{green " + rootPassword + "}. Please save it in a safe place.\n"));
+          System.out.print(AnsiCode.format(
+              "Automatic generated password: $ANSI{green " + rootPassword + "}. Please save it in a safe place.\n"));
         }
 
         if (rootPassword != null) {
-          System.out.print(AnsiCode.format("$ANSI{yellow Please type the root password for confirmation (copy and paste will not work): }"));
+          System.out.print(AnsiCode
+              .format("$ANSI{yellow Please type the root password for confirmation (copy and paste will not work): }"));
 
           String rootConfirmPassword = console.readPassword();
           if (rootConfirmPassword != null) {
@@ -385,7 +713,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
           }
 
           if (!rootPassword.equals(rootConfirmPassword)) {
-            System.out.println(AnsiCode.format("$ANSI{red ERROR: Passwords do not match, please reinsert both of them, or press ENTER to auto generate it}"));
+            System.out.println(AnsiCode.format(
+                "$ANSI{red ERROR: Passwords do not match, please reinsert both of them, or press ENTER to auto generate it}"));
             try {
               Thread.sleep(500);
             } catch (final InterruptedException e) {
@@ -401,7 +730,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
               break;
             } catch (final ServerSecurityException ex) {
               System.out.println(AnsiCode.format(
-                  "$ANSI{red ERROR: Root password does not match the password policies" + (ex.getMessage() != null ? ": " + ex.getMessage() : "") + "}"));
+                  "$ANSI{red ERROR: Root password does not match the password policies"
+                      + (ex.getMessage() != null ? ": " + ex.getMessage() : "") + "}"));
               try {
                 Thread.sleep(500);
               } catch (final InterruptedException e) {
@@ -427,8 +757,16 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   protected JSONObject getDatabaseGroupsConfiguration(final String databaseName) {
-    final JSONObject groupDatabases = groupRepository.getGroups().getJSONObject("databases");
-    JSONObject databaseConfiguration = groupDatabases.has(databaseName) ? groupDatabases.getJSONObject(databaseName) : null;
+
+    Gson gson = new Gson();
+    String jsonString = gson.toJson(groups);
+    log.info("s getDatabaseGroupsConfiguration jsonString {} ", jsonString);
+    LogManager.instance().log(this, Level.INFO, "lm getDatabaseGroupsConfiguration jsonString {} ", jsonString);
+    final JSONObject groupDatabases = new JSONObject(jsonString);
+
+    JSONObject databaseConfiguration = groupDatabases.has(databaseName) ? groupDatabases.getJSONObject(databaseName)
+        : null;
+
     if (databaseConfiguration == null)
       // GET DEFAULT (*) DATABASE GROUPS
       databaseConfiguration = groupDatabases.has(SecurityManager.ANY) ? groupDatabases.getJSONObject("*") : null;

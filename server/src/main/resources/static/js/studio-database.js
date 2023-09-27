@@ -187,6 +187,10 @@ function editorFocus(){
   editor.focus();
 }
 
+// interface OkResult {
+//   result: "ok";
+// }
+
 function updateDatabases( callback ){
   let selected = getCurrentDatabase();
   if( selected == null || selected == "" )
@@ -201,17 +205,28 @@ function updateDatabases( callback ){
     }
   })
   .done(function(data){
-    let databases = "";
-    for( let i in data.result ){
-      let dbName = data.result[i];
-      databases += "<option value='"+dbName+"'>"+dbName+"</option>";
+    console.log("currentDataabse", getCurrentDatabase());
+    console.log("data", data);
+
+    let json = JSON.parse(JSON.stringify(data));
+    
+    if (typeof json == "object" && json["result"] == 'ok') {
+      console.log("acknowledged", json);
+    } else {
+      console.log("valid response", json);
+
+      let databases = "";
+      for( let i in data.result ){
+        let dbName = data.result[i];
+        databases += "<option value='"+dbName+"'>"+dbName+"</option>";
+      }
+      $("#inputDatabase").html(databases);
+  
+      if( selected != null && selected != "" )
+        $("#inputDatabase").val(selected);
+  
+      $("#currentDatabase").html( getCurrentDatabase() );
     }
-    $("#inputDatabase").html(databases);
-
-    if( selected != null && selected != "" )
-      $("#inputDatabase").val(selected);
-
-    $("#currentDatabase").html( getCurrentDatabase() );
 
     $("#user").html(data.user);
 

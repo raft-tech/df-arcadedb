@@ -39,12 +39,14 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.HeaderValues;
 import io.undertow.util.Headers;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Deque;
 import java.util.logging.Level;
 
+@Slf4j
 public abstract class AbstractHandler implements HttpHandler {
     private static final String AUTHORIZATION_BASIC = "Basic";
     protected final HttpServer httpServer;
@@ -61,6 +63,8 @@ public abstract class AbstractHandler implements HttpHandler {
 
         if (!mustExecuteOnWorkerThread())
             LogManager.instance().log(this, Level.SEVERE, "Error: handler must return true at mustExecuteOnWorkerThread() to read payload from request");
+
+        
 
         final StringBuilder result = new StringBuilder();
         e.getRequestReceiver().receiveFullBytes(
@@ -91,6 +95,9 @@ public abstract class AbstractHandler implements HttpHandler {
 
     @Override
     public void handleRequest(final HttpServerExchange exchange) {
+
+        log.info("handle request" + exchange.getRequestPath());
+
         if (mustExecuteOnWorkerThread() && exchange.isInIoThread()) {
             exchange.dispatch(this);
             return;
@@ -175,7 +182,8 @@ public abstract class AbstractHandler implements HttpHandler {
         } catch (final IllegalArgumentException e) {
             LogManager.instance().log(this, getUserSevereErrorLogLevel(), "Error on command execution (%s)", e, getClass().getSimpleName());
             sendErrorResponse(exchange, 400, "Cannot execute command", e, null);
-        } catch (final CommandExecutionException | CommandParsingException e) {
+        } catch (final CommandExecutionException | CommandParsingException | IllegalStateException e) {
+            // TODO fix illegal state exception
             Throwable realException = e;
             if (e.getCause() != null)
                 realException = e.getCause();
@@ -212,9 +220,10 @@ public abstract class AbstractHandler implements HttpHandler {
         return httpServer.getServer().getSecurity().authenticate(userName, userPassword, null);
     }
 
+    // TODO allow admins to execute server commands
     protected static void checkRootUser(ServerSecurityUser user) {
-        if (!"root".equals(user.getName()))
-            throw new ServerSecurityException("Only root user is authorized to execute server commands");
+    //    if (!"root".equals(user.getName()))
+    //        throw new ServerSecurityException("Only root user is authorized to execute server commands");
     }
 
     protected JSONObject createResult(final SecurityUser user, final Database database) {
@@ -276,6 +285,8 @@ public abstract class AbstractHandler implements HttpHandler {
     }
 
     private void sendErrorResponse(final HttpServerExchange exchange, final int code, final String errorMessage, final Throwable e, final String exceptionArgs) {
+        log.info("sendErrorResponse " + code + " " + errorMessage);
+        
         if (!exchange.isResponseStarted())
             exchange.setStatusCode(code);
         exchange.getResponseSender().send(error2json(errorMessage, e != null ? e.getMessage() : "", e, exceptionArgs, null));
