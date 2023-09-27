@@ -476,7 +476,7 @@ public enum GlobalConfiguration {
   public static void fromJSON(final String input) {
     if (input == null)
       return;
-    System.out.println("Reading configuration from JSON: " + input);
+    
     final JSONObject json = new JSONObject(input);
     final JSONObject cfg = json.getJSONObject("configuration");
     for (final String k : cfg.keySet()) {
