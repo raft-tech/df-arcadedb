@@ -2,11 +2,14 @@ package com.arcadedb.server.security.oidc.role;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import lombok.Getter;
+
 public enum RoleType {
     DATABASE_ADMIN("dba", "dba"),
     USER("user", "user"),
     SERVER_ADMIN("sa","sa");
 
+    @Getter
     private String keycloakName;
 
     private String arcadeName;

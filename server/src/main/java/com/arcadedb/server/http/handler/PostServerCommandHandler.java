@@ -27,7 +27,6 @@ import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.serializer.json.JSONArray;
-import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.ha.HAServer;
 import com.arcadedb.server.ha.Leader2ReplicaNetworkExecutor;
@@ -37,13 +36,11 @@ import com.arcadedb.server.ha.message.ServerShutdownRequest;
 import com.arcadedb.server.http.HttpServer;
 import com.arcadedb.server.security.ServerSecurityException;
 import com.arcadedb.server.security.ServerSecurityUser;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.arcadedb.server.security.oidc.role.ServerAdminRole;
 import com.google.gson.JsonParser;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 
 import io.undertow.server.HttpServerExchange;
-import lombok.extern.java.Log;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
@@ -72,16 +69,10 @@ public class PostServerCommandHandler extends AbstractHandler {
     log.info("postServerCommandHandler execute payload {}", payloadString);
     log.info("postServerCommandHandler execute asdf {} {}", payloadString != null,
         StringUtils.isNotBlank(payloadString));
-    // LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute
-    // %s %s", parseRequestPayload(exchange) != null,
-    // parseRequestPayload(exchange).trim().length() > 0);
 
     if (payloadString != null && StringUtils.isNotBlank(payloadString)) {
       final var payload = JsonParser.parseString(payloadString).getAsJsonObject();
       log.info("postServerCommandHandler execute parsed {}", payload);
-
-      // final JSONObject payload = new JSONObject(parseRequestPayload(exchange),
-      // true);
 
       LogManager.instance().log(this, Level.INFO, "ASDF execute: " + payload.toString());
       LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute " + payload.toString() + "adf");
@@ -93,19 +84,28 @@ public class PostServerCommandHandler extends AbstractHandler {
       log.info("execute: " + payload.toString());
       LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute 2");
 
-      if (!command.equals("list databases")) {
-        checkRootUser(user);
-        LogManager.instance().log(this, Level.INFO, "postServerCommandHandler not = list databases");
+      // List of server commands that will check their own user permissions
+      var excludedTopLevelCheckComamnds = List.of("list databases", "create database", "drop database");
+
+      var isExcludedCommand = excludedTopLevelCheckComamnds.stream()
+          .anyMatch(excludedCommand -> command.startsWith(excludedCommand));
+
+      // If not a command that manages its own permissions, check if user has sa role
+      if (!isExcludedCommand) {
+        if (httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
+          throw new ServerSecurityException(
+              String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
+        }
       }
 
       if (command.startsWith("shutdown"))
         shutdownServer(command);
       else if (command.startsWith("create database "))
-        createDatabase(command);
+        createDatabase(command, user);
       else if (command.equals("list databases")) {
         return listDatabases(user);
       } else if (command.startsWith("drop database "))
-        dropDatabase(command);
+        dropDatabase(command, user);
       else if (command.startsWith("close database "))
         closeDatabase(command);
       else if (command.startsWith("open database "))
@@ -202,22 +202,37 @@ public class PostServerCommandHandler extends AbstractHandler {
     });
   }
 
-  private void createDatabase(final String command) {
+  private void createDatabase(final String command, final ServerSecurityUser user) {
     final String databaseName = command.substring("create database ".length()).trim();
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 
-    // TODO check if user has create database role, or is root
+    // check if user has create database role, or is root
+    var anyRequiredRoles = List.of(ServerAdminRole.CREATE_DATABASE, ServerAdminRole.ALL);
+    if (httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, anyRequiredRoles)) {
+      checkServerIsLeaderIfInHA();
 
-    checkServerIsLeaderIfInHA();
+      final ArcadeDBServer server = httpServer.getServer();
+      server.getServerMetrics().meter("http.create-database").hit();
 
-    final ArcadeDBServer server = httpServer.getServer();
-    server.getServerMetrics().meter("http.create-database").hit();
+      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE);
 
-    final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE);
+      if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
+        ((ReplicatedDatabase) db).createInReplicas();
 
-    if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
-      ((ReplicatedDatabase) db).createInReplicas();
+      /**
+       * TODO in keycloak:
+       * 1. create new full permission role for the database
+       * 2. assign new role to user who created the database
+       * 
+       * 3. add arcade role to server security user role map, to grant immediate
+       * access to database
+       */
+    } else {
+      throw new ServerSecurityException("Create database operation not allowed for user " + user.getName());
+      // log.warn("Create database operation not allowed for user {}",
+      // user.getName());
+    }
   }
 
   private ExecutionResponse getServerEvents(final String command) {
@@ -234,6 +249,7 @@ public class PostServerCommandHandler extends AbstractHandler {
   }
 
   private ExecutionResponse listDatabases(final ServerSecurityUser user) {
+    // All users can list databases, no check is needed
     LogManager.instance().log(this, Level.INFO, "listDatabases");
     log.info("listDatabases");
     final ArcadeDBServer server = httpServer.getServer();
@@ -264,17 +280,26 @@ public class PostServerCommandHandler extends AbstractHandler {
     database.command("sql", "align database");
   }
 
-  private void dropDatabase(final String command) {
+  private void dropDatabase(final String command, final ServerSecurityUser user) {
     final String databaseName = command.substring("drop database ".length()).trim();
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 
-    final Database database = httpServer.getServer().getDatabase(databaseName);
+    // check if user has create database role, or is root
+    var anyRequiredRoles = List.of(ServerAdminRole.DROP_DATABASE, ServerAdminRole.ALL);
+    if (httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, anyRequiredRoles)) {
+      final Database database = httpServer.getServer().getDatabase(databaseName);
 
-    httpServer.getServer().getServerMetrics().meter("http.drop-database").hit();
+      httpServer.getServer().getServerMetrics().meter("http.drop-database").hit();
 
-    ((DatabaseInternal) database).getEmbedded().drop();
-    httpServer.getServer().removeDatabase(database.getName());
+      ((DatabaseInternal) database).getEmbedded().drop();
+      httpServer.getServer().removeDatabase(database.getName());
+
+      /**
+       * TODO in keycloak:
+       * 1. delete all roles for the removed database
+       */
+    }
   }
 
   private void closeDatabase(final String command) {

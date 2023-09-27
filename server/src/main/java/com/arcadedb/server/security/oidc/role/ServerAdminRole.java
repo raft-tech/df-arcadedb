@@ -1,7 +1,6 @@
 package com.arcadedb.server.security.oidc.role;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import org.glassfish.jaxb.runtime.v2.runtime.reflect.opt.Const;
 
 /**
  * Permission to modify arcade server or deployment level settings or data
@@ -37,7 +36,6 @@ public enum ServerAdminRole {
     public static class Constants {
         public static final String CREATE_DATABASE = "createDatabase";
         public static final String DROP_DATABASE = "dropDatabase";
-
         public static final String ALL = "*";
     }
 }

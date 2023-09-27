@@ -218,4 +218,31 @@ public class KeycloakClient {
         }
         return formBodyBuilder.toString();
     }
+
+    public static void createRole(String roleName) {
+        // post rest api request to keycloak to create new client role
+        // http://localhost/auth/admin/realms/data-fabric/clients/df-backend/roles
+        // {
+        // "name": "arcade__admin__updateSchema",
+
+        //  login
+        //  get access token
+        // construct post form reqeust
+        // send and get response, confirm successful
+
+
+
+    }
+
+    public static void deleteRole(String roleName){
+
+    }
+
+    public static void assignRoleToUser(String roleName, String username){
+
+        // login
+        // get access token
+        // get user id
+        // assign role to user
+    }
 }

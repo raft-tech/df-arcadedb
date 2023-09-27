@@ -37,6 +37,8 @@ import com.arcadedb.server.security.oidc.GroupTypeAccess;
 import com.arcadedb.server.security.oidc.KeycloakClient;
 import com.arcadedb.server.security.oidc.KeycloakUser;
 import com.arcadedb.server.security.oidc.User;
+import com.arcadedb.server.security.oidc.role.RoleType;
+import com.arcadedb.server.security.oidc.role.ServerAdminRole;
 import com.arcadedb.utility.AnsiCode;
 import com.arcadedb.utility.LRUCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -110,6 +112,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   // TODO periodically save users and groups to file repositories
 
   private ConcurrentHashMap<String, GroupMap> groups = new ConcurrentHashMap<>();
+
+  private ConcurrentHashMap<String, List<ArcadeRole>> userArcadeRoles = new ConcurrentHashMap<>();
 
   public ServerSecurity(final ArcadeDBServer server, final ContextConfiguration configuration,
       final String configPath) {
@@ -202,98 +206,20 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       groupRepository.stop();
   }
 
-  // public class KeycloakUser {
-  // public String username;
-  // public String[] roles;
-  // public String[] groups;
-  // }
-
-  // private Keycloak getKeycloakAdminApiClient() {
-  // log.info("getKeycloakAdminApiClient {}-{}-{}",
-  // GlobalConfiguration.KEYCLOAK_ROOT_URL.getValueAsString(),
-  // GlobalConfiguration.KEYCLOAK_ADMIN_USERNAME.getValueAsString()
-  // , System.getenv("KEYCLOAK_ADMIN_PASSWORD"));
-  // // Keycloak keycloakAdmin = KeycloakBuilder.builder()
-  // // .serverUrl(GlobalConfiguration.KEYCLOAK_ROOT_URL.getValueAsString())
-  // // .realm("master")
-  // // .username(GlobalConfiguration.KEYCLOAK_ADMIN_USERNAME.getValueAsString())
-  // // .password(System.getenv("KEYCLOAK_ADMIN_PASSWORD"))
-  // // .clientId("admin-cli")
-  // // .build();
-  // Keycloak keycloakAdmin = KeycloakBuilder.builder()
-  // .serverUrl("http://df-keycloak.auth:8080")
-  // .realm("master")
-  // .username("admin")
-  // .password("jeTKq1T0fSQrabOjZJEY5u3j")
-  // .clientId("admin-cli")
-  // .build();
-
-  // // log.info("getKeycloakadmiapiclient {}", keycloakAdmin == null ? "null" :
-  // keycloakAdmin.);
-
-  // return keycloakAdmin;
-  // }
-
-  // make rest call to keycloak api to get user and roles
-
   private KeycloakUser getKeycloakUser(String username) {
 
     List<String> roles = KeycloakClient.getUserRoles(username);
     return new KeycloakUser(username, roles);
-
-    // TODO replace with env vars
-    // var token = KeycloakClient.login("admin", "jeTKq1T0fSQrabOjZJEY5u3j");
-    // var token = KeycloakClient.impersonateLogin(username);
-    // log.info("getKC token other {} {}", username, token);
-
-    // if (token != null) {
-    // JSONObject tokenJO = new JSONObject(token);
-    // String accessTokenString = tokenJO.getString("access_token");
-    // String encodedString =
-    // accessTokenString.substring(accessTokenString.indexOf(".")+1,
-    // accessTokenString.lastIndexOf("."));
-    // byte[] decodedBytes = Base64.getDecoder().decode(encodedString);
-    // String decodedString = new String(decodedBytes);
-    // JSONObject accessToken = new JSONObject(decodedString);
-    // log.info("getKC token {}", accessToken.toString());
-
-    // if (accessToken.has("resource_access") &&
-    // accessToken.getJSONObject("resource_access").has("df-backend") &&
-    // accessToken.getJSONObject("resource_access").getJSONObject("df-backend").has("roles"))
-    // {
-    // var roles =
-    // accessToken.getJSONObject("resource_access").getJSONObject("df-backend").getJSONArray("roles");
-    // log.info("Roles {}", roles.toString());
-    // List<String> roleStrings = roles.toList().stream().map(r ->
-    // r.toString()).collect(Collectors.toList());
-    // return new KeycloakUser(username, roleStrings);
-    // }
-
-    // }
-
-    // Keycloak keycloakAdmin = getKeycloakAdminApiClient();
-    // String realm = GlobalConfiguration.KEYCLOAK_REALM.getValueAsString();
-    // log.info("getKeycloakuser {} {}", username, realm);
-    // // LogManager.instance().log(this, Level.INFO, "gKU {} {}", username, realm);
-
-    // var realmResource =
-    // keycloakAdmin.realm("data-fabric").toRepresentation().getClients().size();
-
-    // log.info("gKU num client {}", realmResource);
-    // var userResource = keycloakAdmin.realm(realm).users().get(username);
-
-    // if (userResource != null) {
-    // return userResource.toRepresentation();
-    // }
-
-    // return null;
   }
 
   private List<ArcadeRole> getArcadeRolesFromJwtRoles(List<String> jwtRoles) {
     List<ArcadeRole> arcadeRoles = new ArrayList<>();
     for (String role : jwtRoles) {
       if (ArcadeRole.isArcadeRole(role)) {
-        arcadeRoles.add(ArcadeRole.valueOf(role));
+        var arcadeRole = ArcadeRole.valueOf(role);
+        if (arcadeRole != null) {
+          arcadeRoles.add(arcadeRole);
+        }
       }
     }
     return arcadeRoles;
@@ -364,6 +290,9 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
     // 3. get any arcade roles from jwt
     List<ArcadeRole> arcadeRoles = getArcadeRolesFromJwtRoles(arcadeJwtRoles);
+    userArcadeRoles.put(username, arcadeRoles);
+
+    log.info("parsed arcade roles {}", arcadeRoles.toString());
 
     // 4. Convert arcade roles to groups
     List<Group> neededGroups = arcadeRoles.stream()
@@ -413,24 +342,11 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     userJson.put("databases", databases);
 
     log.info("387ish 2 {}", userJson.toString());
-
-    // try {
-    // ObjectMapper objectMapper = new ObjectMapper();
-    // objectMapper.w
-    // String userConfig = objectMapper.writeValueAsString(user);
     return new ServerSecurityUser(server, userJson);
-    // JsonParser parser = new JsonParser();
-    // parser.
-    // } catch (JsonProcessingException e) {
-    // throw new ServerSecurityException("Cannot save new user configuration");
-    // }
 
     // TODO improvement. Cache local perms. Listen for kafka events for role
     // updates?
     // or remove users on logout, and recreate. probably much easier
-
-    // return new/updated user
-    // return users.get(username);
   }
 
   // TODO more improvements
@@ -751,7 +667,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   protected JSONObject getDatabaseGroupsConfiguration(final String databaseName) {
-
     Gson gson = new Gson();
     String jsonString = gson.toJson(groups);
     log.info("s getDatabaseGroupsConfiguration jsonString {} ", jsonString);
@@ -767,5 +682,31 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     if (databaseConfiguration == null || !databaseConfiguration.has("groups"))
       return null;
     return databaseConfiguration.getJSONObject("groups");
+  }
+
+  private boolean preRolePermissionCheck(final ServerSecurityUser user) {
+    if (user == null)
+      throw new ServerSecurityException("User not authenticated");
+
+    // temp allow root to do anything
+    // TODO remove this, or make and reference configuration enabling root user
+    if (user.getName().equals("root")) {
+      return true;
+    }
+
+    return false;
+  }
+
+  public boolean checkUserHasAnyServerAdminRole(final ServerSecurityUser user, List<ServerAdminRole> roles) {
+    if (preRolePermissionCheck(user)) {
+      return true;
+    }
+
+    if (userArcadeRoles.containsKey(user.getName())) {
+      return userArcadeRoles.get(user.getName())
+          .stream().anyMatch(r -> r.getRoleType() == RoleType.SERVER_ADMIN && roles.contains(r.getServerAdminRole()));
+    }
+
+    return false;
   }
 }
