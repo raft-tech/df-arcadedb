@@ -66,23 +66,25 @@ public class PostServerCommandHandler extends AbstractHandler {
   }
 
   @Override
-  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user) throws IOException {
-String payloadString = parseRequestPayload(exchange);
-      log.info("postServerCommandHandler execute payload {}", payloadString);
-    log.info("postServerCommandHandler execute asdf {} {}", payloadString != null, StringUtils.isNotBlank(payloadString));
-   // LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute %s %s", parseRequestPayload(exchange) != null, parseRequestPayload(exchange).trim().length() > 0);
-
-    
+  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user)
+      throws IOException {
+    String payloadString = parseRequestPayload(exchange);
+    log.info("postServerCommandHandler execute payload {}", payloadString);
+    log.info("postServerCommandHandler execute asdf {} {}", payloadString != null,
+        StringUtils.isNotBlank(payloadString));
+    // LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute
+    // %s %s", parseRequestPayload(exchange) != null,
+    // parseRequestPayload(exchange).trim().length() > 0);
 
     if (payloadString != null && StringUtils.isNotBlank(payloadString)) {
-      final var payload =JsonParser.parseString(payloadString).getAsJsonObject();
+      final var payload = JsonParser.parseString(payloadString).getAsJsonObject();
       log.info("postServerCommandHandler execute parsed {}", payload);
 
-
-      //final JSONObject payload = new JSONObject(parseRequestPayload(exchange), true);
+      // final JSONObject payload = new JSONObject(parseRequestPayload(exchange),
+      // true);
 
       LogManager.instance().log(this, Level.INFO, "ASDF execute: " + payload.toString());
-      LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute "+ payload.toString() + "adf");
+      LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute " + payload.toString() + "adf");
 
       final String command = payload.has("command") ? payload.get("command").getAsString() : null;
       if (command == null)
@@ -109,7 +111,7 @@ String payloadString = parseRequestPayload(exchange);
       else if (command.startsWith("open database "))
         openDatabase(command);
       else if (command.startsWith("create user ")) {
-        //createUser(command);
+        // createUser(command);
         return new ExecutionResponse(400, "{ \"error\" : \"Please create new users through keycloak.\"}");
       } else if (command.startsWith("drop user "))
         dropUser(command);
@@ -147,6 +149,8 @@ String payloadString = parseRequestPayload(exchange);
   }
 
   private void setServerSetting(final String command) {
+    // TODO check if user has sa role, or is root
+
     final String pair = command.substring("set server setting ".length());
     final String[] keyValue = pair.split(" ");
     if (keyValue.length != 2)
@@ -203,6 +207,8 @@ String payloadString = parseRequestPayload(exchange);
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 
+    // TODO check if user has create database role, or is root
+
     checkServerIsLeaderIfInHA();
 
     final ArcadeDBServer server = httpServer.getServer();
@@ -220,7 +226,8 @@ String payloadString = parseRequestPayload(exchange);
     final ArcadeDBServer server = httpServer.getServer();
     server.getServerMetrics().meter("http.get-server-events").hit();
 
-    final JSONArray events = fileName.isEmpty() ? server.getEventLog().getCurrentEvents() : server.getEventLog().getEvents(fileName);
+    final JSONArray events = fileName.isEmpty() ? server.getEventLog().getCurrentEvents()
+        : server.getEventLog().getEvents(fileName);
     final JSONArray files = server.getEventLog().getFiles();
 
     return new ExecutionResponse(200, "{ \"result\" : { \"events\": " + events + ", \"files\": " + files + " } }");
@@ -236,9 +243,9 @@ String payloadString = parseRequestPayload(exchange);
     final Set<String> allowedDatabases = user.getAuthorizedDatabases();
 
     log.info("listDatabases installed: {}, allowed: {}", installedDatabases, allowedDatabases);
-    LogManager.instance().log(this, Level.INFO, "list databases installed " + installedDatabases + " " + allowedDatabases);
-    
-    
+    LogManager.instance().log(this, Level.INFO,
+        "list databases installed " + installedDatabases + " " + allowedDatabases);
+
     if (!allowedDatabases.contains("*"))
       installedDatabases.retainAll(allowedDatabases);
 
@@ -297,15 +304,18 @@ String payloadString = parseRequestPayload(exchange);
     // final JSONObject json = new JSONObject(payload);
 
     // if (!json.has("name"))
-    //   throw new IllegalArgumentException("User name is null");
+    // throw new IllegalArgumentException("User name is null");
 
     // final String userPassword = json.getString("password");
     // if (userPassword.length() < 4)
-    //   throw new ServerSecurityException("User password must be 5 minimum characters");
+    // throw new ServerSecurityException("User password must be 5 minimum
+    // characters");
     // if (userPassword.length() > 256)
-    //   throw new ServerSecurityException("User password cannot be longer than 256 characters");
+    // throw new ServerSecurityException("User password cannot be longer than 256
+    // characters");
 
-    // json.put("password", httpServer.getServer().getSecurity().encodePassword(userPassword));
+    // json.put("password",
+    // httpServer.getServer().getSecurity().encodePassword(userPassword));
 
     // httpServer.getServer().getServerMetrics().meter("http.create-user").hit();
 
@@ -329,7 +339,8 @@ String payloadString = parseRequestPayload(exchange);
     final HAServer ha = httpServer.getServer().getHA();
     if (ha != null && !ha.isLeader())
       // NOT THE LEADER
-      throw new ServerIsNotTheLeaderException("Creation of database can be executed only on the leader server", ha.getLeaderName());
+      throw new ServerIsNotTheLeaderException("Creation of database can be executed only on the leader server",
+          ha.getLeaderName());
   }
 
   private HAServer getHA() {

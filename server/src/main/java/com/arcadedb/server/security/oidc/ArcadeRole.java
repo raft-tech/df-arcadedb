@@ -5,6 +5,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.arcadedb.server.security.oidc.role.CRUDPermission;
+import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
+import com.arcadedb.server.security.oidc.role.RoleType;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import lombok.Data;
@@ -33,13 +36,7 @@ public class ArcadeRole {
     /** Permission delimited text after this marker will contain the CRUD permissions the role applies to */
     public static final String PERMISSION_MARKER = "p-";
 
-    /** Indicates the user is authorized to manage arcade users and groups */
-    public static final String ADMIN_SECURITY_ROLE = "updateSecurity";
-
-    /** Indicates the user is authorized to manage database schemas, types, and indexes */
-    public static final String ADMIN_SCHEMA_ROLE = "updateSchema";
-
-    public static final String UPDATE_DATABASE_SETTINGS = "updateDatabaseSettings";
+    public static final String SERVER_ADMIN_CREATE_DATABASE = "createDatabase";
 
     private String name;
     private RoleType roleType;
@@ -48,7 +45,7 @@ public class ArcadeRole {
     private int readTimeout = -1;
     private int resultSetLimit = -1;
 
-    private AdminRole adminRole;
+    private DatabaseAdminRole databaseAdminRole;
     private List<CRUDPermission> crudPermissions = new ArrayList<>(0);
 
     /** check for non empty parts after marker. consolidate all stream checks to single method that confirms count == 1 and part is not empty after marker */
@@ -102,7 +99,7 @@ public class ArcadeRole {
                 }
             } else {
                 String adminRoleName = role.substring((ROLE_PREFIX + arcadeRole.roleType.name() + PERMISSION_DELIMITER).length());
-                arcadeRole.adminRole = AdminRole.fromKeycloakName(adminRoleName);
+                arcadeRole.databaseAdminRole = DatabaseAdminRole.fromKeycloakName(adminRoleName);
             }
             return arcadeRole;
         }
@@ -118,67 +115,5 @@ public class ArcadeRole {
         String roleString = prefixRemoved.substring(0, prefixRemoved.indexOf(PERMISSION_DELIMITER));
         log.info("1 2 {} {}", prefixRemoved, roleString);
         return List.of(RoleType.values()).stream().filter(roleType -> roleType.name().equalsIgnoreCase(roleString)).findFirst().orElse(null);
-    }
-
-    public enum RoleType {
-        ADMIN, USER
-    }
-
-    public enum AdminRole {
-        SECURITY(ADMIN_SECURITY_ROLE, ADMIN_SECURITY_ROLE),
-        SCHEMA(ADMIN_SCHEMA_ROLE, ADMIN_SCHEMA_ROLE),
-        DATABASE_SETTINGS(UPDATE_DATABASE_SETTINGS, UPDATE_DATABASE_SETTINGS);
-
-        private String keycloakName;
-
-        private String arcadeName;
-
-        AdminRole(String keycloakName, String arcadeName) {
-            this.keycloakName = keycloakName;
-            this.arcadeName = arcadeName;
-        }
-
-        @JsonValue
-        public String getArcadeName() {
-            return arcadeName;
-        }
-
-        public static AdminRole fromKeycloakName(String keycloakName) {
-            for (AdminRole adminRole : AdminRole.values()) {
-                if (adminRole.keycloakName.equalsIgnoreCase(keycloakName)) {
-                    return adminRole;
-                }
-            }
-            return null;
-        }
-    }
-
-    public enum CRUDPermission {
-        CREATE("C", "createRecord"),
-        READ("R", "readRecord"),
-        UPDATE("U", "updateRecord"),
-        DELETE("D", "deleteRecord");
-
-        private String keycloakPermissionAbbreviation;
-        private String arcadeName;
-
-        CRUDPermission(String keycloakPermissionAbbreviation, String arcadeName) {
-            this.keycloakPermissionAbbreviation = keycloakPermissionAbbreviation;
-            this.arcadeName = arcadeName;
-        }
-
-        @JsonValue
-        public String getArcadeName() {
-            return arcadeName;
-        }
-
-        public static CRUDPermission fromKeycloakPermissionAbbreviation(String keycloakPermissionAbbreviation) {
-            for (CRUDPermission crud : CRUDPermission.values()) {
-                if (crud.keycloakPermissionAbbreviation.equalsIgnoreCase(keycloakPermissionAbbreviation)) {
-                    return crud;
-                }
-            }
-            return null;
-        }
     }
 }

@@ -39,9 +39,7 @@ import com.arcadedb.server.security.oidc.KeycloakUser;
 import com.arcadedb.server.security.oidc.User;
 import com.arcadedb.utility.AnsiCode;
 import com.arcadedb.utility.LRUCache;
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 
 import lombok.extern.slf4j.Slf4j;
@@ -52,10 +50,6 @@ import com.arcadedb.serializer.json.JSONObject;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
-
-import org.keycloak.admin.client.Keycloak;
-import org.keycloak.admin.client.KeycloakBuilder;
-import org.keycloak.representations.idm.UserRepresentation;
 
 import java.io.*;
 import java.nio.charset.*;
@@ -314,8 +308,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     }
 
     // TODO test this
-    if (arcadeRole.getAdminRole() != null) {
-      group.setAccess(List.of(arcadeRole.getAdminRole().getArcadeName()));
+    if (arcadeRole.getDatabaseAdminRole() != null) {
+      group.setAccess(List.of(arcadeRole.getDatabaseAdminRole().getArcadeName()));
     }
     group.setReadTimeout(arcadeRole.getReadTimeout());
     group.setResultSetLimit(arcadeRole.getResultSetLimit());
