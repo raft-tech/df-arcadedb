@@ -212,6 +212,11 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return new KeycloakUser(username, roles);
   }
 
+  /**
+   * Parse ArcadeRole objects from jwt role name strings
+   * @param jwtRoles
+   * @return
+   */
   private List<ArcadeRole> getArcadeRolesFromJwtRoles(List<String> jwtRoles) {
     List<ArcadeRole> arcadeRoles = new ArrayList<>();
     for (String role : jwtRoles) {
@@ -225,6 +230,11 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return arcadeRoles;
   }
 
+  /**
+   * Create a Group object from an ArcadeRole object such that it can be added to the arcade ACLs
+   * @param arcadeRole
+   * @return
+   */
   private Group getGroupFromArcadeRole(ArcadeRole arcadeRole) {
     Group group = new Group();
     group.setName(arcadeRole.getName());
@@ -292,7 +302,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     List<ArcadeRole> arcadeRoles = getArcadeRolesFromJwtRoles(arcadeJwtRoles);
     userArcadeRoles.put(username, arcadeRoles);
 
-    log.info("parsed arcade roles {}", arcadeRoles.toString());
+    log.debug("getOrCreateuser - parsed arcade roles {}", arcadeRoles.toString());
 
     // 4. Convert arcade roles to groups
     List<Group> neededGroups = arcadeRoles.stream()

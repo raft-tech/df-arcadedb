@@ -24,7 +24,6 @@ import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.exception.CommandExecutionException;
-import com.arcadedb.log.LogManager;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.server.ArcadeDBServer;
@@ -45,16 +44,13 @@ import com.google.gson.JsonParser;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 
 import io.undertow.server.HttpServerExchange;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.rmi.*;
 import java.util.*;
-import java.util.logging.Level;
 
 import org.jboss.resteasy.spi.NotImplementedYetException;
 
-@Slf4j
 public class PostServerCommandHandler extends AbstractHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {
     super(httpServer);
@@ -213,20 +209,12 @@ public class PostServerCommandHandler extends AbstractHandler {
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();
 
+      // Create and assign new role granting all permissions on the new database to the user who created it.
       ArcadeRole arcadeRole = new ArcadeRole(RoleType.USER, databaseName, "*", CRUDPermission.getAll());
       String newRole = arcadeRole.getKeycloakRoleName();
       KeycloakClient.createRole(newRole);
       KeycloakClient.assignRoleToUser(newRole, user.getName());
-
       server.getSecurity().appendArcadeRoleToUserCache(user.getName(), newRole);
-      /**
-       * TODO in keycloak:
-       * 1. create new full permission role for the database
-       * 2. assign new role to user who created the database
-       * 
-       * 3. add arcade role to server security user role map, to grant immediate
-       * access to database
-       */
     } else {
       throw new ServerSecurityException("Create database operation not allowed for user " + user.getName());
     }
@@ -252,10 +240,6 @@ public class PostServerCommandHandler extends AbstractHandler {
 
     final Set<String> installedDatabases = new HashSet<>(server.getDatabaseNames());
     final Set<String> allowedDatabases = user.getAuthorizedDatabases();
-
-    // log.info("listDatabases installed: {}, allowed: {}", installedDatabases, allowedDatabases);
-    // LogManager.instance().log(this, Level.INFO,
-    //     "list databases installed " + installedDatabases + " " + allowedDatabases);
 
     if (!allowedDatabases.contains("*"))
       installedDatabases.retainAll(allowedDatabases);
