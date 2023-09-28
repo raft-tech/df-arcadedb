@@ -123,7 +123,7 @@ public class ArcadeRole {
             ArcadeRole arcadeRole = new ArcadeRole();
             arcadeRole.name = role;
             arcadeRole.roleType = arcadeRole.getRoleTypeFromString(role);
-            log.info("role type: {}", arcadeRole.roleType);
+            //log.info("role type: {}", arcadeRole.roleType);
 
             if (arcadeRole.roleType == null) {
                 return null;
@@ -193,7 +193,6 @@ public class ArcadeRole {
     private RoleType getRoleTypeFromString(String role) {
         String prefixRemoved = role.substring((ROLE_PREFIX).length());
         String roleString = prefixRemoved.substring(0, prefixRemoved.indexOf(PERMISSION_DELIMITER));
-        log.info("1 2 {} {}", prefixRemoved, roleString);
         return RoleType.fromKeycloakName(roleString);
     }
 

@@ -17,17 +17,27 @@ import java.util.stream.Collectors;
 
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
-import com.google.gson.JsonElement;
 
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Keycloak rest API client, handling login and admin operations
+ */
 @Slf4j
 public class KeycloakClient {
 
+    /**
+     * Gets the non admin base url for keycloak. Suitable for login operations
+     * @return
+     */
     private static String getBaseKeycloakUrl() {
         return "http://df-keycloak.auth:8080/auth/realms/data-fabric";
     }
 
+    /**
+     * Gets the admin base url for keycloak. Suitable for admin operations like getting user roles, creating roles, etc.
+     * @return
+     */
     private static String getBaseKeycloakAdminUrl() {
         return "http://df-keycloak.auth:8080/auth/admin/realms/data-fabric";
     }
@@ -45,14 +55,11 @@ public class KeycloakClient {
         formData.put("scope", "openid");
         formData.put("client_id", "df-backend");
         formData.put("client_secret", System.getenv("KEYCLOAK_CLIENT_SECRET"));
-        // log.info("login req {}", formData.toString());
-        // log.info("getFormDataAsString {}", getFormDataAsString(formData));
         return postUnauthenticatedAndGetResponse(getLoginUrl(), formData);
     }
 
     private static String loginAndGetEncodedAccessString() {
         var login = login("admin", System.getenv("KEYCLOAK_ADMIN_PASSWORD"));
-        // log.debug("getUserRoles login {}", login);
 
         JSONObject tokenJO = new JSONObject(login);
         return tokenJO.getString("access_token");
@@ -87,8 +94,6 @@ public class KeycloakClient {
     private static String postAuthenticatedAndGetResponse(String url, String jsonPayload) {
         String accessTokenString = loginAndGetEncodedAccessString();
 
-        log.info("postAuthenticatedAndGetResponse json {}", jsonPayload.toString());
-
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
@@ -110,7 +115,8 @@ public class KeycloakClient {
                 log.warn("sendAndGetResponse {} {}", response.statusCode(), response.body());
             }
         } catch (IOException | InterruptedException e) {
-            log.error("sendAndGetResponse", e);
+            log.error("sendAndGetResponse()", e.getMessage());
+            log.debug("Exception", e);
             return null;
         }
 
@@ -138,7 +144,8 @@ public class KeycloakClient {
                 log.warn("sendAndGetResponse {} {}", response.statusCode(), response.body());
             }
         } catch (IOException | InterruptedException e) {
-            log.error("sendAndGetResponse", e);
+            log.error("sendAuthenticatedGetAndGetResponse()", e.getMessage());
+            log.debug("Exception", e);
             return null;
         }
 
@@ -154,8 +161,7 @@ public class KeycloakClient {
             for (int i = 0; i < usersJA.length(); i++) {
                 var user = usersJA.getJSONObject(i);
                 if (user.getString("username").equals(username)) {
-                    // TODO make debug
-                    log.info("getUserId for user {}; id {}", username, user.getString("id"));
+                    log.debug("getUserId for user {}; id {}", username, user.getString("id"));
                     return user.getString("id");
                 }
             }
@@ -173,8 +179,7 @@ public class KeycloakClient {
             for (int i = 0; i < ja.length(); i++) {
                 var client = ja.getJSONObject(i);
                 if (client.getString("clientId").equals(clientName)) {
-                    // TODO make debug
-                    log.info("getClientId for client {}; id {}", clientName, client.getString("id"));
+                    log.debug("getClientId for client {}; id {}", clientName, client.getString("id"));
                     return client.getString("id");
                 }
             }
@@ -187,17 +192,14 @@ public class KeycloakClient {
         // get the role id to assign
         String url = String.format("%s/users/%s/role-mappings/clients/%s/available", getBaseKeycloakAdminUrl(),
                 userId, clientId);
-        log.info("getClientRoleId url {}", url);
         var userReponse = sendAuthenticatedGetAndGetResponse(url);
-   //     log.info("assignRoleToUser responseString {}", userReponse);
 
         if (userReponse != null) {
             JSONArray ja = new JSONArray(userReponse);
             for (int i = 0; i < ja.length(); i++) {
                 var role = ja.getJSONObject(i);
                 if (role.getString("name").equals(roleName)) {
-                    // TODO make debug
-                    log.info("getClientRoleId for role {}; id {}", roleName, role.getString("id"));
+                    log.debug("getClientRoleId for role {}; id {}", roleName, role.getString("id"));
                     return role.getString("id");
                 }
             }
@@ -231,54 +233,10 @@ public class KeycloakClient {
                     return roles;
                 }
             }
-            // {
-            // "realmMappings": [
-            // {
-            // "id": "e5c133b6-6207-4b0a-ac22-5cb6b5d4d450",
-            // "name": "default-roles-data-fabric",
-            // "description": "${role_default-roles}",
-            // "composite": true,
-            // "clientRole": false,
-            // "containerId": "data-fabric"
-            // }
-            // ],
-            // "clientMappings": {
-            // "df-backend": {
-            // "id": "c4892c81-0c07-4283-b269-2339fb7472ca",
-            // "client": "df-backend",
-            // "mappings": [
-            // {
-            // "id": "5188b4b3-25c3-4ac7-8700-d78bdccb682f",
-            // "name": "arcade__admin__updateSchema",
-            // "description": "",
-            // "composite": false,
-            // "clientRole": true,
-            // "containerId": "c4892c81-0c07-4283-b269-2339fb7472ca"
-            // }
-            // ]
-            // }
-            // }
-            // }
-
         }
 
         return new ArrayList<>();
     }
-
-    // public static String impersonateLogin(String username) {
-    // var token = login(System.getenv("KEYCLOAK_ADMIN_USERNAME"),
-    // System.getenv("KEYCLOAK_ADMIN_PASSWORD"));
-    // Map<String, String> formData = new HashMap<>();
-    // formData.put("grant_type",
-    // "urn:ietf:params:oauth:grant-type:token-exchange");
-    // formData.put("subject_token", getAccessTokenFromResponse(token));
-    // formData.put("client_id", "df-backend");
-    // formData.put("requested_subject", username);
-
-    // log.info("impersonateLogin req {}", getFormDataAsString(formData));
-
-    // return postAndGetResponse(formData);
-    // }
 
     public static String getFormDataAsString(Map<String, String> formData) {
         StringBuilder formBodyBuilder = new StringBuilder();
