@@ -6,6 +6,9 @@ import java.util.Map;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Map of group names to group objects to support serialization/deserialization of arcade ACL config
+ */
 @Data
 @NoArgsConstructor
 public class GroupMap {

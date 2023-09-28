@@ -78,7 +78,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnDatabase(final DATABASE_ACCESS access) {
-    log.info("requestAccessOnDatabase: access: {}, decision: {}", access, databaseAccessMap[access.ordinal()]);
+    log.debug("requestAccessOnDatabase: access: {}, decision: {}", access, databaseAccessMap[access.ordinal()]);
     return databaseAccessMap[access.ordinal()];
   }
 
@@ -86,8 +86,8 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   public boolean requestAccessOnFile(final int fileId, final ACCESS access) {
     
     final boolean[] permissions = fileAccessMap[fileId];
-    log.info("requestAccessOnFile: fileId: {}, access: {}, permissions: {}", fileId, access, permissions);
-    log.info("requestAccessOnFile decision {}", permissions == null || permissions[access.ordinal()]);
+    log.debug("requestAccessOnFile: fileId: {}, access: {}, permissions: {}", fileId, access, permissions);
+    log.debug("requestAccessOnFile decision {}", permissions == null || permissions[access.ordinal()]);
     return permissions == null || permissions[access.ordinal()];
   }
 
