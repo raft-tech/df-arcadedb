@@ -23,8 +23,6 @@ public class PostRefreshTokenHandler extends AbstractHandler {
     @Override
     protected ExecutionResponse execute(HttpServerExchange exchange, ServerSecurityUser user) throws Exception {
         final JSONObject payload = new JSONObject(parseRequestPayload(exchange));
-        log.info("refreshtoken payload {}", payload.toString());
-      //  log.info("parsed payload", exchange.get);
         final String refreshToken = payload.has("refreshToken") ? payload.getString("refreshToken") : null;
         if (refreshToken == null) {
             // TODO return error

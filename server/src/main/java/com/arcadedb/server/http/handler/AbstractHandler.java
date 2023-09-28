@@ -64,8 +64,6 @@ public abstract class AbstractHandler implements HttpHandler {
         if (!mustExecuteOnWorkerThread())
             LogManager.instance().log(this, Level.SEVERE, "Error: handler must return true at mustExecuteOnWorkerThread() to read payload from request");
 
-        
-
         final StringBuilder result = new StringBuilder();
         e.getRequestReceiver().receiveFullBytes(
                 // OK
@@ -95,9 +93,6 @@ public abstract class AbstractHandler implements HttpHandler {
 
     @Override
     public void handleRequest(final HttpServerExchange exchange) {
-
-        log.info("handle request" + exchange.getRequestPath());
-
         if (mustExecuteOnWorkerThread() && exchange.isInIoThread()) {
             exchange.dispatch(this);
             return;
@@ -285,8 +280,6 @@ public abstract class AbstractHandler implements HttpHandler {
     }
 
     private void sendErrorResponse(final HttpServerExchange exchange, final int code, final String errorMessage, final Throwable e, final String exceptionArgs) {
-        log.info("sendErrorResponse " + code + " " + errorMessage);
-        
         if (!exchange.isResponseStarted())
             exchange.setStatusCode(code);
         exchange.getResponseSender().send(error2json(errorMessage, e != null ? e.getMessage() : "", e, exceptionArgs, null));

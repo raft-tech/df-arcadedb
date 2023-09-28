@@ -58,7 +58,6 @@ import org.jboss.resteasy.spi.NotImplementedYetException;
 public class PostServerCommandHandler extends AbstractHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {
     super(httpServer);
-    log.info("postServerCommandHandler init");
   }
 
   @Override
@@ -70,23 +69,13 @@ public class PostServerCommandHandler extends AbstractHandler {
   public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user)
       throws IOException {
     String payloadString = parseRequestPayload(exchange);
-    log.info("postServerCommandHandler execute payload {}", payloadString);
-    log.info("postServerCommandHandler execute asdf {} {}", payloadString != null,
-        StringUtils.isNotBlank(payloadString));
 
     if (payloadString != null && StringUtils.isNotBlank(payloadString)) {
       final var payload = JsonParser.parseString(payloadString).getAsJsonObject();
-      log.info("postServerCommandHandler execute parsed {}", payload);
-
-      LogManager.instance().log(this, Level.INFO, "ASDF execute: " + payload.toString());
-      LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute " + payload.toString() + "adf");
 
       final String command = payload.has("command") ? payload.get("command").getAsString() : null;
       if (command == null)
         return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
-
-      log.info("execute: " + payload.toString());
-      LogManager.instance().log(this, Level.INFO, "postServerCommandHandler execute 2");
 
       // List of server commands that will check their own user permissions
       var excludedTopLevelCheckComamnds = List.of("list databases", "create database", "drop database");
@@ -240,8 +229,6 @@ public class PostServerCommandHandler extends AbstractHandler {
        */
     } else {
       throw new ServerSecurityException("Create database operation not allowed for user " + user.getName());
-      // log.warn("Create database operation not allowed for user {}",
-      // user.getName());
     }
   }
 
@@ -260,17 +247,15 @@ public class PostServerCommandHandler extends AbstractHandler {
 
   private ExecutionResponse listDatabases(final ServerSecurityUser user) {
     // All users can list databases, no check is needed
-    LogManager.instance().log(this, Level.INFO, "listDatabases");
-    log.info("listDatabases");
     final ArcadeDBServer server = httpServer.getServer();
     server.getServerMetrics().meter("http.list-databases").hit();
 
     final Set<String> installedDatabases = new HashSet<>(server.getDatabaseNames());
     final Set<String> allowedDatabases = user.getAuthorizedDatabases();
 
-    log.info("listDatabases installed: {}, allowed: {}", installedDatabases, allowedDatabases);
-    LogManager.instance().log(this, Level.INFO,
-        "list databases installed " + installedDatabases + " " + allowedDatabases);
+    // log.info("listDatabases installed: {}, allowed: {}", installedDatabases, allowedDatabases);
+    // LogManager.instance().log(this, Level.INFO,
+    //     "list databases installed " + installedDatabases + " " + allowedDatabases);
 
     if (!allowedDatabases.contains("*"))
       installedDatabases.retainAll(allowedDatabases);

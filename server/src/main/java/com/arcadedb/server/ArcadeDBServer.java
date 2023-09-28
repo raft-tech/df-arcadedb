@@ -129,7 +129,7 @@ public class ArcadeDBServer {
       if (serverMetrics != null)
         serverMetrics.stop();
       serverMetrics = new DefaultServerMetrics();
-      LogManager.instance().log(this, Level.INFO, "- Started...");
+      LogManager.instance().log(this, Level.INFO, "- Metrics Collection Started...");
     }
 
     security = new ServerSecurity(this, configuration, serverRootPath + "/config");

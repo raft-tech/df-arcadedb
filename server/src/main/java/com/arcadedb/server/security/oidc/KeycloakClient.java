@@ -147,15 +147,12 @@ public class KeycloakClient {
 
     private static String getUserId(String username) {
         String url = getBaseKeycloakAdminUrl() + "/users";
-        log.info("getUserId url {}", url);
         var userResponse = sendAuthenticatedGetAndGetResponse(url);
-      //  log.info("getUserRoles usersResponse {}", userResponse);
 
         if (userResponse != null) {
             JSONArray usersJA = new JSONArray(userResponse);
             for (int i = 0; i < usersJA.length(); i++) {
                 var user = usersJA.getJSONObject(i);
-      //          log.info("getUserId loop check {} {}", user.get("username").toString(), user.getString("username"));
                 if (user.getString("username").equals(username)) {
                     // TODO make debug
                     log.info("getUserId for user {}; id {}", username, user.getString("id"));
@@ -169,9 +166,7 @@ public class KeycloakClient {
 
     private static String getClientId(String clientName) {
         String url = getBaseKeycloakAdminUrl() + "/clients";
-        log.info("getClientId url {}", url);
         var userReponse = sendAuthenticatedGetAndGetResponse(url);
-        log.info("getUserRoles userReponse {}", userReponse);
 
         if (userReponse != null) {
             JSONArray ja = new JSONArray(userReponse);
@@ -213,16 +208,12 @@ public class KeycloakClient {
 
     public static List<String> getUserRoles(String username) {
         String userId = getUserId(username);
-        log.info("getUserRoles username {}; userId {}", username, userId);
         if (userId != null) {
             // get user roles
             // http://localhost/auth/admin/realms/data-fabric/users/c8019daf-b6a0-410a-a81a-f91530f1ae36/role-mappings/clients/c4892c81-0c07-4283-b269-2339fb7472ca/available
             String url = String.format("%s/users/%s/role-mappings", getBaseKeycloakAdminUrl(), userId);
-            log.info("getUserRoles url {}", url);
-            // String url = String.format("%s/users/%s/role-mappings/clients/%s/available",
-            // getBaseKeycloakAdminUrl(), userId);
+
             var rolesResponse = sendAuthenticatedGetAndGetResponse(url);
-        //    log.info("getUserRoles rolesResponse {}", rolesResponse);
 
             if (rolesResponse != null) {
                 JSONObject rolesJO = new JSONObject(rolesResponse);
@@ -230,9 +221,6 @@ public class KeycloakClient {
 
                 if (rolesJO.has("clientMappings")) {
                     var clientMappings = rolesJO.getJSONObject("clientMappings");
-
-         //           log.info("getUserRoles realmMappings {}", realmMappings);
-         //           log.info("getUserRoles clientMappings {}", clientMappings);
                     var dfBackend = clientMappings.getJSONObject("df-backend");
                     var mappings = dfBackend.getJSONArray("mappings");
 
@@ -240,8 +228,6 @@ public class KeycloakClient {
                         var jsonObject = (LinkedHashMap<String, Object>) m;
                         return jsonObject.get("name").toString();
                     }).collect(Collectors.toList());
-
-                    log.info("getUserRoles roles {}", roles);
                     return roles;
                 }
             }
@@ -309,18 +295,14 @@ public class KeycloakClient {
 
     public static void createRole(String roleName) {
         String clientId = getClientId("df-backend");
-        log.info("createRole roleName {}, clientId {}", roleName, clientId);
 
         // TODO parameterize below url with config
         String url = String.format("%s/clients/%s/roles", getBaseKeycloakAdminUrl(), clientId);
-        log.info("createRole url {}", url);
         JSONObject request = new JSONObject();
         request.put("name", roleName);
 
         // TODO extend arcade role to generate a human readable description, and
         // reference it here.
-        // formData.put("description", description));
-        log.info("creating role {}; {}", roleName, request.toString());
         postAuthenticatedAndGetResponse(url, request.toString());
     }
 
@@ -332,18 +314,13 @@ public class KeycloakClient {
         // get the id of the user to assign the role to
         String userId = getUserId(username);
         String clientId = getClientId("df-backend");
-        log.info("1 assignRoleToUser username {}, roleName {}, userId {}; clientId {}", username, roleName, userId,
-                clientId);
         if (userId != null && clientId != null) {
 
             // get the role id to assign
             String roleId = getClientRoleId(userId, clientId, roleName);
-            log.info("2 assign role to user roleId {}", roleId);
             if (roleId != null) {
                 String url = String.format("%s/users/%s/role-mappings/clients/%s", getBaseKeycloakAdminUrl(), userId,
                         clientId);
-                log.info("3 assignRoleToUser url {}", url);
-                /// auth/admin/realms/{realm}/users/{user_id}/role-mappings/clients/{client_uuid}
 
                 JSONObject jo = new JSONObject();
                 jo.put("id", roleId);
