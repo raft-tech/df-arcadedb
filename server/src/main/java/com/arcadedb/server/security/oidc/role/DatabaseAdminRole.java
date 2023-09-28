@@ -2,6 +2,8 @@ package com.arcadedb.server.security.oidc.role;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import lombok.Getter;
+
 /**
  * Permission types for modifying individual databases on an arcade deployment.
  */
@@ -11,6 +13,7 @@ public enum DatabaseAdminRole {
     SCHEMA(Constants.UPDATE_SCHEMA, Constants.UPDATE_SCHEMA),
     DATABASE_SETTINGS(Constants.UPDATE_DATABASE_SETTINGS, Constants.UPDATE_DATABASE_SETTINGS);
 
+    @Getter
     private String keycloakName;
 
     private String arcadeName;

@@ -11,6 +11,7 @@ import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
  * converting between Keycloak and ArcadeDB.
  */
 @Data
+@NoArgsConstructor
 @Slf4j
 public class ArcadeRole {
     /** Characters to use to breakup a role string into discrete components */
@@ -60,6 +62,13 @@ public class ArcadeRole {
     private DatabaseAdminRole databaseAdminRole;
     private ServerAdminRole serverAdminRole;
     private List<CRUDPermission> crudPermissions = new ArrayList<>(0);
+
+    public ArcadeRole(RoleType roleType, String database, String tableRegex, List<CRUDPermission> crudPermissions) {
+        this.roleType = roleType;
+        this.database = database;
+        this.tableRegex = tableRegex;
+        this.crudPermissions = crudPermissions;
+    }
 
     /**
      * check for non empty parts after marker. consolidate all stream checks to
@@ -186,5 +195,58 @@ public class ArcadeRole {
         String roleString = prefixRemoved.substring(0, prefixRemoved.indexOf(PERMISSION_DELIMITER));
         log.info("1 2 {} {}", prefixRemoved, roleString);
         return RoleType.fromKeycloakName(roleString);
+    }
+
+    private static boolean notNullOrEmpty(String s) {
+        return s != null && !s.isEmpty();
+    }
+
+    /** 
+     * Converts the ArcadeRole to a corresponding Keycloak role name.
+     */
+    public String getKeycloakRoleName() {
+        String result = null;
+        StringBuilder sb = new StringBuilder();
+        sb.append(ROLE_PREFIX);
+        sb.append(roleType.getKeycloakName());
+        sb.append(PERMISSION_DELIMITER);
+
+        switch (roleType) {
+            case USER:
+                if (notNullOrEmpty(database) && notNullOrEmpty(tableRegex) && crudPermissions != null
+                        && !crudPermissions.isEmpty()) {
+                    sb.append(DATABASE_MARKER);
+                    sb.append(database);
+                    sb.append(PERMISSION_DELIMITER);
+                    sb.append(TABLE_MARKER);
+                    sb.append(tableRegex);
+                    sb.append(PERMISSION_DELIMITER);
+                    sb.append(PERMISSION_MARKER);
+                    sb.append(crudPermissions.stream().map(p -> p.getKeycloakPermissionAbbreviation())
+                            .collect(Collectors.joining()));
+                    // TODO result set time and limit
+                    result = sb.toString();
+                }
+                break;
+            case DATABASE_ADMIN:
+                if (notNullOrEmpty(database) && databaseAdminRole != null) {
+                    sb.append(DATABASE_MARKER);
+                    sb.append(database);
+                    sb.append(PERMISSION_DELIMITER);
+                    sb.append(databaseAdminRole.getKeycloakName());
+                    result = sb.toString();
+                }
+                break;
+            case SERVER_ADMIN:
+                if (serverAdminRole != null) {
+                    sb.append(serverAdminRole.getKeycloakName());
+                    result = sb.toString();
+                }
+                break;
+            default:
+                break;
+        }
+
+        return result;
     }
 }

@@ -2,6 +2,8 @@ package com.arcadedb.server.security.oidc.role;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import lombok.Getter;
+
 /**
  * Permission to modify arcade server or deployment level settings or data
  */
@@ -10,6 +12,7 @@ public enum ServerAdminRole {
     DROP_DATABASE(Constants.DROP_DATABASE, Constants.DROP_DATABASE),
     ALL(Constants.ALL, Constants.ALL);
 
+    @Getter
     private String keycloakName;
 
     private String arcadeName;

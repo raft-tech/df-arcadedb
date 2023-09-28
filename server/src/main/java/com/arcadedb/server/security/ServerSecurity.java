@@ -709,4 +709,12 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
     return false;
   }
+
+  public void appendArcadeRoleToUserCache(String username, String role){
+    if (userArcadeRoles.containsKey(username)) {
+      userArcadeRoles.get(username).add(ArcadeRole.valueOf(role));
+    } else {
+      userArcadeRoles.put(username, List.of(ArcadeRole.valueOf(role)));
+    }
+  }
 }

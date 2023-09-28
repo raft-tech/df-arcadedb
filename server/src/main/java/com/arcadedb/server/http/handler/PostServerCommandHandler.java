@@ -36,6 +36,10 @@ import com.arcadedb.server.ha.message.ServerShutdownRequest;
 import com.arcadedb.server.http.HttpServer;
 import com.arcadedb.server.security.ServerSecurityException;
 import com.arcadedb.server.security.ServerSecurityUser;
+import com.arcadedb.server.security.oidc.ArcadeRole;
+import com.arcadedb.server.security.oidc.KeycloakClient;
+import com.arcadedb.server.security.oidc.role.CRUDPermission;
+import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
 import com.google.gson.JsonParser;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
@@ -220,6 +224,12 @@ public class PostServerCommandHandler extends AbstractHandler {
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();
 
+      ArcadeRole arcadeRole = new ArcadeRole(RoleType.USER, databaseName, "*", CRUDPermission.getAll());
+      String newRole = arcadeRole.getKeycloakRoleName();
+      KeycloakClient.createRole(newRole);
+      KeycloakClient.assignRoleToUser(newRole, user.getName());
+
+      server.getSecurity().appendArcadeRoleToUserCache(user.getName(), newRole);
       /**
        * TODO in keycloak:
        * 1. create new full permission role for the database

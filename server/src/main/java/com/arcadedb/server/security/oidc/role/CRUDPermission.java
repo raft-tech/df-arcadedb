@@ -1,6 +1,10 @@
 package com.arcadedb.server.security.oidc.role;
 
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonValue;
+
+import lombok.Getter;
 
 public enum CRUDPermission {
     CREATE("C", "createRecord"),
@@ -8,6 +12,7 @@ public enum CRUDPermission {
     UPDATE("U", "updateRecord"),
     DELETE("D", "deleteRecord");
 
+    @Getter
     private String keycloakPermissionAbbreviation;
     private String arcadeName;
 
@@ -28,5 +33,9 @@ public enum CRUDPermission {
             }
         }
         return null;
+    }
+
+    public static List<CRUDPermission> getAll(){
+        return List.of(CRUDPermission.values());
     }
 }
