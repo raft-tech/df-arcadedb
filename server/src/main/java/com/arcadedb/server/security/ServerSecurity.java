@@ -171,8 +171,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
         }
       }
 
-      // TODO load users from keycloak?
-      // add to map
+      // TODO eagerly load users from keycloak?
+      // add to cache
 
       if (users.isEmpty() || (users.containsKey("root") && users.get("root").getPassword() == null))
         askForRootPassword();
@@ -273,11 +273,10 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   private ServerSecurityUser getOrCreateUser(final String username) {
 
     // Return user from local cache if found. If not, continue
+    // TOOD update this to check for all users in cache, not just root
     if (users.containsKey(username) && username.equals("root")) {
       return users.get(username);
     }
-    // TODO
-    // 0. recieve keycloak admin password from env. if not set, throw error
 
     // 1. get user from keycloak
     KeycloakUser keycloakUser = getKeycloakUser(username);
@@ -415,6 +414,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return users.containsKey(userName);
   }
 
+  // TODO update this to pull from cache first, and only hit keycloak on a cache miss
   public ServerSecurityUser getUser(final String userName) {
     return getOrCreateUser(userName);
     // return users.get(userName);
@@ -694,6 +694,12 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return databaseConfiguration.getJSONObject("groups");
   }
 
+  /**
+   * Temp method- checks if the user is the built in root user before proceeding with the check
+   * TODO delete this when we stop using the built in root user. Need to make sure spark jobs don't use root user.
+   * @param user
+   * @return
+   */
   private boolean preRolePermissionCheck(final ServerSecurityUser user) {
     if (user == null)
       throw new ServerSecurityException("User not authenticated");
@@ -707,6 +713,12 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return false;
   }
 
+  /**
+   * Checks if the user has any of the permissions in the list necessary for the current action they're attempting.
+   * @param user
+   * @param roles
+   * @return
+   */
   public boolean checkUserHasAnyServerAdminRole(final ServerSecurityUser user, List<ServerAdminRole> roles) {
     if (preRolePermissionCheck(user)) {
       return true;

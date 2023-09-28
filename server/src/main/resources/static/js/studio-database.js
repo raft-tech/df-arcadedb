@@ -187,10 +187,6 @@ function editorFocus(){
   editor.focus();
 }
 
-// interface OkResult {
-//   result: "ok";
-// }
-
 function updateDatabases( callback ){
   let selected = getCurrentDatabase();
   if( selected == null || selected == "" )
@@ -205,15 +201,12 @@ function updateDatabases( callback ){
     }
   })
   .done(function(data){
-    console.log("currentDataabse", getCurrentDatabase());
-    console.log("data", data);
-
     let json = JSON.parse(JSON.stringify(data));
     
     if (typeof json == "object" && json["result"] == 'ok') {
-      console.log("acknowledged", json);
+      // no data returned, the user doesn't have access to any databases
     } else {
-      console.log("valid response", json);
+      // valid response, parse the databases the user has access to
 
       let databases = "";
       for( let i in data.result ){

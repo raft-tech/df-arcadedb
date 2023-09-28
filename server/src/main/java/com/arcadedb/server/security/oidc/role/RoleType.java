@@ -4,11 +4,17 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import lombok.Getter;
 
+/**
+ * Flags the type of role being defined, ie end user, database admin, server admin
+ */
 public enum RoleType {
     DATABASE_ADMIN("dba", "dba"),
     USER("user", "user"),
     SERVER_ADMIN("sa","sa");
 
+    /**
+     * Keyword used in the keycloak role name to look for when knowing what type of role is being defined
+     */
     @Getter
     private String keycloakName;
 
