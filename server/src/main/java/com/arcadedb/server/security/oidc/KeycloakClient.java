@@ -208,7 +208,7 @@ public class KeycloakClient {
         return null;
     }
 
-    public static List<String> getUserRoles(String username) {
+    public static List<String> getUserClientRoles(String username) {
         String userId = getUserId(username);
         if (userId != null) {
             // get user roles
@@ -219,7 +219,6 @@ public class KeycloakClient {
 
             if (rolesResponse != null) {
                 JSONObject rolesJO = new JSONObject(rolesResponse);
-                var realmMappings = rolesJO.getJSONArray("realmMappings");
 
                 if (rolesJO.has("clientMappings")) {
                     var clientMappings = rolesJO.getJSONObject("clientMappings");

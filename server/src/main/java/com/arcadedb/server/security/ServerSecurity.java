@@ -206,9 +206,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       groupRepository.stop();
   }
 
-  private KeycloakUser getKeycloakUser(String username) {
-
-    List<String> roles = KeycloakClient.getUserRoles(username);
+  private KeycloakUser createKeycloakUser(String username) {
+    List<String> roles = KeycloakClient.getUserClientRoles(username);
     return new KeycloakUser(username, roles);
   }
 
@@ -279,7 +278,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     }
 
     // 1. get user from keycloak
-    KeycloakUser keycloakUser = getKeycloakUser(username);
+    KeycloakUser keycloakUser = createKeycloakUser(username);
 
     if (keycloakUser == null) {
       // user doesn't exist in keycloak

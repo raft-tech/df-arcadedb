@@ -36,7 +36,6 @@
         <metrics.version>4.2.19</metrics.version>
         <slf4j.version>2.0.7</slf4j.version>
         <undertow-core.version>2.3.7.Final</undertow-core.version>
-        <keycloak-admin-client.version>22.0.3</keycloak-admin-client.version>
     </properties>
 
     <profiles>
@@ -107,11 +106,6 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-jdk14</artifactId>
             <version>${slf4j.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-admin-client</artifactId>
-            <version>${keycloak-admin-client.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

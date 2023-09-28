@@ -49,8 +49,6 @@ import java.io.*;
 import java.rmi.*;
 import java.util.*;
 
-import org.jboss.resteasy.spi.NotImplementedYetException;
-
 public class PostServerCommandHandler extends AbstractHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {
     super(httpServer);
@@ -324,7 +322,7 @@ public class PostServerCommandHandler extends AbstractHandler {
     // httpServer.getServer().getServerMetrics().meter("http.create-user").hit();
 
     // httpServer.getServer().getSecurity().createUser(json);
-    throw new NotImplementedYetException("Please create new user through keycloak");
+    throw new RuntimeException("Please create new user through keycloak");
   }
 
   private void dropUser(final String command) {

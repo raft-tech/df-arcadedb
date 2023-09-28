@@ -215,8 +215,8 @@ public abstract class AbstractHandler implements HttpHandler {
         return httpServer.getServer().getSecurity().authenticate(userName, userPassword, null);
     }
 
-    // TODO allow admins to execute server commands
     protected static void checkRootUser(ServerSecurityUser user) {
+        // commented out because we don't want to limit admin activities to just the built in root user.
     //    if (!"root".equals(user.getName()))
     //        throw new ServerSecurityException("Only root user is authorized to execute server commands");
     }
