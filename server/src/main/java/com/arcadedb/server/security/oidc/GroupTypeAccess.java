@@ -15,5 +15,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GroupTypeAccess {
-    List<CRUDPermission> access = new ArrayList<>();
+    List<String> access = new ArrayList<>();
 }

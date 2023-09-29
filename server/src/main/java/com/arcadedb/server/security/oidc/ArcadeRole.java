@@ -154,10 +154,13 @@ public class ArcadeRole {
                 case DATABASE_ADMIN:
                     // TODO scope to database
                     if (isValidKeycloakDatabaseAdminRole(role)) {
-                        String dbaRoleName = role
-                                .substring((ROLE_PREFIX + arcadeRole.roleType.getKeycloakName() + PERMISSION_DELIMITER
-                                        + DATABASE_MARKER + arcadeRole.getDatabase() + PERMISSION_DELIMITER).length());
+                        arcadeRole.database = role.split(PERMISSION_DELIMITER)[2].substring(DATABASE_MARKER.length());
+                        String dbaRoleName = role.split(PERMISSION_DELIMITER)[3];
+                        log.info("XXXXXXX dba role name: {} {} {}", dbaRoleName, arcadeRole.roleType.getKeycloakName(), arcadeRole.getDatabase());
                         arcadeRole.databaseAdminRole = DatabaseAdminRole.fromKeycloakName(dbaRoleName);
+                        log.info("xxxx arcadeRole.databaseAdminRole {}", arcadeRole.databaseAdminRole);
+                    } else {
+                        log.warn("XXXXXX invalid keyclaoak database admin role assigned to user: {}", role);
                     }
 
                     if (arcadeRole.databaseAdminRole == null) {
@@ -167,9 +170,7 @@ public class ArcadeRole {
                     break;
                 case SERVER_ADMIN:
                     if (isValidKeycloakServerAdminRole(role)) {
-                        String saRoleName = role
-                                .substring((ROLE_PREFIX + arcadeRole.roleType.getKeycloakName() + PERMISSION_DELIMITER)
-                                        .length());
+                        String saRoleName = role.split(PERMISSION_DELIMITER)[2];
                         arcadeRole.serverAdminRole = ServerAdminRole.fromKeycloakName(saRoleName);
                     }
                     if (arcadeRole.serverAdminRole == null) {
@@ -247,5 +248,9 @@ public class ArcadeRole {
         }
 
         return result;
+    }
+
+    public List<String> getCrudPermissionsAsArcadeNames() {
+        return this.crudPermissions.stream().map(p -> p.getArcadeName()).collect(Collectors.toList());
     }
 }

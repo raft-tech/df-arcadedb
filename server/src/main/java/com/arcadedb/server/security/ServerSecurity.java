@@ -213,6 +213,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
   /**
    * Parse ArcadeRole objects from jwt role name strings
+   * 
    * @param jwtRoles
    * @return
    */
@@ -230,11 +231,14 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   /**
-   * Create a Group object from an ArcadeRole object such that it can be added to the arcade ACLs
+   * Create a Group object from an ArcadeRole object such that it can be added to
+   * the arcade ACLs
+   * 
    * @param arcadeRole
    * @return
    */
   private Group getGroupFromArcadeRole(ArcadeRole arcadeRole) {
+    log.info("getGroupFromArcadeRole role {}", arcadeRole.toString());
     Group group = new Group();
     group.setName(arcadeRole.getName());
 
@@ -249,11 +253,18 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     group.setReadTimeout(arcadeRole.getReadTimeout());
     group.setResultSetLimit(arcadeRole.getResultSetLimit());
 
-    if (arcadeRole.getDatabase() != null) {
-      GroupTypeAccess typeAccess = new GroupTypeAccess(arcadeRole.getCrudPermissions());
-      group.setTypes(Map.of(arcadeRole.getDatabase(), typeAccess));
+    if (arcadeRole.getRoleType() == RoleType.USER) {
+      if (arcadeRole.getDatabase() != null) {
+        GroupTypeAccess typeAccess = new GroupTypeAccess(arcadeRole.getCrudPermissionsAsArcadeNames());
+        // TODO update this to grab all matching types from arcade, and create type
+        // entry for each
+        group.setTypes(Map.of(arcadeRole.getTableRegex(), typeAccess));
+      }
+    } else if (arcadeRole.getRoleType() == RoleType.DATABASE_ADMIN) {
+      group.setAccess(List.of(arcadeRole.getDatabaseAdminRole().getArcadeName()));
     }
-
+    
+    log.info("getGroupFromArcadeRole group {}", arcadeRole.toString());
     // TODO add type regex support
     // need to get all types for database from arcade, and apply the regex match to
     // get the types that match
@@ -271,9 +282,11 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
    */
   private ServerSecurityUser getOrCreateUser(final String username) {
 
+    log.info("getOrCreateUser {}", username);
     // Return user from local cache if found. If not, continue
     // TOOD update this to check for all users in cache, not just root
     if (users.containsKey(username) && username.equals("root")) {
+      log.info("SHOULD NOT BE HERE");
       return users.get(username);
     }
 
@@ -350,7 +363,16 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     userJson.put("databases", databases);
 
     log.info("387ish 2 {}", userJson.toString());
-    return new ServerSecurityUser(server, userJson);
+
+    // 7. create databaseusers?
+
+    // 8. create user
+    // var serverSecurityUser = createUser(userJson);
+
+    final ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson);
+    users.put(username, serverSecurityUser);
+
+    return serverSecurityUser;
 
     // TODO improvement. Cache local perms. Listen for kafka events for role
     // updates?
@@ -413,13 +435,16 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return users.containsKey(userName);
   }
 
-  // TODO update this to pull from cache first, and only hit keycloak on a cache miss
+  // TODO update this to pull from cache first, and only hit keycloak on a cache
+  // miss
   public ServerSecurityUser getUser(final String userName) {
     return getOrCreateUser(userName);
     // return users.get(userName);
   }
 
   public ServerSecurityUser createUser(final JSONObject userConfiguration) {
+    log.info("XXXX create user {}", userConfiguration.toString());
+    LogManager.instance().log(this, Level.INFO, "lm XXX create user %s", userConfiguration.toString());
     final String name = userConfiguration.getString("name");
     if (users.containsKey(name))
       throw new SecurityException("User '" + name + "' already exists");
@@ -451,7 +476,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
         final JSONObject groupConfiguration = getDatabaseGroupsConfiguration(database.getName());
         if (groupConfiguration == null)
           continue;
-
+        log.info("updateSchema, about to call updateFileAccess {}", groupConfiguration.toString());
         databaseUser.updateFileAccess(database, groupConfiguration);
       }
     }
@@ -530,6 +555,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public JSONObject groupsToJSON() {
+    log.info("XXX groupsToJson {}", groups.toString());
     final JSONObject json = new JSONObject();
 
     // DATABASES TAKE FROM PREVIOUS CONFIGURATION
@@ -679,7 +705,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     Gson gson = new Gson();
     String jsonString = gson.toJson(groups);
     log.info("s getDatabaseGroupsConfiguration jsonString {} ", jsonString);
-    LogManager.instance().log(this, Level.INFO, "lm getDatabaseGroupsConfiguration jsonString {} ", jsonString);
+    // LogManager.instance().log(this, Level.INFO, "lm
+    // getDatabaseGroupsConfiguration jsonString {} ", jsonString);
     final JSONObject groupDatabases = new JSONObject(jsonString);
 
     JSONObject databaseConfiguration = groupDatabases.has(databaseName) ? groupDatabases.getJSONObject(databaseName)
@@ -694,8 +721,11 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   /**
-   * Temp method- checks if the user is the built in root user before proceeding with the check
-   * TODO delete this when we stop using the built in root user. Need to make sure spark jobs don't use root user.
+   * Temp method- checks if the user is the built in root user before proceeding
+   * with the check
+   * TODO delete this when we stop using the built in root user. Need to make sure
+   * spark jobs don't use root user.
+   * 
    * @param user
    * @return
    */
@@ -713,7 +743,9 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   /**
-   * Checks if the user has any of the permissions in the list necessary for the current action they're attempting.
+   * Checks if the user has any of the permissions in the list necessary for the
+   * current action they're attempting.
+   * 
    * @param user
    * @param roles
    * @return
@@ -731,7 +763,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     return false;
   }
 
-  public void appendArcadeRoleToUserCache(String username, String role){
+  public void appendArcadeRoleToUserCache(String username, String role) {
     if (userArcadeRoles.containsKey(username)) {
       userArcadeRoles.get(username).add(ArcadeRole.valueOf(role));
     } else {
