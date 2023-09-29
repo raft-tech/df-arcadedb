@@ -21,13 +21,25 @@ import com.arcadedb.serializer.json.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Keycloak rest API client, handling login and admin operations
+ * Keycloak rest API client, handling login and admin operations.
+ * 
+ * A solid chunk of this can go away if/when keycloak implements their Token Exchange feature.
+ * It is currently experimental and not maintained..... It would
+ * allow use to request a token for a user, which would include all effective roles for that user. Instead
+ * we need to make multiple requests to get user client and realm roles separately, get the groups the user belongs to,
+ * the client and realm roles for each group, and support requests to get the ids of the objects we're working with....
+
  */
 @Slf4j
 public class KeycloakClient {
 
+    // TODO convert static usage to non static usage
+    // TODO cache username -> userid mapping, client name to client id mapping
+    // TODO update getter methods to check cache first, and on cache miss call keycloak, and cache response
+
     /**
      * Gets the non admin base url for keycloak. Suitable for login operations
+     * 
      * @return
      */
     private static String getBaseKeycloakUrl() {
@@ -35,7 +47,9 @@ public class KeycloakClient {
     }
 
     /**
-     * Gets the admin base url for keycloak. Suitable for admin operations like getting user roles, creating roles, etc.
+     * Gets the admin base url for keycloak. Suitable for admin operations like
+     * getting user roles, creating roles, etc.
+     * 
      * @return
      */
     private static String getBaseKeycloakAdminUrl() {
@@ -209,6 +223,8 @@ public class KeycloakClient {
     }
 
     public static List<String> getUserClientRoles(String username) {
+        List<String> roles = new ArrayList<>();
+
         String userId = getUserId(username);
         if (userId != null) {
             // get user roles
@@ -216,25 +232,72 @@ public class KeycloakClient {
             String url = String.format("%s/users/%s/role-mappings", getBaseKeycloakAdminUrl(), userId);
 
             var rolesResponse = sendAuthenticatedGetAndGetResponse(url);
-
+            log.info("getUserClientRoles {}", rolesResponse);
             if (rolesResponse != null) {
                 JSONObject rolesJO = new JSONObject(rolesResponse);
 
-                if (rolesJO.has("clientMappings")) {
+                if (rolesJO.has("clientMappings") && rolesJO.getJSONObject("clientMappings").has("df-backend")) {
                     var clientMappings = rolesJO.getJSONObject("clientMappings");
                     var dfBackend = clientMappings.getJSONObject("df-backend");
                     var mappings = dfBackend.getJSONArray("mappings");
 
-                    List<String> roles = mappings.toList().stream().map(m -> {
+                    roles = mappings.toList().stream().map(m -> {
                         var jsonObject = (LinkedHashMap<String, Object>) m;
                         return jsonObject.get("name").toString();
                     }).collect(Collectors.toList());
-                    return roles;
+                }
+            }
+
+            // get user groups
+            List<String> groupIds = getUserGroupIds(userId);
+            for (String groupId : groupIds) {
+                roles.addAll(getClientRolesForGroup(groupId, "df-backend"));
+            }
+        }
+
+        return roles;
+    }
+
+    public static List<String> getUserGroupIds(String userId) {
+        String url = String.format("%s/users/%s/groups", getBaseKeycloakAdminUrl(), userId);
+        String response = sendAuthenticatedGetAndGetResponse(url);
+        List<String> groupIds = new ArrayList<>();
+
+        if (response != null) {
+            JSONArray ja = new JSONArray(response);
+
+            for (int i = 0; i < ja.length(); i++) {
+                var role = ja.getJSONObject(i);
+
+                if (role.has("id")) {
+                    groupIds.add(role.getString("id"));
                 }
             }
         }
 
-        return new ArrayList<>();
+        return groupIds;
+    }
+
+    public static List<String> getClientRolesForGroup(String groupId, String clientName) {
+        List<String> roles = new ArrayList<>();
+        String clientId = getClientId(clientName);
+        String url = String.format("%s/groups/%s/role-mappings/clients/%s", getBaseKeycloakAdminUrl(), groupId,
+                clientId);
+
+        String response = sendAuthenticatedGetAndGetResponse(url);
+        if (response != null) {
+            JSONArray ja = new JSONArray(response);
+
+            for (int i = 0; i < ja.length(); i++) {
+                var role = ja.getJSONObject(i);
+
+                if (role.has("name")) {
+                    roles.add(role.getString("name"));
+                }
+            }
+        }
+
+        return roles;
     }
 
     public static String getFormDataAsString(Map<String, String> formData) {

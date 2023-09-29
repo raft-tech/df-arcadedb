@@ -297,6 +297,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       throw new ServerSecurityException("User not found");
     }
 
+    log.debug("returned user {}", keycloakUser.toString());
+
     // 2. Check if user is authoried to hit arcade
     List<String> arcadeJwtRoles = keycloakUser.getRoles()
         .stream()
