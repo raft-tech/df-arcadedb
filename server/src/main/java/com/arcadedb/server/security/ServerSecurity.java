@@ -264,7 +264,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       group.setAccess(List.of(arcadeRole.getDatabaseAdminRole().getArcadeName()));
     }
     
-    log.info("getGroupFromArcadeRole group {}", arcadeRole.toString());
+    log.debug("getGroupFromArcadeRole group {}", arcadeRole.toString());
     // TODO add type regex support
     // need to get all types for database from arcade, and apply the regex match to
     // get the types that match
@@ -286,7 +286,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     // Return user from local cache if found. If not, continue
     // TOOD update this to check for all users in cache, not just root
     if (users.containsKey(username) && username.equals("root")) {
-      log.info("SHOULD NOT BE HERE");
       return users.get(username);
     }
 
@@ -331,9 +330,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
           groupMap.getGroups().put(g.getArcadeName(), g);
           groups.put(g.getDatabase(), groupMap);
         }
-      } else {
-        // Get or create admin group without database name
-
       }
       // creating an edge is technically 2 operations: (1) create a new edge record
       // and (2) update the vertices with
@@ -351,7 +347,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       groupMap.get(group.getDatabase()).add(group.getArcadeName());
     }
     User user = new User(keycloakUser.getUsername(), groupMap);
-    log.info("384ish user {}", user.toString());
 
     JSONObject userJson = new JSONObject();
     userJson.put("name", user.getName());
@@ -362,12 +357,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     }
     userJson.put("databases", databases);
 
-    log.info("387ish 2 {}", userJson.toString());
-
-    // 7. create databaseusers?
-
-    // 8. create user
-    // var serverSecurityUser = createUser(userJson);
+    log.debug("getOrCreateUser userJson {}", userJson.toString());
 
     final ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson);
     users.put(username, serverSecurityUser);
@@ -476,7 +466,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
         final JSONObject groupConfiguration = getDatabaseGroupsConfiguration(database.getName());
         if (groupConfiguration == null)
           continue;
-        log.info("updateSchema, about to call updateFileAccess {}", groupConfiguration.toString());
         databaseUser.updateFileAccess(database, groupConfiguration);
       }
     }
@@ -555,7 +544,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public JSONObject groupsToJSON() {
-    log.info("XXX groupsToJson {}", groups.toString());
     final JSONObject json = new JSONObject();
 
     // DATABASES TAKE FROM PREVIOUS CONFIGURATION
@@ -704,9 +692,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   protected JSONObject getDatabaseGroupsConfiguration(final String databaseName) {
     Gson gson = new Gson();
     String jsonString = gson.toJson(groups);
-    log.info("s getDatabaseGroupsConfiguration jsonString {} ", jsonString);
-    // LogManager.instance().log(this, Level.INFO, "lm
-    // getDatabaseGroupsConfiguration jsonString {} ", jsonString);
+    log.debug("s getDatabaseGroupsConfiguration jsonString {} ", jsonString);
     final JSONObject groupDatabases = new JSONObject(jsonString);
 
     JSONObject databaseConfiguration = groupDatabases.has(databaseName) ? groupDatabases.getJSONObject(databaseName)

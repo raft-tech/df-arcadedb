@@ -57,8 +57,6 @@ public class ServerSecurityUser implements SecurityUser {
     } else {
       databasesNames = Collections.emptySet();
     }
-
-    log.info("post serverSecurityUser init {} {}", userConfiguration, databasesNames);
   }
 
   @Override
@@ -137,7 +135,7 @@ public class ServerSecurityUser implements SecurityUser {
 
   @Override
   public boolean canAccessToDatabase(final String databaseName) {
-    log.info("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
+    log.debug("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
     return databasesNames.contains(SecurityManager.ANY) || databasesNames.contains(databaseName);
   }
 
@@ -157,12 +155,9 @@ public class ServerSecurityUser implements SecurityUser {
   }
 
   private ServerSecurityDatabaseUser registerDatabaseUser(final ArcadeDBServer server, final Database database, final String databaseName) {
-    // log.info("XX registerDatabaseUser: name: {}; database: {}; groupList: {}", name, databaseName, groupList.toString());
-    // LogManager.instance().log(this, Level.INFO, "register db user name: '%s' grouplist: %s", databaseName, groupList.toString());
     final JSONObject userDatabases = userConfiguration.getJSONObject("databases");
     final List<Object> groupList = userDatabases.getJSONArray(databaseName).toList();
-    log.info("XX registerDatabaseUser: name: {}; database: {}; groupList: {}", name, databaseName, groupList.toString());
-    LogManager.instance().log(this, Level.INFO, "register db user name: '%s' grouplist: %s", databaseName, groupList.toString());
+    log.debug("XX registerDatabaseUser: name: {}; database: {}; groupList: {}", name, databaseName, groupList.toString());
     ServerSecurityDatabaseUser dbu = new ServerSecurityDatabaseUser(databaseName, name, groupList.toArray(new String[groupList.size()]));
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
@@ -174,8 +169,7 @@ public class ServerSecurityUser implements SecurityUser {
       if (!SecurityManager.ANY.equals(database.getName())) {
         final JSONObject databaseGroups = server.getSecurity().getDatabaseGroupsConfiguration(database.getName());
         dbu.updateDatabaseConfiguration(databaseGroups);
-        log.info("registerDatabaseUser, calling updateFileAccess {} {}", databaseName, databaseGroups.toString());
-        LogManager.instance().log(this, Level.INFO, "registerDatabaseUser, calling updateFileAccess '%s' grouplist: %s", databaseName, groupList.toString());
+        log.debug("registerDatabaseUser, calling updateFileAccess {} {}", databaseName, databaseGroups.toString());
         dbu.updateFileAccess((DatabaseInternal) database, databaseGroups);
       }
     }
