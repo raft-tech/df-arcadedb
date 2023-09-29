@@ -175,6 +175,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
       return;
 
     final List<PaginatedFile> files = database.getFileManager().getFiles();
+    // below commented out for future debuging
     // for (int i = 0; i < files.size(); ++i) {
     //   log.debug("111 updateFileAccess fileId: {}; fileName: {}; cn: {}", files.get(i).getFileId(),
     //       files.get(i).getFileName(), files.get(i).getComponentName());
@@ -182,13 +183,14 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
     fileAccessMap = new boolean[files.size()][];
 
-    final JSONObject defaultGroup = configuredGroups.has(SecurityManager.ANY)
-        ? configuredGroups.getJSONObject(SecurityManager.ANY)
-        : NO_ACCESS_GROUP;
+    // below commented out for future debugging
+    // final JSONObject defaultGroup = configuredGroups.has(SecurityManager.ANY)
+    //     ? configuredGroups.getJSONObject(SecurityManager.ANY)
+    //     : NO_ACCESS_GROUP;
 
     //final JSONObject defaultType = defaultGroup.getJSONObject("types").getJSONObject(SecurityManager.ANY);
 
-    database.getSchema().getTypes().stream().forEach(t -> log.info("type {}", t.getName()));
+    //  database.getSchema().getTypes().stream().forEach(t -> log.info("type {}", t.getName()));
 
     for (int i = 0; i < files.size(); ++i) {
       final DocumentType type = database.getSchema().getTypeByBucketId(i);
