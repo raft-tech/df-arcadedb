@@ -114,7 +114,8 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         continue;
 
       final JSONObject group = configuredGroups.getJSONObject(groupName);
-      log.info("confiuredGroups group, need access prop: {}", group.toString());
+    
+      // Aggregate the dba roles from all groups so that the last group doesn't overwrite any roles from previous groups
       if (group.has("access")) {
         if (access == null)
           access = group.getJSONArray("access");
