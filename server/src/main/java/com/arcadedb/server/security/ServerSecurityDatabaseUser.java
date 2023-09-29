@@ -80,8 +80,8 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnDatabase(final DATABASE_ACCESS access) {
-    // log.info("requestAccessOnDatabase: access: {}, decision: {}", access,
-    // databaseAccessMap[access.ordinal()]);
+    log.info("requestAccessOnDatabase: access: {}, decision: {}", access,
+        databaseAccessMap[access.ordinal()]);
     return databaseAccessMap[access.ordinal()];
   }
 
@@ -92,7 +92,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
     log.info("requestAccessOnFile: database: {}; fileId: {}, access: {}, permissions: {}", databaseName, fileId, access,
         permissions);
     log.info("requestAccessOnFile decision {} {}", permissions != null,
-    permissions!= null ? permissions[access.ordinal()]:"false");
+        permissions != null ? permissions[access.ordinal()] : "false");
     // log.info("requestAccessOnFile decision groups {}",
     // List.of(groups).toString());
     // log.info("santiy check {}", false && false);
@@ -114,8 +114,18 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         continue;
 
       final JSONObject group = configuredGroups.getJSONObject(groupName);
-      if (group.has("access"))
-        access = group.getJSONArray("access");
+      log.info("confiuredGroups group, need access prop: {}", group.toString());
+      if (group.has("access")) {
+        if (access == null)
+          access = group.getJSONArray("access");
+        else {
+          for (Object a : group.getJSONArray("access").toList()) {
+            if (!access.toList().contains(a.toString())) {
+              access.put(a.toString());
+            }
+          }
+        }
+      }
 
       if (group.has("resultSetLimit")) {
         final long value = group.getLong("resultSetLimit");
@@ -236,16 +246,16 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         updateAccessArray(fileAccessMap[i], groupType.getJSONArray("access"));
 
         // if (fileAccessMap[i] == null) {
-        //   // NO GROUP+TYPE FOUND, APPLY SETTINGS FROM DEFAULT GROUP/TYPE
-        //   fileAccessMap[i] = new boolean[] { false, false, false, false };
-        //   final JSONObject t;
-        //   if (defaultGroup.has(typeName)) {
-        //     // APPLY THE FOUND TYPE FROM DEFAULT GROUP
-        //     t = defaultGroup.getJSONObject(typeName);
-        //   } else
-        //     // APPLY DEFAULT TYPE FROM DEFAULT GROUP
-        //     t = defaultType;
-        //   updateAccessArray(fileAccessMap[i], t.getJSONArray("access"));
+        // // NO GROUP+TYPE FOUND, APPLY SETTINGS FROM DEFAULT GROUP/TYPE
+        // fileAccessMap[i] = new boolean[] { false, false, false, false };
+        // final JSONObject t;
+        // if (defaultGroup.has(typeName)) {
+        // // APPLY THE FOUND TYPE FROM DEFAULT GROUP
+        // t = defaultGroup.getJSONObject(typeName);
+        // } else
+        // // APPLY DEFAULT TYPE FROM DEFAULT GROUP
+        // t = defaultType;
+        // updateAccessArray(fileAccessMap[i], t.getJSONArray("access"));
         // }
       }
 
@@ -277,14 +287,16 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
     for (String typeSuffixToAdd : typeSuffixesToAdd) {
       for (int i = 0; i < files.size(); ++i) {
-        // log.info("222 updateFileAccess fileId: {}; fileName: {}; cn: {}", files.get(i).getFileId(),
-        //     files.get(i).getFileName(), files.get(i).getComponentName());
+        // log.info("222 updateFileAccess fileId: {}; fileName: {}; cn: {}",
+        // files.get(i).getFileId(),
+        // files.get(i).getFileName(), files.get(i).getComponentName());
 
         String fileName = files.get(i).getFileName();
-   //     log.info("221 updateFileAccess fileName {}", fileName);
+        // log.info("221 updateFileAccess fileName {}", fileName);
         if (fileName.split("\\.")[0].endsWith(typeSuffixToAdd)) {
-          fileName = fileName.split("\\.")[0].substring(0, (fileName.split("\\.")[0].length() - typeSuffixToAdd.length()));
-   //       log.info("222 updateFileAccess fileName {}", fileName);
+          fileName = fileName.split("\\.")[0].substring(0,
+              (fileName.split("\\.")[0].length() - typeSuffixToAdd.length()));
+          // log.info("222 updateFileAccess fileName {}", fileName);
           for (int j = 0; j < files.size(); ++j) {
             // files.get(j).get
             // if filename matches regex for "name"_anynumber_"out_edges"
@@ -299,7 +311,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
             if (files.get(j).getFileName().split("\\.")[0].equals(fileName)) {
               fileAccessMap[i] = fileAccessMap[j];
-      //        log.info("223 updateFileAccess fileName {} found match {}", fileName, j);
+              // log.info("223 updateFileAccess fileName {} found match {}", fileName, j);
               break;
             }
           }
@@ -309,8 +321,9 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
     var extraTypesToAdd = List.of("HAS_CATEGORY", "INPUT");
 
-    for(String extraType : extraTypesToAdd) {
-      // loop through all files, and if file name matches extra type, set access to null
+    for (String extraType : extraTypesToAdd) {
+      // loop through all files, and if file name matches extra type, set access to
+      // null
       for (int i = 0; i < files.size(); ++i) {
         log.info("331 updateFileAccess fileId: {}; fileName: {}; cn: {}", files.get(i).getFileId(),
             files.get(i).getFileName(), files.get(i).getComponentName());
@@ -318,7 +331,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         String fileName = files.get(i).getFileName();
         log.info("332 updateFileAccess fileName {}", fileName);
         if (fileName.split("\\.")[0].startsWith(extraType)) {
-          fileAccessMap[i] = new boolean[] {true, true, true, true};
+          fileAccessMap[i] = new boolean[] { true, true, true, true };
           log.info("333 updateFileAccess fileName {} found match {}", fileName, i);
         }
       }
