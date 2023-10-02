@@ -30,9 +30,9 @@ public enum RoleType {
         return arcadeName;
     }
 
-    public static RoleType fromKeycloakName(String keycloakName) {
+    public static RoleType fromKeycloakName(String name) {
         for (RoleType roleType : RoleType.values()) {
-            if (roleType.keycloakName.equalsIgnoreCase(keycloakName)) {
+            if (roleType.keycloakName.equalsIgnoreCase(name)) {
                 return roleType;
             }
         }

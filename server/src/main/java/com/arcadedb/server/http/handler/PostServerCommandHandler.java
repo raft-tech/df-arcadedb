@@ -38,6 +38,7 @@ import com.arcadedb.server.security.ServerSecurityUser;
 import com.arcadedb.server.security.oidc.ArcadeRole;
 import com.arcadedb.server.security.oidc.KeycloakClient;
 import com.arcadedb.server.security.oidc.role.CRUDPermission;
+import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
 import com.google.gson.JsonParser;
@@ -78,11 +79,10 @@ public class PostServerCommandHandler extends AbstractHandler {
           .anyMatch(excludedCommand -> command.startsWith(excludedCommand));
 
       // If not a command that manages its own permissions, check if user has sa role
-      if (!isExcludedCommand) {
-        if (httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
-          throw new ServerSecurityException(
-              String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
-        }
+      if (!isExcludedCommand
+          && !httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
+        throw new ServerSecurityException(
+            String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
       }
 
       if (command.startsWith("shutdown"))
@@ -207,15 +207,22 @@ public class PostServerCommandHandler extends AbstractHandler {
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();
 
-      // Create and assign new role granting all permissions on the new database to the user who created it.
-      ArcadeRole arcadeRole = new ArcadeRole(RoleType.USER, databaseName, "*", CRUDPermission.getAll());
-      String newRole = arcadeRole.getKeycloakRoleName();
-      KeycloakClient.createRole(newRole);
-      KeycloakClient.assignRoleToUser(newRole, user.getName());
-      server.getSecurity().appendArcadeRoleToUserCache(user.getName(), newRole);
+      // Create and assign new role granting all data, schema, and settings on the new
+      // database to the user who created it.
+      ArcadeRole dataRole = new ArcadeRole(RoleType.USER, databaseName, "*", CRUDPermission.getAll());
+      ArcadeRole schemaRole = new ArcadeRole(RoleType.DATABASE_ADMIN, databaseName, DatabaseAdminRole.ALL);
+      createAndAssignRoleToUser(dataRole, user.getName());
+      createAndAssignRoleToUser(schemaRole, user.getName());
     } else {
       throw new ServerSecurityException("Create database operation not allowed for user " + user.getName());
     }
+  }
+
+  private void createAndAssignRoleToUser(ArcadeRole arcadeRole, String username) {
+    String newRole = arcadeRole.getKeycloakRoleName();
+    KeycloakClient.createRole(newRole);
+    KeycloakClient.assignRoleToUser(newRole, username);
+    httpServer.getServer().getSecurity().appendArcadeRoleToUserCache(username, newRole);
   }
 
   private ExecutionResponse getServerEvents(final String command) {

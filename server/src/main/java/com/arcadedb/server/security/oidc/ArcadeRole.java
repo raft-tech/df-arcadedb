@@ -63,11 +63,30 @@ public class ArcadeRole {
     private ServerAdminRole serverAdminRole;
     private List<CRUDPermission> crudPermissions = new ArrayList<>(0);
 
+    /**
+     * Create new user type arcade role for data access enforcement
+     * @param roleType
+     * @param database
+     * @param tableRegex
+     * @param crudPermissions
+     */
     public ArcadeRole(RoleType roleType, String database, String tableRegex, List<CRUDPermission> crudPermissions) {
         this.roleType = roleType;
         this.database = database;
         this.tableRegex = tableRegex;
         this.crudPermissions = crudPermissions;
+    }
+
+    /**
+     * Create new database admin type arcade role for data access enforcement
+     * @param roleType
+     * @param database
+     * @param databaseAdminRole
+     */ 
+    public ArcadeRole(RoleType roleType, String database, DatabaseAdminRole databaseAdminRole) {
+        this.roleType = roleType;
+        this.database = database;
+        this.databaseAdminRole = databaseAdminRole;
     }
 
     /**

@@ -37,6 +37,7 @@ import com.arcadedb.server.security.oidc.GroupTypeAccess;
 import com.arcadedb.server.security.oidc.KeycloakClient;
 import com.arcadedb.server.security.oidc.KeycloakUser;
 import com.arcadedb.server.security.oidc.User;
+import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
 import com.arcadedb.utility.AnsiCode;
@@ -59,6 +60,7 @@ import java.security.*;
 import java.security.spec.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.*;
 import java.util.stream.Collectors;
 
@@ -261,9 +263,21 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
         group.setTypes(Map.of(arcadeRole.getTableRegex(), typeAccess));
       }
     } else if (arcadeRole.getRoleType() == RoleType.DATABASE_ADMIN) {
-      group.setAccess(List.of(arcadeRole.getDatabaseAdminRole().getArcadeName()));
+      if (arcadeRole.getDatabaseAdminRole().getKeycloakName().equals(DatabaseAdminRole.ALL.getKeycloakName())) {
+        var rolesToAssign = List.of(DatabaseAdminRole.values())
+            .stream()
+            .filter(r -> !r.getKeycloakName().equals(DatabaseAdminRole.ALL.getKeycloakName()))
+            .map(r -> r.getArcadeName())
+            .collect(Collectors.toList());
+        group.setAccess(rolesToAssign);
+      } else {
+        group.setAccess(List.of(arcadeRole.getDatabaseAdminRole().getArcadeName()));
+      }
     }
-    
+
+    // Server admin roles grant permissions to server comamnds exposed by the REST
+    // API
+
     log.debug("getGroupFromArcadeRole group {}", arcadeRole.toString());
     // TODO add type regex support
     // need to get all types for database from arcade, and apply the regex match to
@@ -752,10 +766,6 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public void appendArcadeRoleToUserCache(String username, String role) {
-    if (userArcadeRoles.containsKey(username)) {
-      userArcadeRoles.get(username).add(ArcadeRole.valueOf(role));
-    } else {
-      userArcadeRoles.put(username, List.of(ArcadeRole.valueOf(role)));
-    }
+    userArcadeRoles.computeIfAbsent(username, u -> new CopyOnWriteArrayList<>()).add(ArcadeRole.valueOf(role));
   }
 }

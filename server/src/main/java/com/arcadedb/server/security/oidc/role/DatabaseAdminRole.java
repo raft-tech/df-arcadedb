@@ -11,7 +11,8 @@ public enum DatabaseAdminRole {
 
     SECURITY(Constants.UPDATE_SECURITY, Constants.UPDATE_SECURITY),
     SCHEMA(Constants.UPDATE_SCHEMA, Constants.UPDATE_SCHEMA),
-    DATABASE_SETTINGS(Constants.UPDATE_DATABASE_SETTINGS, Constants.UPDATE_DATABASE_SETTINGS);
+    DATABASE_SETTINGS(Constants.UPDATE_DATABASE_SETTINGS, Constants.UPDATE_DATABASE_SETTINGS),
+    ALL("*", "*");
 
     @Getter
     private String keycloakName;
