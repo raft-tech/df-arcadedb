@@ -112,7 +112,6 @@ public abstract class AbstractHandler implements HttpHandler {
 
             ServerSecurityUser user = null;
             if (authorization != null) {
-                LogManager.instance().log(this, getErrorLogLevel(), "oidc enabled (%s)", GlobalConfiguration.OIDC_AUTH.getValueAsBoolean(), SecurityException.class.getSimpleName());
                 if (GlobalConfiguration.OIDC_AUTH.getValueAsBoolean()) {
                     // TODO only allow root user basic access if JWT auth enabled
 
@@ -152,7 +151,6 @@ public abstract class AbstractHandler implements HttpHandler {
                     }
                 }
             }
-            LogManager.instance().log(this, getErrorLogLevel(), "test", GlobalConfiguration.OIDC_AUTH.getValueAsBoolean(), SecurityException.class.getSimpleName());
 
             final ExecutionResponse response = execute(exchange, user);
             if (response != null)
@@ -225,7 +223,6 @@ public abstract class AbstractHandler implements HttpHandler {
         final JSONObject json = new JSONObject();
         if (database != null)
             json.setDateFormat(database.getSchema().getDateTimeFormat());
-        LogManager.instance().log(this, getUserSevereErrorLogLevel(), "user (%s)", user, getClass().getSimpleName());
 
         json.put("user", user.getName());
         json.put("version", Constants.getVersion());

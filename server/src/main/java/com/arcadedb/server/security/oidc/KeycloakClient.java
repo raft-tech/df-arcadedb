@@ -87,7 +87,7 @@ public class KeycloakClient {
                     accessTokenString.lastIndexOf("."));
             byte[] decodedBytes = Base64.getDecoder().decode(encodedString);
             String decodedString = new String(decodedBytes);
-            log.info("getAccessTokenFromResponse {}", decodedString);
+            log.debug("getAccessTokenFromResponse {}", decodedString);
 
             return decodedString;
         }
@@ -232,7 +232,7 @@ public class KeycloakClient {
             String url = String.format("%s/users/%s/role-mappings", getBaseKeycloakAdminUrl(), userId);
 
             var rolesResponse = sendAuthenticatedGetAndGetResponse(url);
-            log.info("getUserClientRoles {}", rolesResponse);
+            log.debug("getUserClientRoles {}", rolesResponse);
             if (rolesResponse != null) {
                 JSONObject rolesJO = new JSONObject(rolesResponse);
 

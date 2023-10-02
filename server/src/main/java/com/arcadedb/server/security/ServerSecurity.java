@@ -240,7 +240,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
    * @return
    */
   private Group getGroupFromArcadeRole(ArcadeRole arcadeRole) {
-    log.info("getGroupFromArcadeRole role {}", arcadeRole.toString());
+    log.debug("getGroupFromArcadeRole role {}", arcadeRole.toString());
     Group group = new Group();
     group.setName(arcadeRole.getName());
 
@@ -296,7 +296,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
    */
   private ServerSecurityUser getOrCreateUser(final String username) {
 
-    log.info("getOrCreateUser {}", username);
+    log.debug("getOrCreateUser {}", username);
     // Return user from local cache if found. If not, continue
     // TOOD update this to check for all users in cache, not just root
     if (users.containsKey(username) && username.equals("root")) {
@@ -402,14 +402,12 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
     final ServerSecurityUser su = getOrCreateUser(userName);
     if (su == null) {
-      log.info("authenticate user not found");
       throw new ServerSecurityException("User not valid");
     }
 
     if (databaseName != null) {
       final Set<String> allowedDatabases = su.getAuthorizedDatabases();
       if (!allowedDatabases.contains(SecurityManager.ANY) && !su.getAuthorizedDatabases().contains(databaseName)) {
-        log.info("User does not have access to database {}", databaseName);
         throw new ServerSecurityException("User does not have access to database '" + databaseName + "'");
       }
     }
@@ -449,8 +447,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public ServerSecurityUser createUser(final JSONObject userConfiguration) {
-    log.info("XXXX create user {}", userConfiguration.toString());
-    LogManager.instance().log(this, Level.INFO, "lm XXX create user %s", userConfiguration.toString());
+    log.debug("create user {}", userConfiguration.toString());
     final String name = userConfiguration.getString("name");
     if (users.containsKey(name))
       throw new SecurityException("User '" + name + "' already exists");

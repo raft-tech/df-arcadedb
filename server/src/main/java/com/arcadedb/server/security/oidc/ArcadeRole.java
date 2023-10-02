@@ -175,11 +175,9 @@ public class ArcadeRole {
                     if (isValidKeycloakDatabaseAdminRole(role)) {
                         arcadeRole.database = role.split(PERMISSION_DELIMITER)[2].substring(DATABASE_MARKER.length());
                         String dbaRoleName = role.split(PERMISSION_DELIMITER)[3];
-                        log.info("XXXXXXX dba role name: {} {} {}", dbaRoleName, arcadeRole.roleType.getKeycloakName(), arcadeRole.getDatabase());
                         arcadeRole.databaseAdminRole = DatabaseAdminRole.fromKeycloakName(dbaRoleName);
-                        log.info("xxxx arcadeRole.databaseAdminRole {}", arcadeRole.databaseAdminRole.getArcadeName());
                     } else {
-                        log.warn("XXXXXX invalid keyclaoak database admin role assigned to user: {}", role);
+                        log.warn("Invalid keyclaoak database admin role assigned to user: {}", role);
                     }
 
                     if (arcadeRole.databaseAdminRole == null) {
