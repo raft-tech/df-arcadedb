@@ -38,6 +38,10 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   protected Map<String, Object> map;
   protected boolean dirty = false;
 
+  public static final String CLASSIFICATION_TYPE = "Classification";
+  public static final String CLASSIFICATION_EMBEDDED_PROPERTY = "classification";
+  public static final String CLASSIFICATION_MARKED = "classificationMarked";
+
   protected MutableDocument(final Database database, final DocumentType type, final RID rid) {
     super(database, type, rid, null);
     this.map = new LinkedHashMap<>();
@@ -121,8 +125,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   }
 
   public boolean isValidationExceptionAccm(Property p) {
-    if ((!p.getOwner().getName().equals("Classification") && p.getName().equals("classification")) || 
-    (p.getOwner().getName().equals("Classification") && p.getName().equals("general"))) {
+    if ((!p.getOwner().getName().equals(CLASSIFICATION_TYPE) && p.getName().equals(CLASSIFICATION_EMBEDDED_PROPERTY)) || 
+    (p.getOwner().getName().equals(CLASSIFICATION_TYPE) && !p.getName().equals("general"))) {
       return true;
     }
     return false;
@@ -131,7 +135,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   public List<Property> getAccmProperties() {
     List<Property> properties = new ArrayList<>();
 
-    DocumentType classificationType = database.getSchema().getType("Classification");
+    DocumentType classificationType = database.getSchema().getType(CLASSIFICATION_TYPE);
 
     if (classificationType != null) {
       Property general = new Property(classificationType, "general", Type.STRING);
@@ -161,26 +165,43 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public void validate() throws ValidationException {
 
+  //  DocumentType currentType = database.getSchema().getType(this.getTypeName());
+
+    // var prop = currentType.getOrCreateProperty(CLASSIFICATION_MARKED, Type.BOOLEAN);
+    // prop.setNotNull(true).setReadonly(true);
+    // System.out.println("prop: " + prop.toString());
+
+    // if (currentType != null && ){
+    //   System.out.println("Classification type detected, skipping validation");
+    //   return;
+    // }
+
+    if (this.getType().getName().equals(CLASSIFICATION_TYPE)) {
+      return;
+    }
+
     try {
       DocumentValidator.validate(this);
-      Property classification = new Property(this.getType(), "classification",
+
+      Property classification = new Property(this.getType(), CLASSIFICATION_EMBEDDED_PROPERTY,
       Type.EMBEDDED);
       classification.setMandatory(true);
       classification.setNotNull(true);
-      final Object fieldValue = get("classification");
+      final Object fieldValue = get(CLASSIFICATION_EMBEDDED_PROPERTY);
       if (fieldValue != null && fieldValue instanceof MutableEmbeddedDocument) {
-
         ((MutableEmbeddedDocument) fieldValue).validateSpecificProperties(getAccmProperties());
       } else {
         throw new ValidationException("Document classification not present", classification);
       }
-
+      set(CLASSIFICATION_MARKED, true);
+      System.out.println("Classification marked set to true");
     } catch (ValidationException e) {
       System.out.println("ValidationException: " + e.getMessage());
       System.out.println("currentuser name: " + database.getCurrentUserName());
       if (database.getCurrentUserName().contains("service-account") && isValidationExceptionAccm(e.getProperty())) {
         System.out.println("service account detected with allowable property, ignoring validation error");
-        
+        set(CLASSIFICATION_MARKED, false);
+        System.out.println("Classification marked set to false");
         // TODO set unmarked to true
         return;
       }

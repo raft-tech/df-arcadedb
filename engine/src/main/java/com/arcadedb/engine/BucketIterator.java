@@ -21,6 +21,8 @@ package com.arcadedb.engine;
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
+import com.arcadedb.database.Document;
+import com.arcadedb.database.MutableDocument;
 import com.arcadedb.database.RID;
 import com.arcadedb.database.Record;
 import com.arcadedb.exception.DatabaseOperationException;
@@ -73,6 +75,7 @@ public class BucketIterator implements Iterator<Record> {
     database.executeInReadLock(() -> {
       next = null;
       while (true) {
+        System.out.println("bucket iterator fetchNext()");
         if (currentPage == null) {
           if (nextPageNumber > totalPages) {
             return null;
@@ -96,6 +99,10 @@ public class BucketIterator implements Iterator<Record> {
               if (!bucket.existsRecord(rid))
                 continue;
 
+              if (!checkPermissionsOnDocument(rid.asDocument(true))) {
+                continue;
+              }
+
               next = rid.getRecord(false);
               return null;
 
@@ -109,8 +116,14 @@ public class BucketIterator implements Iterator<Record> {
               if (view == null)
                 continue;
 
-              next = database.getRecordFactory()
+              var record = database.getRecordFactory()
                   .newImmutableRecord(database, database.getSchema().getType(database.getSchema().getTypeNameByBucketId(rid.getBucketId())), rid, view, null);
+
+              if (!checkPermissionsOnDocument(record.asDocument(true))) {
+                continue;
+              }
+
+              next = record;
               return null;
             }
           } catch (final Exception e) {
@@ -130,6 +143,14 @@ public class BucketIterator implements Iterator<Record> {
         }
       }
     });
+  }
+
+  private boolean checkPermissionsOnDocument(final Document document) {
+    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))
+          && !database.getContext().getCurrentUser().isDataSteward()) {
+      return false;
+    }
+    return true;
   }
 
   @Override

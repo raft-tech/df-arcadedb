@@ -64,6 +64,8 @@ public interface SecurityDatabaseUser {
 
   boolean requestAccessOnFile(int fileId, ACCESS access);
 
+  boolean isDataSteward();
+
   String getName();
 
   long getResultSetLimit();

@@ -299,4 +299,11 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   //  log.debug("updateAccessArray: accessObj: {}; array: {}", access, array);
     return array;
   }
+
+  @Override
+  public boolean isDataSteward() {
+    return false;
+    // TODO Auto-generated method stub
+    //throw new UnsupportedOperationException("Unimplemented method 'isDataSteward'");
+  }
 }
