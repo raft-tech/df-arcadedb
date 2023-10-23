@@ -24,6 +24,7 @@ import com.arcadedb.log.LogManager;
 import com.arcadedb.security.SecurityManager;
 import com.arcadedb.security.SecurityUser;
 import com.arcadedb.server.ArcadeDBServer;
+import com.arcadedb.server.security.oidc.ArcadeRole;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,6 +34,7 @@ import com.arcadedb.serializer.json.JSONObject;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ServerSecurityUser implements SecurityUser {
@@ -42,8 +44,13 @@ public class ServerSecurityUser implements SecurityUser {
   private       Set<String>                                           databasesNames;
   private       String                                                password;
   private final ConcurrentHashMap<String, ServerSecurityDatabaseUser> databaseCache = new ConcurrentHashMap();
+  private List<ArcadeRole> arcadeRoles = new ArrayList<>();
 
   public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration) {
+    this(server, userConfiguration, new ArrayList<>());
+  }
+
+  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles) {
     this.server = server;
     this.userConfiguration = userConfiguration;
 
@@ -57,6 +64,8 @@ public class ServerSecurityUser implements SecurityUser {
     } else {
       databasesNames = Collections.emptySet();
     }
+
+    this.arcadeRoles = arcadeRoles;
   }
 
   @Override
@@ -98,7 +107,8 @@ public class ServerSecurityUser implements SecurityUser {
 
     if (dbu == null)
       // USER HAS NO ACCESS TO THE DATABASE, RETURN A USER WITH NO AX
-      dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0]);
+      dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], 
+            arcadeRoles.stream().filter(role -> role.getDatabase() != null && role.getDatabase().equals(databaseName)).collect(Collectors.toList()));
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)
@@ -158,7 +168,9 @@ public class ServerSecurityUser implements SecurityUser {
     final JSONObject userDatabases = userConfiguration.getJSONObject("databases");
     final List<Object> groupList = userDatabases.getJSONArray(databaseName).toList();
     log.debug("XX registerDatabaseUser: name: {}; database: {}; groupList: {}", name, databaseName, groupList.toString());
-    ServerSecurityDatabaseUser dbu = new ServerSecurityDatabaseUser(databaseName, name, groupList.toArray(new String[groupList.size()]));
+    
+    ServerSecurityDatabaseUser dbu = new ServerSecurityDatabaseUser(databaseName, name, groupList.toArray(new String[groupList.size()]), 
+            arcadeRoles.stream().filter(role -> role.getDatabase() != null && role.getDatabase().equals(databaseName)).collect(Collectors.toList()));
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)

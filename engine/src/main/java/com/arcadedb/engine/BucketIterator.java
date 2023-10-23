@@ -75,7 +75,6 @@ public class BucketIterator implements Iterator<Record> {
     database.executeInReadLock(() -> {
       next = null;
       while (true) {
-        System.out.println("bucket iterator fetchNext()");
         if (currentPage == null) {
           if (nextPageNumber > totalPages) {
             return null;
@@ -147,7 +146,7 @@ public class BucketIterator implements Iterator<Record> {
 
   private boolean checkPermissionsOnDocument(final Document document) {
     if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))
-          && !database.getContext().getCurrentUser().isDataSteward()) {
+          && !database.getContext().getCurrentUser().isDataSteward(document.getTypeName())) {
       return false;
     }
     return true;

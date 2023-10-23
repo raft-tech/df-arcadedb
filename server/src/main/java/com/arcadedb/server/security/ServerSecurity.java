@@ -375,7 +375,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
     log.debug("getOrCreateUser userJson {}", userJson.toString());
 
-    final ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson);
+    final ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles);
     users.put(username, serverSecurityUser);
 
     return serverSecurityUser;
