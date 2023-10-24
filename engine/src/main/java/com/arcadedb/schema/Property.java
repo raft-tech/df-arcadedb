@@ -27,6 +27,7 @@ import com.arcadedb.query.sql.parser.ParseException;
 import com.arcadedb.query.sql.parser.SqlParser;
 import com.arcadedb.serializer.json.JSONObject;
 
+import lombok.Setter;
 import lombok.ToString;
 
 import java.io.*;
@@ -35,7 +36,9 @@ import java.util.*;
 @ToString
 public class Property {
   private final        DocumentType        owner;
-  private final        String              name;
+
+  @Setter
+  private              String              name;
   private final        Type                type;
   private final        int                 id;
   protected final      Map<String, Object> custom          = new HashMap<>();

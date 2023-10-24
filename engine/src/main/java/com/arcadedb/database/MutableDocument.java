@@ -22,6 +22,7 @@ import com.arcadedb.exception.ValidationException;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
+import com.arcadedb.security.ACCM.AccmProperty;
 import com.arcadedb.serializer.json.JSONObject;
 
 import java.util.*;
@@ -124,24 +125,46 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     return result;
   }
 
-  public boolean isValidationExceptionAccm(Property p) {
-    if ((!p.getOwner().getName().equals(CLASSIFICATION_TYPE) && p.getName().equals(CLASSIFICATION_EMBEDDED_PROPERTY)) || 
-    (p.getOwner().getName().equals(CLASSIFICATION_TYPE) && !p.getName().equals("general"))) {
-      return true;
-    }
-    return false;
-  }
-
   public List<Property> getAccmProperties() {
+
+    List<AccmProperty> accmProperties = new ArrayList<>();
+    AccmProperty ap = new AccmProperty()
+         .name(CLASSIFICATION_EMBEDDED_PROPERTY + ".general")
+         .parentType(CLASSIFICATION_TYPE)
+         .dataType(Type.STRING)
+         .readOnly(true)
+         .notNull(true)
+         .required(true)
+         .options(List.of("U", "CUI"));
+
+    // TODO further limit options based on databsase classification- can't be classified higher than the instance
+    // TODO recieve classification level from env var/k8s
+
+    accmProperties.add(ap);
+
     List<Property> properties = new ArrayList<>();
 
-    DocumentType classificationType = database.getSchema().getType(CLASSIFICATION_TYPE);
+    for (AccmProperty accmProperty : accmProperties) {
+      System.out.println("property: " + accmProperty.toString());
 
-    if (classificationType != null) {
-      Property general = new Property(classificationType, "general", Type.STRING);
-      general.setMandatory(true);
-      general.setNotNull(true);
-      properties.add(general);
+      DocumentType parentType = database.getSchema().getType(accmProperty.parentType());
+
+      if (parentType == null) {
+        System.out.println("Error parent type not found");
+        continue;
+      }
+
+      Property p = new Property(parentType, 
+          accmProperty.name(), accmProperty.dataType());
+      p.setMandatory(accmProperty.required());
+      p.setNotNull(accmProperty.notNull());
+
+      if (!accmProperty.options().isEmpty()) {
+        p.setRegexp(String.join("|", accmProperty.options()));
+      } else if (accmProperty.validationRegex() != null) {
+        p.setRegexp(accmProperty.validationRegex());
+      }
+      properties.add(p);
     }
 
     return properties;
@@ -149,6 +172,47 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
 
   public void validateSpecificProperties(List<Property> properties) {
     DocumentValidator.validateSpecificProperties(this, properties);
+  }
+
+  /**
+   * Triggers the native required property valiation of arcade, as well as the one time ACCM validation.
+   * ACCM validation follows a different recursive type checking pattern than arcade, so it is done separately.
+   */
+  public void validateAndAccmCheck() {
+    
+    validate();
+
+    /* The following is ACCM validation. Properties are most likely nested down a few objects from the root document,
+     * and are referenced by their full path, with "." separators.
+     * Errors are only thrown if regular users (non service accounts) trying to write changes to documents without valid ACCM markings
+     * Service accounts are permitted to write changes without proper ACCM markings, but the documents will be hidden from normal
+     * users until a data steward properly marks the document.
+     */ 
+    try {
+      // TODO group properties by embedded document and validate each embedded document
+      for (Property property : getAccmProperties()) {
+        if (property.getType() != Type.EMBEDDED) {
+          MutableEmbeddedDocument embeddedDocument = getEmbeddedDocumentToValidate(this, property.getName());
+
+          // The embedded doc has been fetched, remove the embedded doc name from the property name to check.
+          property.setName(property.getName().substring(property.getName().lastIndexOf(".") + 1));
+          embeddedDocument.validateSpecificProperties(List.of(property));
+        }
+      }
+
+      set(CLASSIFICATION_MARKED, true);
+    } catch (ValidationException e) {
+      // System.out.println("ValidationException: " + e.getMessage());
+
+      // Only ignore data validation errors on writes for service accounts.
+      if (database.getContext().getCurrentUser().isServiceAccount()) {
+
+        // Setting this property as false will prevent non data stewards from reading or modifying the document.
+        set(CLASSIFICATION_MARKED, false);
+        return;
+      }
+      throw e;
+    }
   }
 
   /**
@@ -165,84 +229,30 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public void validate() throws ValidationException {
 
-  //  DocumentType currentType = database.getSchema().getType(this.getTypeName());
+    DocumentValidator.validate(this);
+  }
 
-    // var prop = currentType.getOrCreateProperty(CLASSIFICATION_MARKED, Type.BOOLEAN);
-    // prop.setNotNull(true).setReadonly(true);
-    // System.out.println("prop: " + prop.toString());
+  private MutableEmbeddedDocument getEmbeddedDocumentToValidate(MutableDocument mutableDocument, final String name) {
+    // form of embeddedDoc.property
+    // could be embeddedDoc1.embeddedDoc2.property
 
-    // if (currentType != null && ){
-    //   System.out.println("Classification type detected, skipping validation");
-    //   return;
-    // }
-
-    if (this.getType().getName().equals(CLASSIFICATION_TYPE)) {
-      return;
+    if (name == null || name == "" || !name.contains(".")) {
+      return (MutableEmbeddedDocument) mutableDocument;
     }
 
-    try {
-      DocumentValidator.validate(this);
+    String embeddedDocName = name.substring(0, name.indexOf("."));
+    String remainingPropertyName = name.substring(name.indexOf(".") + 1);
+    final Object fieldValue = mutableDocument.get(embeddedDocName);
 
-      Property classification = new Property(this.getType(), CLASSIFICATION_EMBEDDED_PROPERTY,
-      Type.EMBEDDED);
-      classification.setMandatory(true);
-      classification.setNotNull(true);
-      final Object fieldValue = get(CLASSIFICATION_EMBEDDED_PROPERTY);
-      if (fieldValue != null && fieldValue instanceof MutableEmbeddedDocument) {
-        ((MutableEmbeddedDocument) fieldValue).validateSpecificProperties(getAccmProperties());
+    if (fieldValue != null && fieldValue instanceof MutableEmbeddedDocument) {
+      if (remainingPropertyName.split(".").length > 1) {
+        return getEmbeddedDocumentToValidate((MutableDocument) fieldValue, remainingPropertyName);
       } else {
-        throw new ValidationException("Document classification not present", classification);
+        return (MutableEmbeddedDocument) fieldValue;
       }
-      set(CLASSIFICATION_MARKED, true);
-      System.out.println("Classification marked set to true");
-    } catch (ValidationException e) {
-      System.out.println("ValidationException: " + e.getMessage());
-      System.out.println("currentuser name: " + database.getCurrentUserName());
-      if (database.getCurrentUserName().contains("service-account") && isValidationExceptionAccm(e.getProperty())) {
-        System.out.println("service account detected with allowable property, ignoring validation error");
-        set(CLASSIFICATION_MARKED, false);
-        System.out.println("Classification marked set to false");
-        // TODO set unmarked to true
-        return;
-      }
-      throw e;
+    } else {
+       throw new ValidationException("Document classification incomplete for property: " + name);
     }
-    // System.out.println("currentuser name: " + database.getCurrentUserName());
-
-    // if (database.getCurrentUserName().contains("service-account")){
-
-    // }
-
-    // Property classification = new Property(this.getType(), "classification",
-    // Type.EMBEDDED);
-    // classification.setMandatory(true);
-    // classification.setNotNull(true);
-
-    // DocumentType classificationType =
-    // database.getSchema().getType("Classification");
-
-    // if (classificationType != null) {
-    // Property general = new Property(classificationType, "general", Type.STRING);
-    // general.setMandatory(true);
-    // general.setNotNull(true);
-    // DocumentValidator.validateField(this, general);
-    // } else {
-    // System.out.println("Classification type not found");
-    // }
-
-    // user request - needs everythign, reject if any missing
-
-    // service request - just check, and set flag if not finished.
-
-    // validate ACCM? and set classification marking according to result?
-    // verify that all writes come through here
-
-    // catch validation exceptions and set classificaitonMarked to false for service
-    // accounts
-    // throw validation error for user writes
-
-    // try both setting record prop or making classifcation marking a read only
-    // field?
   }
 
   @Override

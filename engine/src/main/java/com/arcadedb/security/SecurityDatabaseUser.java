@@ -66,6 +66,8 @@ public interface SecurityDatabaseUser {
 
   boolean isDataSteward(String type);
 
+  boolean isServiceAccount();
+
   String getName();
 
   long getResultSetLimit();

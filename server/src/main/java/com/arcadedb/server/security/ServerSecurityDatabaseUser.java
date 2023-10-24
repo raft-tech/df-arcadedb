@@ -316,4 +316,9 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
     return false;
   }
+
+  @Override
+  public boolean isServiceAccount() {
+    return this.userName.startsWith("service-account-");
+  }
 }

@@ -145,8 +145,13 @@ public class BucketIterator implements Iterator<Record> {
   }
 
   private boolean checkPermissionsOnDocument(final Document document) {
-    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))
-          && !database.getContext().getCurrentUser().isDataSteward(document.getTypeName())) {
+    var currentUser = database.getContext().getCurrentUser();
+
+    if (currentUser.isServiceAccount() || currentUser.isDataSteward(document.getTypeName())) {
+      return true;
+    }
+
+    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
       return false;
     }
     return true;
