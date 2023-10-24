@@ -18,26 +18,15 @@
  */
 package com.arcadedb.exception;
 
-import com.arcadedb.schema.Property;
-
-import lombok.Getter;
-
 /**
  * Exception thrown when a constrain is violated.
  *
  * @author Luca Garulli (l.garulli@arcadedata.com)
  */
 public class ValidationException extends ArcadeDBException {
-  @Getter
-  Property property;
 
 public ValidationException(final String message) {
     super(message);
-  }
-
-  public ValidationException(final String message, Property property) {
-    super(message);
-    this.property = property;
   }
 
   public ValidationException(final String message, final Throwable cause) {

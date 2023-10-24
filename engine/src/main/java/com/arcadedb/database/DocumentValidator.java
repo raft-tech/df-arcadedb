@@ -19,51 +19,34 @@
 package com.arcadedb.database;
 
 import com.arcadedb.exception.ValidationException;
-import com.arcadedb.log.LogManager;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 
-//import lombok.extern.slf4j.Slf4j;
-
 import java.math.*;
 import java.util.*;
-import java.util.logging.Level;
 
 /**
  * Validates documents against constraints defined in the schema.
  *
  * @author Luca Garulli (l.garulli@arcadedata.com)
  */
-//@Slf4j
 public class DocumentValidator {
 
-  public static void validateWithACCMutable(final MutableDocument document) throws ValidationException {
-    validate(document);
-
-    // additionally validate custom ACCM properties as embedded documents in the document
-    List<Property> properties = new ArrayList<>();
-    Property classification = new Property(document.getType(), "classification", Type.EMBEDDED);
-
-  }
+  // TODO move ACCM validation here?
 
   public static void validateSpecificProperties(final MutableDocument document, final List<Property> properties) throws ValidationException {
-    System.out.println("validating document: " + document.toString());
     document.checkForLazyLoadingProperties();
     for (Property entry : properties)
       validateField(document, entry);
   }
 
   public static void validate(final MutableDocument document) throws ValidationException {
-    System.out.println("validating document: " + document.toString());
     document.checkForLazyLoadingProperties();
     for (Property entry : document.getType().getProperties())
       validateField(document, entry);
   }
 
   public static void validateField(final MutableDocument document, final Property p) throws ValidationException {
-    LogManager.instance().log(DocumentValidator.class, Level.SEVERE, "Validting field with props: " + p.toString());
-   // log.info("Validating field {} with value {}", p, document.get(p.getName()));
-    System.out.println("Validating field " + p.toString() + " with value " + document.get(p.getName()));
     if (p.isMandatory() && !document.has(p.getName()))
       throwValidationException(p, "is mandatory, but not found on record: " + document);
 
@@ -324,6 +307,6 @@ public class DocumentValidator {
   }
 
   private static void throwValidationException(final Property p, final String message) throws ValidationException {
-    throw new ValidationException("The property '" + p.getName() + "' " + message, p);
+    throw new ValidationException("The property '" + p.getName() + "' " + message);
   }
 }
