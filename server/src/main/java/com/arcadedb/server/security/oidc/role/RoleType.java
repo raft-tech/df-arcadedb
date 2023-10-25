@@ -11,7 +11,7 @@ public enum RoleType {
     DATABASE_ADMIN("dba", "dba"),
     USER("user", "user"),
     SERVER_ADMIN("sa","sa"),
-    DATA_STEWARD("data-steward", "data-steward");
+    DATA_STEWARD("dataSteward", "dataSteward");
 
     /**
      * Keyword used in the keycloak role name to look for when knowing what type of role is being defined

@@ -304,10 +304,11 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
     return array;
   }
 
+  /**
+   * Checks if the user is a data steward role type for type of object requested.
+   */
   @Override
   public boolean isDataSteward(String type) {
-    // check if the user possess a data steward role for the given type
-
     for (ArcadeRole role : arcadeRoles) {
       if (role.getRoleType().equals(RoleType.DATA_STEWARD) && role.isTypeMatch(type)) {
         return true;
@@ -319,6 +320,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean isServiceAccount() {
+    // Keycloak client service account naming convention follows this. Update as needed.
     return this.userName.startsWith("service-account-");
   }
 }
