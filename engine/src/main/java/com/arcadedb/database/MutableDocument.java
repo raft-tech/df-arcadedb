@@ -135,7 +135,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
          .readOnly(true)
          .notNull(true)
          .required(true)
-         .options(List.of("U", "CUI"));
+         .options(List.of("U", "CUI", "C", "S"));
 
     // TODO further limit options based on databsase classification- can't be classified higher than the instance
     // TODO recieve classification level from env var/k8s

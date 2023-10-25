@@ -323,14 +323,23 @@ public class ArcadeDBServer {
     return databases.containsKey(databaseName);
   }
 
-  public synchronized DatabaseInternal createDatabase(final String databaseName, final PaginatedFile.MODE mode) {
-    DatabaseInternal db = databases.get(databaseName);
+  public synchronized DatabaseInternal createDatabase(final String databaseName, final PaginatedFile.MODE mode) { 
+    return createDatabase(databaseName, mode, databaseName, null, null, false);
+  }
+
+  public synchronized DatabaseInternal createDatabase(final String databaseName, final PaginatedFile.MODE mode,
+         String classification, List<String> attributes, List<String> owner, boolean isPublic) {   DatabaseInternal db = databases.get(databaseName);
     if (db != null)
       throw new IllegalArgumentException("Database '" + databaseName + "' already exists");
 
     final DatabaseFactory factory = new DatabaseFactory(
-        configuration.getValueAsString(GlobalConfiguration.SERVER_DATABASE_DIRECTORY) + File.separator + databaseName).setAutoTransaction(true);
-
+                configuration.getValueAsString(GlobalConfiguration.SERVER_DATABASE_DIRECTORY) + File.separator + databaseName)
+        .setAutoTransaction(true)
+        .setPublic(isPublic)
+        .setClassification(classification)
+        .setOwner(owner)
+        .setAttributes(attributes);
+    
     if (factory.exists())
       throw new IllegalArgumentException("Database '" + databaseName + "' already exists");
 

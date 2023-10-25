@@ -41,6 +41,7 @@ import com.arcadedb.server.security.oidc.role.CRUDPermission;
 import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 
@@ -49,6 +50,7 @@ import io.undertow.server.HttpServerExchange;
 import java.io.*;
 import java.rmi.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class PostServerCommandHandler extends AbstractHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {
@@ -88,7 +90,7 @@ public class PostServerCommandHandler extends AbstractHandler {
       if (command.startsWith("shutdown"))
         shutdownServer(command);
       else if (command.startsWith("create database "))
-        createDatabase(command, user);
+        createDatabase(payload, user);
       else if (command.equals("list databases")) {
         return listDatabases(user);
       } else if (command.startsWith("drop database "))
@@ -189,20 +191,74 @@ public class PostServerCommandHandler extends AbstractHandler {
     });
   }
 
-  private void createDatabase(final String command, final ServerSecurityUser user) {
-    final String databaseName = command.substring("create database ".length()).trim();
-    if (databaseName.isEmpty())
-      throw new IllegalArgumentException("Database name empty");
+  private boolean isNotNullOrEmpty(String toCheck) {
+    return toCheck != null && !toCheck.isEmpty();
+  }
+
+  private void createDatabase(final JsonObject command, final ServerSecurityUser user) {
 
     // check if user has create database role, or is root
     var anyRequiredRoles = List.of(ServerAdminRole.CREATE_DATABASE, ServerAdminRole.ALL);
     if (httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, anyRequiredRoles)) {
       checkServerIsLeaderIfInHA();
 
+      // TODO check if required database info is present in the JSON options payload, including owner, classificaiton, public/private
+      final String databaseName = command.get("command").getAsString().substring("create database ".length()).trim();
+
+      final String OPTIONS = "options";
+      final String CLASSIFICATION = "classification";
+      final String OWNER = "owner";
+      final String VISIBILITY = "visibility";
+      final String ATTRIBUTES = "attributes";
+
+      if (databaseName.isEmpty())
+        throw new IllegalArgumentException("Database name empty");
+      // validate json payload, needs command and options object
+      if (!command.has("command"))
+        throw new IllegalArgumentException("Missing command");
+      if (!command.has(OPTIONS))
+        throw new IllegalArgumentException(String.format("Missing %s object", OPTIONS));
+
+        var options = command.get(OPTIONS).getAsJsonObject();
+
+        if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.get(CLASSIFICATION).getAsString())) {
+          throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, CLASSIFICATION));
+        }
+        if (!options.has(OWNER) && !isNotNullOrEmpty(options.get(OWNER).getAsString())) {
+          throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, OWNER));
+        }
+        if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.get(VISIBILITY).getAsString())) {
+          throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, VISIBILITY));
+        }
+
+        String classification = options.get(CLASSIFICATION).getAsString();
+        // TODO validate provided classification is valid
+
+        List<String> owner = new ArrayList<>();
+        
+        if (options.get(OWNER).isJsonArray()) {
+          owner = options.get(OWNER)
+                   .getAsJsonArray()
+                   .asList()
+                   .stream()
+                   .map(a->a.getAsString())
+                   .collect(Collectors.toList());
+        } else {
+          owner.add(options.get(OWNER).getAsString());
+        }
+        List<String> attributes = options.has(ATTRIBUTES) ? 
+            options.get(ATTRIBUTES)
+                   .getAsJsonArray()
+                   .asList()
+                   .stream()
+                   .map(a->a.getAsString())
+                   .collect(Collectors.toList()) : null;
+        boolean isPublic = options.has(VISIBILITY) ? options.get(VISIBILITY).getAsString().equalsIgnoreCase("public") : false;
+
       final ArcadeDBServer server = httpServer.getServer();
       server.getServerMetrics().meter("http.create-database").hit();
 
-      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE);
+      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE, classification, owner, attributes, isPublic);
 
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();

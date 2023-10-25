@@ -38,6 +38,11 @@ public class DatabaseFactory implements AutoCloseable {
   private final        String                                                     databasePath;
   private final        Map<DatabaseInternal.CALLBACK_EVENT, List<Callable<Void>>> callbacks            = new HashMap<>();
 
+  private String classification = "Unclassified";
+  private List<String> owner;
+  private List<String> attributes = new ArrayList<>();
+  private boolean isPublic = false;
+
   public DatabaseFactory(final String path) {
     if (path == null || path.isEmpty())
       throw new IllegalArgumentException("Missing path");
@@ -144,5 +149,22 @@ public class DatabaseFactory implements AutoCloseable {
       database.close();
       throw new DatabaseOperationException("Found active instance of database '" + database.databasePath + "' already in use");
     }
+  }
+
+  public synchronized DatabaseFactory setOwner(final List<String> owner) {
+    this.owner = owner;
+    return this;
+  }
+  public synchronized DatabaseFactory setClassification(final String classification) {
+    this.classification = classification;
+    return this;
+  }
+  public synchronized DatabaseFactory setAttributes(final List<String> attributes) {
+    this.attributes = attributes;
+    return this;
+  }
+  public DatabaseFactory setPublic(final boolean isPublic) {
+    this.isPublic = isPublic;
+    return this;
   }
 }

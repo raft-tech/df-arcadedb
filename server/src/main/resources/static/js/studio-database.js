@@ -242,8 +242,23 @@ function updateDatabases( callback ){
 }
 
 function createDatabase(){
-  let html = "<label for='inputCreateDatabaseName'>Enter the database name:&nbsp;&nbsp;</label><input onkeydown='if (event.which === 13) Swal.clickConfirm()' id='inputCreateDatabaseName'>";
-
+    // <input onkeydown='if (event.which === 13) Swal.clickConfirm()' id='inputCreateDatabaseName'>
+  let html = `
+  <b>Name:  </b><input id='inputCreateDatabaseName'>
+  <b>Owner:  </b><input id='inputOwner'>
+  <p>Please select database visibility:</p>
+  <input type="radio" id="rbPublic" name="publicPrivate" value="public">
+  <label for="rbPublic">Public</label><br>
+  <input type="radio" id="rbPrivate" name="publicPrivate" value="private">
+  <label for="rbPrivate">Private</label><br>
+  <label for="classification">Choose a classification:</label>
+  <select name="classification" id="classification">
+    <option value="U">U</option>
+    <option value="CUI">CUI</option>
+    <option value="S">S</option>
+    <option value="TS">TS</option>
+  </select>
+  `;
   Swal.fire({
     title: 'Create a new database',
     html: html,
@@ -257,7 +272,25 @@ function createDatabase(){
   }).then((result) => {
     if (result.value) {
       let database = encodeURI( $("#inputCreateDatabaseName").val().trim() );
-      if( database == "" ){
+      let owner = encodeURI( $("#inputOwner").val().trim() );
+      let visibility = "public";
+
+      var ele = document.getElementsByName('publicPrivate');
+ 
+      for (i = 0; i < ele.length; i++) {
+          if (ele[i].checked)
+              visibility = ele[i].value;
+      }
+      
+      let classification = encodeURI( $("#classification").val() );
+      var options = {
+        owner: owner,
+        visibility: visibility,
+        classification: classification
+      }
+      console.log("options: ", database, owner, visibility, classification);
+
+      if ( database == "" ){
         globalNotify( "Error", "Database name empty", "danger");
         return;
       }
@@ -265,7 +298,9 @@ function createDatabase(){
       jQuery.ajax({
         type: "POST",
         url: basePath + "/server",
-        data: "{ 'command': 'create database " + database + "' }",
+
+        // TODO update with new options props.
+        data: "{ 'command': 'create database " + database + "', options: "+ JSON.stringify(options) + " }",
         beforeSend: function (xhr){
           xhr.setRequestHeader('Authorization', globalCredentials);
         }

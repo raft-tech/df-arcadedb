@@ -1081,6 +1081,8 @@ public class EmbeddedSchema implements Schema {
     settings.put("dateFormat", dateFormat);
     settings.put("dateTimeFormat", dateTimeFormat);
 
+   // settings.put("classification", )
+
     final JSONObject types = new JSONObject();
     root.put("types", types);
 
