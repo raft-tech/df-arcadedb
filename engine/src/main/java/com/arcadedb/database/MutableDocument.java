@@ -145,12 +145,9 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     List<Property> properties = new ArrayList<>();
 
     for (AccmProperty accmProperty : accmProperties) {
-      System.out.println("property: " + accmProperty.toString());
-
       DocumentType parentType = database.getSchema().getType(accmProperty.parentType());
 
       if (parentType == null) {
-        System.out.println("Error parent type not found");
         continue;
       }
 
@@ -202,8 +199,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
 
       set(CLASSIFICATION_MARKED, true);
     } catch (ValidationException e) {
-      // System.out.println("ValidationException: " + e.getMessage());
-
       // Only ignore data validation errors on writes for service accounts.
       if (database.getContext().getCurrentUser().isServiceAccount()) {
 
