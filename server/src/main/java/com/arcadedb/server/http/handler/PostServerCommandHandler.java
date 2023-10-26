@@ -235,7 +235,8 @@ public class PostServerCommandHandler extends AbstractHandler {
       String classification = options.get(CLASSIFICATION).getAsString();
 
       // TODO cap acceptable classifications at the deployment level.
-      var acceptableClassifications = List.of("U", "CUI", "S", "TS");
+      // make static util method for this
+      var acceptableClassifications = List.of("U", "CUI", "C", "S", "TS");
       
       if (!acceptableClassifications.contains(classification)) {
         throw new IllegalArgumentException(String.format("Invalid classification %s. Acceptable values are %s", classification, acceptableClassifications));
