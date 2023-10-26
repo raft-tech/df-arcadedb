@@ -58,6 +58,9 @@ import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.utility.CollectionUtils;
 import com.arcadedb.utility.FileUtils;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.*;
 import java.time.*;
 import java.util.*;
@@ -97,6 +100,19 @@ public class EmbeddedSchema implements Schema {
   private             boolean                                multipleUpdate        = false;
   private final       AtomicLong                             versionSerial         = new AtomicLong();
   private final       Map<String, FunctionLibraryDefinition> functionLibraries     = new ConcurrentHashMap<>();
+
+  @Getter @Setter
+  private String classification;
+
+  @Getter @Setter
+  private String owner;
+
+  @Getter @Setter
+  private boolean isPublic = true;
+
+  @Getter @Setter
+  private String attributes;
+
 
   public EmbeddedSchema(final DatabaseInternal database, final String databasePath, final SecurityManager security) {
     this.database = database;
@@ -849,6 +865,18 @@ public class EmbeddedSchema implements Schema {
         timeZone = TimeZone.getTimeZone(zoneId);
       }
 
+      if (settings.has("classification")) {
+        classification = settings.getString("classification");
+      }
+
+      if (settings.has("owner")) {
+        owner = settings.getString("owner");
+      }
+
+      if (settings.has("isPublic")) {
+        isPublic = settings.getBoolean("isPublic");
+      }
+
       dateFormat = settings.getString("dateFormat");
       dateTimeFormat = settings.getString("dateTimeFormat");
 
@@ -1078,10 +1106,22 @@ public class EmbeddedSchema implements Schema {
     root.put("settings", settings);
 
     settings.put("zoneId", zoneId.getId());
-    settings.put("dateFormat", dateFormat);
+    settings.put("dateFormat", dateFormat); 
     settings.put("dateTimeFormat", dateTimeFormat);
 
-   // settings.put("classification", )
+    if (classification != null && !classification.trim().isEmpty()) {
+      settings.put("classification", classification);
+    }
+
+    if (owner != null && !owner.trim().isEmpty()) {
+      settings.put("owner", owner);
+    }
+
+    settings.put("isPublic", isPublic);
+
+    if (attributes != null && !attributes.trim().isEmpty()) {
+      settings.put("attributes", attributes);
+    }
 
     final JSONObject types = new JSONObject();
     root.put("types", types);

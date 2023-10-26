@@ -39,8 +39,8 @@ public class DatabaseFactory implements AutoCloseable {
   private final        Map<DatabaseInternal.CALLBACK_EVENT, List<Callable<Void>>> callbacks            = new HashMap<>();
 
   private String classification = "Unclassified";
-  private List<String> owner;
-  private List<String> attributes = new ArrayList<>();
+  private String owner;
+  private String attributes;
   private boolean isPublic = false;
 
   public DatabaseFactory(final String path) {
@@ -91,6 +91,13 @@ public class DatabaseFactory implements AutoCloseable {
     final EmbeddedDatabase database = new EmbeddedDatabase(databasePath, PaginatedFile.MODE.READ_WRITE, contextConfiguration, security, callbacks);
     database.setAutoTransaction(autoTransaction);
     database.create();
+
+    // Set additional operational metadata for the new database
+    database.getSchema().getEmbedded().setClassification(classification);
+    database.getSchema().getEmbedded().setOwner(owner);
+    database.getSchema().getEmbedded().setAttributes(attributes);
+    database.getSchema().getEmbedded().setPublic(isPublic);
+    database.getSchema().getEmbedded().saveConfiguration();
 
     registerActiveInstance(database);
 
@@ -151,7 +158,7 @@ public class DatabaseFactory implements AutoCloseable {
     }
   }
 
-  public synchronized DatabaseFactory setOwner(final List<String> owner) {
+  public synchronized DatabaseFactory setOwner(final String owner) {
     this.owner = owner;
     return this;
   }
@@ -159,7 +166,7 @@ public class DatabaseFactory implements AutoCloseable {
     this.classification = classification;
     return this;
   }
-  public synchronized DatabaseFactory setAttributes(final List<String> attributes) {
+  public synchronized DatabaseFactory setAttributes(final String attributes) {
     this.attributes = attributes;
     return this;
   }

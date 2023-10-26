@@ -219,41 +219,31 @@ public class PostServerCommandHandler extends AbstractHandler {
       if (!command.has(OPTIONS))
         throw new IllegalArgumentException(String.format("Missing %s object", OPTIONS));
 
-        var options = command.get(OPTIONS).getAsJsonObject();
+      var options = command.get(OPTIONS).getAsJsonObject();
 
-        if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.get(CLASSIFICATION).getAsString())) {
-          throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, CLASSIFICATION));
-        }
-        if (!options.has(OWNER) && !isNotNullOrEmpty(options.get(OWNER).getAsString())) {
-          throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, OWNER));
-        }
-        if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.get(VISIBILITY).getAsString())) {
-          throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, VISIBILITY));
-        }
+      if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.get(CLASSIFICATION).getAsString())) {
+        throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, CLASSIFICATION));
+      }
+      if (!options.has(OWNER) && !isNotNullOrEmpty(options.get(OWNER).getAsString())) {
+        throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, OWNER));
+      }
+      if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.get(VISIBILITY).getAsString())) {
+        throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, VISIBILITY));
+      }
 
-        String classification = options.get(CLASSIFICATION).getAsString();
-        // TODO validate provided classification is valid
+      // Handle operational database metadata
+      String classification = options.get(CLASSIFICATION).getAsString();
 
-        List<String> owner = new ArrayList<>();
-        
-        if (options.get(OWNER).isJsonArray()) {
-          owner = options.get(OWNER)
-                   .getAsJsonArray()
-                   .asList()
-                   .stream()
-                   .map(a->a.getAsString())
-                   .collect(Collectors.toList());
-        } else {
-          owner.add(options.get(OWNER).getAsString());
-        }
-        List<String> attributes = options.has(ATTRIBUTES) ? 
-            options.get(ATTRIBUTES)
-                   .getAsJsonArray()
-                   .asList()
-                   .stream()
-                   .map(a->a.getAsString())
-                   .collect(Collectors.toList()) : null;
-        boolean isPublic = options.has(VISIBILITY) ? options.get(VISIBILITY).getAsString().equalsIgnoreCase("public") : false;
+      // TODO cap acceptable classifications at the deployment level.
+      var acceptableClassifications = List.of("U", "CUI", "S", "TS");
+      
+      if (!acceptableClassifications.contains(classification)) {
+        throw new IllegalArgumentException(String.format("Invalid classification %s. Acceptable values are %s", classification, acceptableClassifications));
+      }
+      
+      String owner = options.has(OWNER) ? options.get(OWNER).getAsString() : null;
+      String attributes = options.has(ATTRIBUTES) ? options.get(ATTRIBUTES).getAsString() : null;
+      boolean isPublic = options.has(VISIBILITY) ? options.get(VISIBILITY).getAsString().equalsIgnoreCase("public") : false;
 
       final ArcadeDBServer server = httpServer.getServer();
       server.getServerMetrics().meter("http.create-database").hit();

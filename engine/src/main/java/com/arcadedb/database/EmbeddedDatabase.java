@@ -75,9 +75,6 @@ import com.arcadedb.utility.LockException;
 import com.arcadedb.utility.MultiIterator;
 import com.arcadedb.utility.RWLockContext;
 
-import lombok.Getter;
-import lombok.Setter;
-
 import java.io.*;
 import java.nio.channels.*;
 import java.nio.file.*;
@@ -130,17 +127,9 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
   private final        ConcurrentHashMap<String, QueryEngine>    reusableQueryEngines                 = new ConcurrentHashMap<>();
   private              TRANSACTION_ISOLATION_LEVEL               transactionIsolationLevel            = TRANSACTION_ISOLATION_LEVEL.READ_COMMITTED;
 
-  @Getter @Setter
-  protected String classification = "";
-  @Getter @Setter
-  protected List<String> owner;
-  @Getter @Setter
-  protected List<String> attributes = new ArrayList<>();
-   @Getter @Setter
-  protected boolean isPublic = false;
-
   protected EmbeddedDatabase(final String path, final PaginatedFile.MODE mode, final ContextConfiguration configuration, final SecurityManager security,
       final Map<CALLBACK_EVENT, List<Callable<Void>>> callbacks) {
+
     try {
       this.mode = mode;
       this.configuration = configuration;

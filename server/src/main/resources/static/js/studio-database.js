@@ -244,20 +244,22 @@ function updateDatabases( callback ){
 function createDatabase(){
     // <input onkeydown='if (event.which === 13) Swal.clickConfirm()' id='inputCreateDatabaseName'>
   let html = `
-  <b>Name:  </b><input id='inputCreateDatabaseName'>
-  <b>Owner:  </b><input id='inputOwner'>
-  <p>Please select database visibility:</p>
-  <input type="radio" id="rbPublic" name="publicPrivate" value="public">
-  <label for="rbPublic">Public</label><br>
-  <input type="radio" id="rbPrivate" name="publicPrivate" value="private">
-  <label for="rbPrivate">Private</label><br>
+  <b>Name:  </b><input id='inputCreateDatabaseName'></br>
   <label for="classification">Choose a classification:</label>
   <select name="classification" id="classification">
     <option value="U">U</option>
     <option value="CUI">CUI</option>
     <option value="S">S</option>
     <option value="TS">TS</option>
-  </select>
+  </select></br>
+  <b>Attributes:  </b><input id='inputAttributes'></br>
+  <b>Owner:  </b><input id='inputOwner'>
+  <p>Please select database visibility:</p>
+  <input type="radio" id="rbPublic" name="publicPrivate" value="public">
+  <label for="rbPublic">Public</label><br>
+  <input type="radio" id="rbPrivate" name="publicPrivate" value="private">
+  <label for="rbPrivate">Private</label><br>
+
   `;
   Swal.fire({
     title: 'Create a new database',
@@ -273,6 +275,7 @@ function createDatabase(){
     if (result.value) {
       let database = encodeURI( $("#inputCreateDatabaseName").val().trim() );
       let owner = encodeURI( $("#inputOwner").val().trim() );
+      let attributes = encodeURI( $("#inputAttributes").val().trim() );
       let visibility = "public";
 
       var ele = document.getElementsByName('publicPrivate');
@@ -283,12 +286,14 @@ function createDatabase(){
       }
       
       let classification = encodeURI( $("#classification").val() );
+      
       var options = {
         owner: owner,
         visibility: visibility,
-        classification: classification
+        classification: classification,
+        attributes: attributes
       }
-      console.log("options: ", database, owner, visibility, classification);
+      console.log("options: ", database, owner, visibility, attributes, classification);
 
       if ( database == "" ){
         globalNotify( "Error", "Database name empty", "danger");
