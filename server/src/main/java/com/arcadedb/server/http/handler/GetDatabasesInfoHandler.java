@@ -42,11 +42,19 @@ public class GetDatabasesInfoHandler  extends AbstractHandler {
                   root.put("attributes", embeddedSchema.getAttributes());
                 }
 
+                if (embeddedSchema.getCreatedBy() != null) {
+                  root.put("createdBy", embeddedSchema.getCreatedBy());
+                }
+
+                if (embeddedSchema.getCreatedDateTime() != null) {
+                  root.put("createdDateTime", embeddedSchema.getCreatedDateTime());
+                }
+
                 databases.put(root);
             }
           }
         }
         
-        return new ExecutionResponse(200, databases.toString());
+        return new ExecutionResponse(200, "{ \"result\" : " + databases + "}");
     }
 }

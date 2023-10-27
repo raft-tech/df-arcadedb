@@ -114,6 +114,7 @@ async function login() {
     updateLocalStorageWithNewJwt(jwt);
     createRefreshTokenTimer(jwt.expires_in);
     createInactivityTimer();
+    loadDatabaseMetadata();
   }
 
   updateDatabases(function () {
@@ -189,13 +190,12 @@ function editorFocus(){
 
 function updateDatabases( callback ){
   let selected = getCurrentDatabase();
-  if( selected == null || selected == "" )
+  if (selected == null || selected == "")
     selected = globalStorageLoad("database.current");
 
   jQuery.ajax({
-    type: "POST",
-    url: basePath + "/server",
-    data: "{ command: 'list databases' }",
+    type: "GET",
+    url: basePath + "/databasesInfo",
     beforeSend: function (xhr){
       xhr.setRequestHeader('Authorization', globalCredentials);
     }
@@ -210,8 +210,9 @@ function updateDatabases( callback ){
 
       let databases = "";
       for( let i in data.result ){
-        let dbName = data.result[i];
-        databases += "<option value='"+dbName+"'>"+dbName+"</option>";
+        let dbName = data.result[i].name;
+        let classification = data.result[i].classification || "";
+        databases += `<option value='${dbName}'><b>(${classification})</b> ${dbName}</option>`;
       }
       $("#inputDatabase").html(databases);
   
@@ -284,9 +285,9 @@ function createDatabase(){
           if (ele[i].checked)
               visibility = ele[i].value;
       }
-      
+
       let classification = encodeURI( $("#classification").val() );
-      
+
       var options = {
         owner: owner,
         visibility: visibility,
@@ -450,6 +451,7 @@ function setCurrentDatabase( dbName ){
   $("#currentDatabase").html( dbName );
   $("#inputDatabase").val( dbName );
   globalStorageSave("database.current", dbName);
+  loadDatabaseMetadata();
 }
 
 function getQueryHistory(){
@@ -957,4 +959,34 @@ function updateDatabaseSetting(key, value){
       });
     }
   });
+}
+
+function loadDatabaseMetadata() {
+  jQuery.ajax({
+    type: "GET",
+    url: basePath + "/databasesInfo",
+    beforeSend: function (xhr){
+      xhr.setRequestHeader('Authorization', globalCredentials);
+    }
+  })
+  .done(function(data) {
+    let json = JSON.parse(JSON.stringify(data));
+    
+    if (typeof json == "object" && json["result"] == 'ok') {
+      // no data returned, the user doesn't have access to any databases
+    } else {
+      // valid response, parse the databases the user has access to
+      let databases = "";
+      for ( let i in data.result ) {
+        if ( data.result[i].name == $("#inputDatabase").val()) {
+            $("#lblClassification").text( data.result[i].classification || "" );
+            $("#lblAttributes").text( data.result[i].attributes || "" );
+            $("#lblOwner").text( data.result[i].owner || "" );
+            $("#lblPublic").text( data.result[i].isPublic || "" );
+            $("#lblCreatedBy").text( data.result[i].createdBy || "" );
+            $("#lblCreatedDate").text( data.result[i].createdDateTime || "" );
+          }
+        }
+      }
+    });
 }

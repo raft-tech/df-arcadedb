@@ -113,6 +113,11 @@ public class EmbeddedSchema implements Schema {
   @Getter @Setter
   private String attributes;
 
+  @Getter
+  private String createdBy;
+
+  @Getter
+  private String createdDateTime;
 
   public EmbeddedSchema(final DatabaseInternal database, final String databasePath, final SecurityManager security) {
     this.database = database;
@@ -877,6 +882,14 @@ public class EmbeddedSchema implements Schema {
         isPublic = settings.getBoolean("isPublic");
       }
 
+      if (settings.has("createdBy")) {
+        createdBy = settings.getString("createdBy");
+      }
+
+      if (settings.has("createdDateTime")) {
+        createdDateTime = settings.getString("createdDateTime");
+      }
+
       dateFormat = settings.getString("dateFormat");
       dateTimeFormat = settings.getString("dateTimeFormat");
 
@@ -1122,6 +1135,9 @@ public class EmbeddedSchema implements Schema {
     if (attributes != null && !attributes.trim().isEmpty()) {
       settings.put("attributes", attributes);
     }
+
+    settings.put("createdDateTime", LocalDateTime.now().toString());
+    settings.put("createdBy", database.getCurrentUserName());
 
     final JSONObject types = new JSONObject();
     root.put("types", types);

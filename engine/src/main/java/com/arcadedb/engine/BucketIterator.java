@@ -103,6 +103,9 @@ public class BucketIterator implements Iterator<Record> {
               }
 
               next = rid.getRecord(false);
+
+              // TODO strip out properties the user doesn't have access to
+
               return null;
 
             } else if (recordSize[0] == Bucket.RECORD_PLACEHOLDER_POINTER) {
@@ -121,6 +124,8 @@ public class BucketIterator implements Iterator<Record> {
               if (!checkPermissionsOnDocument(record.asDocument(true))) {
                 continue;
               }
+
+              // TODO strip out properties the user doesn't have access to
 
               next = record;
               return null;
@@ -146,6 +151,12 @@ public class BucketIterator implements Iterator<Record> {
 
   private boolean checkPermissionsOnDocument(final Document document) {
     var currentUser = database.getContext().getCurrentUser();
+
+    // TODO short term - check classification, attribution on document
+
+    // TODO long term - replace with filtering by low classification of related/linked document.
+    // Expensive to do at read time. Include linkages and classification at write time?
+    // Needs performance testing and COA analysis.
 
     if (currentUser.isServiceAccount() || currentUser.isDataSteward(document.getTypeName())) {
       return true;
