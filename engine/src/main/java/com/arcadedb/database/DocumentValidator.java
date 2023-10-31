@@ -32,6 +32,9 @@ import java.util.*;
  */
 public class DocumentValidator {
 
+  /**
+   * Map of ordered classification abbreviations, permitting math comparisons to check classification validity.
+   */
   public static final Map<String, Integer> classificationOptions = 
       Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
 
@@ -45,15 +48,6 @@ public class DocumentValidator {
     var deploymentClassification = System.getProperty("deploymentClassifcation", "S");
     if (classificationOptions.get(deploymentClassification) < classificationOptions.get(classification))
       throw new IllegalArgumentException("Classification " + classification + " is not allowed in this deployment");
-  }
-
-  // TODO move ACCM validation here?
-
-  public static void validateSpecificProperties(final MutableDocument document, final List<Property> properties) throws ValidationException {
-    document.checkForLazyLoadingProperties();
-    for (Property entry : properties) {
-      validateField(document, entry);
-    }
   }
 
   public static void validateClassificationMarkings(final MutableDocument document) {
@@ -114,32 +108,6 @@ public class DocumentValidator {
         throw new ValidationException("Source " + source + " is not valid");
       }
     });
-
-    // var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES);
-    // if (!sources.isEmpty()) {
-    //   sources.forEach(s-> {
-    //     if (s != null) {
-    //       var source = s.toString().trim();
-    //       if (source.contains("(") && source.contains(")") 
-    //               && source.substring(0, 1).equals("(")) {
-    //         var markings = source.substring(1, source.indexOf(")"));
-    //         if (markings.trim().isEmpty()) {
-    //           throw new ValidationException("Source " + source + " is not valid");
-    //         }
-    //         if (markings.contains("//")) {
-    //           markings = markings.substring(0, markings.indexOf("//"));
-    //         }
-    //         try {
-    //           checkClassification(markings);
-    //         } catch (IllegalArgumentException e) {
-    //           throw new ValidationException("Invalid classification for source: " + markings);
-    //         }
-    //       } else {
-    //         throw new ValidationException("Source " + source + " is not valid");
-    //       }
-    //     }
-    //   });
-    // }
   }
 
   public static void validate(final MutableDocument document) throws ValidationException {
