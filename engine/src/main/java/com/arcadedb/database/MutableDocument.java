@@ -23,11 +23,15 @@ import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 import com.arcadedb.security.ACCM.AccmProperty;
+import com.arcadedb.security.ACCM.AccmProperty;
 import com.arcadedb.serializer.json.JSONObject;
 
 import java.util.*;
 
 /**
+ * Mutable document implementation. Nested objects are not tracked, so if you
+ * update any embedded objects, you need to call {@link #save()} to mark the
+ * record
  * Mutable document implementation. Nested objects are not tracked, so if you
  * update any embedded objects, you need to call {@link #save()} to mark the
  * record
@@ -70,6 +74,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   public synchronized void setBuffer(final Binary buffer) {
     super.setBuffer(buffer);
     dirty = false;
+    // map = null; // AVOID RESETTING HERE FOR INDEXES THAT CAN LOOKUP UP FOR FIELDS
+    // CAUSING AN UNMARSHALLING
     // map = null; // AVOID RESETTING HERE FOR INDEXES THAT CAN LOOKUP UP FOR FIELDS
     // CAUSING AN UNMARSHALLING
   }
@@ -219,12 +225,38 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    *
    * @throws ValidationException if the document breaks some validation
    *                             constraints defined in the
+   * @throws ValidationException if the document breaks some validation
+   *                             constraints defined in the
    *                             schema
    * @see Property
    */
   public void validate() throws ValidationException {
 
+
     DocumentValidator.validate(this);
+  }
+
+  private MutableEmbeddedDocument getEmbeddedDocumentToValidate(MutableDocument mutableDocument, final String name) {
+    // form of embeddedDoc.property
+    // could be embeddedDoc1.embeddedDoc2.property
+
+    if (name == null || name == "" || !name.contains(".")) {
+      return (MutableEmbeddedDocument) mutableDocument;
+    }
+
+    String embeddedDocName = name.substring(0, name.indexOf("."));
+    String remainingPropertyName = name.substring(name.indexOf(".") + 1);
+    final Object fieldValue = mutableDocument.get(embeddedDocName);
+
+    if (fieldValue != null && fieldValue instanceof MutableEmbeddedDocument) {
+      if (remainingPropertyName.split(".").length > 1) {
+        return getEmbeddedDocumentToValidate((MutableDocument) fieldValue, remainingPropertyName);
+      } else {
+        return (MutableEmbeddedDocument) fieldValue;
+      }
+    } else {
+       throw new ValidationException("Document classification incomplete for property: " + name);
+    }
   }
 
   private MutableEmbeddedDocument getEmbeddedDocumentToValidate(MutableDocument mutableDocument, final String name) {
@@ -264,6 +296,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Sets the property value in the document. If the property has been defined in
    * the schema, the value is converted according to the property type.
+   * Sets the property value in the document. If the property has been defined in
+   * the schema, the value is converted according to the property type.
    */
   public synchronized MutableDocument set(final String name, Object value) {
     checkForLazyLoadingProperties();
@@ -274,6 +308,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   }
 
   /**
+   * Sets the property values in the document. If any properties has been defined
+   * in the schema, the value is converted according to the property type.
    * Sets the property values in the document. If any properties has been defined
    * in the schema, the value is converted according to the property type.
    *
@@ -302,9 +338,14 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    * Creates a new embedded document attached to the current document. If the
    * property name already exists, and it is a collection, then the embedded
    * document
+   * Creates a new embedded document attached to the current document. If the
+   * property name already exists, and it is a collection, then the embedded
+   * document
    * is added to the collection.
    *
    * @param embeddedTypeName Embedded type name
+   * @param propertyName     Current document's property name where the embedded
+   *                         document is stored
    * @param propertyName     Current document's property name where the embedded
    *                         document is stored
    *
@@ -312,8 +353,12 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
       final String propertyName) {
+  public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
+      final String propertyName) {
     final Object old = get(propertyName);
 
+    final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
+        embeddedTypeName);
     final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
         embeddedTypeName);
     if (old instanceof Collection)
@@ -327,9 +372,13 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Creates a new embedded document attached to the current document. If the
    * property name already exists, and it is a map, then the embedded document
+   * Creates a new embedded document attached to the current document. If the
+   * property name already exists, and it is a map, then the embedded document
    * is added to the collection.
    *
    * @param embeddedTypeName Embedded type name
+   * @param propertyName     Current document's property name where the embedded
+   *                         document is stored
    * @param propertyName     Current document's property name where the embedded
    *                         document is stored
    * @param mapKey           key for the map to assign the embedded document
@@ -338,8 +387,12 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
       final String propertyName, final String mapKey) {
+  public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
+      final String propertyName, final String mapKey) {
     final Object old = get(propertyName);
 
+    final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
+        embeddedTypeName);
     final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
         embeddedTypeName);
 
@@ -352,6 +405,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     else
       throw new IllegalArgumentException(
           "Property '" + propertyName + "' is '" + old.getClass() + "', but null or Map was expected");
+      throw new IllegalArgumentException(
+          "Property '" + propertyName + "' is '" + old.getClass() + "', but null or Map was expected");
 
     return emb;
   }
@@ -359,8 +414,14 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Creates a new embedded document attached to the current document inside a map
    * that must be previously created and set.
+   * Creates a new embedded document attached to the current document inside a map
+   * that must be previously created and set.
    *
    * @param embeddedTypeName Embedded type name
+   * @param propertyName     Current document's property name where the embedded
+   *                         document is stored
+   * @param propertyMapKey   Key to use when storing the embedded document in the
+   *                         map
    * @param propertyName     Current document's property name where the embedded
    *                         document is stored
    * @param propertyMapKey   Key to use when storing the embedded document in the
@@ -370,9 +431,13 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
       final String propertyName, final Object propertyMapKey) {
+  public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
+      final String propertyName, final Object propertyMapKey) {
     final Object old = get(propertyName);
 
     if (old == null)
+      throw new IllegalArgumentException(
+          "Cannot store an embedded document in a null map. Create and set the map first");
       throw new IllegalArgumentException(
           "Cannot store an embedded document in a null map. Create and set the map first");
 
@@ -382,7 +447,11 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     if (!(old instanceof Map))
       throw new IllegalArgumentException(
           "Cannot store an embedded document in a map because another value was found instead of a Map");
+      throw new IllegalArgumentException(
+          "Cannot store an embedded document in a map because another value was found instead of a Map");
 
+    final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
+        embeddedTypeName);
     final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
         embeddedTypeName);
     ((Map<Object, EmbeddedDocument>) old).put(propertyMapKey, emb);
@@ -394,7 +463,12 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    * Sets the property values in the document from a map. If any properties has
    * been defined in the schema, the value is converted according to the property
    * type.
+   * Sets the property values in the document from a map. If any properties has
+   * been defined in the schema, the value is converted according to the property
+   * type.
    *
+   * @param properties {@literal Map<String,Object>} containing pairs of name
+   *                   (String) and value (Object)
    * @param properties {@literal Map<String,Object>} containing pairs of name
    *                   (String) and value (Object)
    */
@@ -510,6 +584,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
       buffer.position(propertiesStartingPosition);
       this.map = this.database.getSerializer().deserializeProperties(this.database, buffer,
           new EmbeddedModifierObject(this), type);
+      this.map = this.database.getSerializer().deserializeProperties(this.database, buffer,
+          new EmbeddedModifierObject(this), type);
     }
   }
 
@@ -546,12 +622,18 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
             "Cannot convert type '" + value.getClass() + "' to '" + property.getType().name() + "' found in property '"
                 + name + "'",
             e);
+            "Cannot convert type '" + value.getClass() + "' to '" + property.getType().name() + "' found in property '"
+                + name + "'",
+            e);
       }
 
     return value;
   }
 
   private Object setTransformValue(final Object value, final String propertyName) {
+    // SET DIRTY TO FORCE RE-MARSHALL. IF THE RECORD COMES FROM ANOTHER DATABASE
+    // WITHOUT A FULL RE-MARSHALL, IT WILL HAVE THE DICTIONARY IDS OF THE OTHER
+    // DATABASE
     // SET DIRTY TO FORCE RE-MARSHALL. IF THE RECORD COMES FROM ANOTHER DATABASE
     // WITHOUT A FULL RE-MARSHALL, IT WILL HAVE THE DICTIONARY IDS OF THE OTHER
     // DATABASE
@@ -576,6 +658,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
           final MutableDocument newRecord = (MutableDocument) database.getRecordFactory()
               .newMutableRecord(database, ((EmbeddedDocument) v).getType(), null, ((BaseDocument) v).buffer,
                   new EmbeddedModifierProperty(this, propertyName));
+              .newMutableRecord(database, ((EmbeddedDocument) v).getType(), null, ((BaseDocument) v).buffer,
+                  new EmbeddedModifierProperty(this, propertyName));
           newRecord.buffer = null;
           newRecord.map = new LinkedHashMap<>();
           newRecord.dirty = true;
@@ -590,6 +674,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
         if (v instanceof Document && !((Document) v).getDatabase().getName().equals(database.getName())) {
           ((BaseDocument) v).buffer.rewind();
           final MutableDocument newRecord = (MutableDocument) database.getRecordFactory()
+              .newMutableRecord(database, ((EmbeddedDocument) v).getType(), null, ((BaseDocument) v).buffer,
+                  new EmbeddedModifierProperty(this, propertyName));
               .newMutableRecord(database, ((EmbeddedDocument) v).getType(), null, ((BaseDocument) v).buffer,
                   new EmbeddedModifierProperty(this, propertyName));
           newRecord.buffer = null;

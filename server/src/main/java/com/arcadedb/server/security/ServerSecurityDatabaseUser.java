@@ -27,6 +27,8 @@ import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.security.oidc.ArcadeRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
+import com.arcadedb.server.security.oidc.ArcadeRole;
+import com.arcadedb.server.security.oidc.role.RoleType;
 
 import lombok.extern.slf4j.Slf4j;
 

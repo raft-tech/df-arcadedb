@@ -24,6 +24,7 @@ import com.arcadedb.security.SecurityManager;
 import com.arcadedb.security.SecurityUser;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.security.oidc.ArcadeRole;
+import com.arcadedb.server.security.oidc.ArcadeRole;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,6 +34,7 @@ import com.arcadedb.serializer.json.JSONObject;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -117,6 +119,18 @@ public class ServerSecurityUser implements SecurityUser {
       dbu = prev;
 
     return dbu;
+  }
+
+  /**
+   * Return roles that are applicable to the user conducting operations against the database.
+   * @param arcadeRoles
+   * @param databaseName
+   * @return
+   */
+  private List<ArcadeRole> getRelevantRoles(List<ArcadeRole> arcadeRoles, String databaseName) {
+    return arcadeRoles.stream()
+                .filter(role -> role.isDatabaseMatch(databaseName))
+                .collect(Collectors.toList());
   }
 
   /**
