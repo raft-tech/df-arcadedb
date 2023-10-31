@@ -23,8 +23,6 @@ import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
-import com.arcadedb.database.Document;
-import com.arcadedb.database.MutableDocument;
 import com.arcadedb.database.RID;
 import com.arcadedb.database.Record;
 import com.arcadedb.exception.DatabaseOperationException;
@@ -107,10 +105,6 @@ public class BucketIterator implements Iterator<Record> {
                 continue;
               }
 
-              if (!checkPermissionsOnDocument(rid.asDocument(true))) {
-                continue;
-              }
-
               next = rid.getRecord(false);
 
               // TODO strip out properties the user doesn't have access to
@@ -127,7 +121,6 @@ public class BucketIterator implements Iterator<Record> {
               if (view == null)
                 continue;
 
-              var record = database.getRecordFactory()
               var record = database.getRecordFactory()
                   .newImmutableRecord(database, database.getSchema().getType(database.getSchema().getTypeNameByBucketId(rid.getBucketId())), rid, view, null);
 

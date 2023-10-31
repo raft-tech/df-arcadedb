@@ -133,18 +133,6 @@ public class ServerSecurityUser implements SecurityUser {
                 .collect(Collectors.toList());
   }
 
-  /**
-   * Return roles that are applicable to the user conducting operations against the database.
-   * @param arcadeRoles
-   * @param databaseName
-   * @return
-   */
-  private List<ArcadeRole> getRelevantRoles(List<ArcadeRole> arcadeRoles, String databaseName) {
-    return arcadeRoles.stream()
-                .filter(role -> role.isDatabaseMatch(databaseName))
-                .collect(Collectors.toList());
-  }
-
   public JSONObject toJSON() {
     return userConfiguration;
   }
