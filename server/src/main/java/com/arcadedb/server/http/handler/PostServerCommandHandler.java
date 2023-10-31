@@ -26,7 +26,6 @@ import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.security.AuthorizationUtils;
-//import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.ha.HAServer;
@@ -52,7 +51,6 @@ import io.undertow.server.HttpServerExchange;
 import java.io.*;
 import java.rmi.*;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class PostServerCommandHandler extends AbstractHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {

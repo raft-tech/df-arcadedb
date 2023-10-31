@@ -24,7 +24,6 @@ import com.arcadedb.security.SecurityManager;
 import com.arcadedb.security.SecurityUser;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.security.oidc.ArcadeRole;
-import com.arcadedb.server.security.oidc.ArcadeRole;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,8 +32,6 @@ import com.arcadedb.serializer.json.JSONObject;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.logging.Level;
-import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 
 @Slf4j

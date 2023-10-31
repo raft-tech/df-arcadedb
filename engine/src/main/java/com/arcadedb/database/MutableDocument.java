@@ -31,9 +31,6 @@ import java.util.*;
  * Mutable document implementation. Nested objects are not tracked, so if you
  * update any embedded objects, you need to call {@link #save()} to mark the
  * record
- * Mutable document implementation. Nested objects are not tracked, so if you
- * update any embedded objects, you need to call {@link #save()} to mark the
- * record
  * as dirty in the current transaction.
  *
  * @author Luca Garulli
@@ -73,8 +70,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   public synchronized void setBuffer(final Binary buffer) {
     super.setBuffer(buffer);
     dirty = false;
-    // map = null; // AVOID RESETTING HERE FOR INDEXES THAT CAN LOOKUP UP FOR FIELDS
-    // CAUSING AN UNMARSHALLING
     // map = null; // AVOID RESETTING HERE FOR INDEXES THAT CAN LOOKUP UP FOR FIELDS
     // CAUSING AN UNMARSHALLING
   }
@@ -176,10 +171,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     return properties;
   }
 
-  // public void validateSpecificProperties(List<Property> properties) {
-  //   DocumentValidator.validateSpecificProperties(this, properties);
-  // }
-
   /**
    * Triggers the native required property valiation of arcade, as well as the one time ACCM validation.
    * ACCM validation follows a different recursive type checking pattern than arcade, so it is done separately.
@@ -195,12 +186,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
      * users until a data steward properly marks the document.
      */ 
     try {
-      // TODO group properties by embedded document and validate each embedded document
-      // for (Property property : getAccmProperties()) {
-      //   if (property.getType() != Type.EMBEDDED) {
-          DocumentValidator.validateClassificationMarkings(this);
-      //  }
-      // }
+      DocumentValidator.validateClassificationMarkings(this);
 
       set(CLASSIFICATION_MARKED, true);
     } catch (ValidationException e) {
@@ -267,9 +253,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Sets the property value in the document. If the property has been defined in
    * the schema, the value is converted according to the property type.
-   * Sets the property value in the document. If the property has been defined in
-   * the schema, the value is converted according to the property type.
-   */
+   */ 
   public synchronized MutableDocument set(final String name, Object value) {
     checkForLazyLoadingProperties();
     dirty = true;
@@ -281,9 +265,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Sets the property values in the document. If any properties has been defined
    * in the schema, the value is converted according to the property type.
-   * Sets the property values in the document. If any properties has been defined
-   * in the schema, the value is converted according to the property type.
-   *
+   * 
    * @param properties Array containing pairs of name (String) and value (Object)
    */
   public synchronized MutableDocument set(final Object... properties) {
