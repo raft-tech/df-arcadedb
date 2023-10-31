@@ -27,9 +27,12 @@ import com.arcadedb.database.RID;
 import com.arcadedb.database.Record;
 import com.arcadedb.exception.DatabaseOperationException;
 import com.arcadedb.log.LogManager;
+import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.security.SecurityDatabaseUser;
 
 import java.io.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.logging.*;
 
@@ -150,6 +153,9 @@ public class BucketIterator implements Iterator<Record> {
   }
 
   private boolean checkPermissionsOnDocument(final Document document) {
+    // start timer
+    Instant start = Instant.now();
+
     var currentUser = database.getContext().getCurrentUser();
 
     // TODO short term - check classification, attribution on document
@@ -165,7 +171,51 @@ public class BucketIterator implements Iterator<Record> {
     if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
       return false;
     }
-    return true;
+
+    var clearance = currentUser.getClearance();
+    var nationality = currentUser.getNationality();
+
+    if (document.has(MutableDocument.SOURCES)) {
+      // sources will be a map, in the form of source number : (classification//ACCM) source id
+      // check if user has appropriate clearance for any of the sources for the document
+      var isSourceAuthorized = document.toJSON().getJSONObject(MutableDocument.SOURCES).toMap().entrySet().stream().anyMatch(s -> {
+        
+        var source = s.getValue().toString();
+        if (source == null || source.isEmpty()) {
+          return false;
+        }
+        if (!source.contains("(") || !source.contains(")")) {
+          return false;
+        }
+
+        var sourceClassification = source.substring(source.indexOf("(") + 1, source.indexOf(")"));
+        return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, sourceClassification);
+      });
+
+      if (isSourceAuthorized) {
+        Instant finish = Instant.now();
+        long timeElapsed = Duration.between(start, finish).toNanos();
+        System.out.println("1 Time elapsed: " + timeElapsed);
+        return true;
+      }
+    }
+
+    if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
+          && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
+      var docClassification = 
+          document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
+      if (docClassification != null && !docClassification.isEmpty()) {
+        var isAuthorized = AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, docClassification);
+        Instant finish = Instant.now();
+        long timeElapsed = Duration.between(start, finish).toMillis();
+        System.out.println("2 Time elapsed: " + timeElapsed);
+        return isAuthorized;
+      } else {
+        return false;
+      }
+    }
+
+    return false;
   }
 
   @Override

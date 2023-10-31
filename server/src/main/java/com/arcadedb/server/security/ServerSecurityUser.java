@@ -44,12 +44,13 @@ public class ServerSecurityUser implements SecurityUser {
   private       String                                                password;
   private final ConcurrentHashMap<String, ServerSecurityDatabaseUser> databaseCache = new ConcurrentHashMap();
   private List<ArcadeRole> arcadeRoles = new ArrayList<>();
+  private Map<String,Object> attributes;
 
   public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration) {
-    this(server, userConfiguration, new ArrayList<>());
+    this(server, userConfiguration, new ArrayList<>(), null);
   }
 
-  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles) {
+  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles, Map<String, Object> attributes) {
     this.server = server;
     this.userConfiguration = userConfiguration;
 
@@ -65,6 +66,8 @@ public class ServerSecurityUser implements SecurityUser {
     }
 
     this.arcadeRoles = arcadeRoles;
+
+    this.attributes = attributes;
   }
 
   @Override
@@ -106,7 +109,7 @@ public class ServerSecurityUser implements SecurityUser {
 
     if (dbu == null)
       // USER HAS NO ACCESS TO THE DATABASE, RETURN A USER WITH NO AX
-      dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], getRelevantRoles(arcadeRoles, databaseName));
+      dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], getRelevantRoles(arcadeRoles, databaseName), attributes);
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)
@@ -180,7 +183,7 @@ public class ServerSecurityUser implements SecurityUser {
     log.debug("XX registerDatabaseUser: name: {}; database: {}; groupList: {}", name, databaseName, groupList.toString());
     
     ServerSecurityDatabaseUser dbu = new ServerSecurityDatabaseUser(databaseName, name, groupList.toArray(new String[groupList.size()]), 
-            getRelevantRoles(arcadeRoles, databaseName));
+            getRelevantRoles(arcadeRoles, databaseName), attributes);
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)

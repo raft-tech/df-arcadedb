@@ -40,8 +40,12 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   protected boolean dirty = false;
 
   public static final String CLASSIFICATION_TYPE = "Classification";
-  public static final String CLASSIFICATION_EMBEDDED_PROPERTY = "classification";
+  public static final String CLASSIFICATION_PROPERTY = "classification";
+  public static final String CLASSIFICATION_GENERAL_PROPERTY = "general";
+  public static final String CLASSIFICATION_ATTRIBUTES_PROPERTY = "attributes";
   public static final String CLASSIFICATION_MARKED = "classificationMarked";
+
+  public static final String SOURCES = "sources";
 
   protected MutableDocument(final Database database, final DocumentType type, final RID rid) {
     super(database, type, rid, null);
@@ -129,7 +133,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
 
     List<AccmProperty> accmProperties = new ArrayList<>();
     AccmProperty ap = new AccmProperty()
-         .name(CLASSIFICATION_EMBEDDED_PROPERTY + ".general")
+         .name(CLASSIFICATION_PROPERTY + "." + CLASSIFICATION_GENERAL_PROPERTY)
          .parentType(CLASSIFICATION_TYPE)
          .dataType(Type.STRING)
          .readOnly(true)
@@ -167,9 +171,9 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     return properties;
   }
 
-  public void validateSpecificProperties(List<Property> properties) {
-    DocumentValidator.validateSpecificProperties(this, properties);
-  }
+  // public void validateSpecificProperties(List<Property> properties) {
+  //   DocumentValidator.validateSpecificProperties(this, properties);
+  // }
 
   /**
    * Triggers the native required property valiation of arcade, as well as the one time ACCM validation.
@@ -187,15 +191,11 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
      */ 
     try {
       // TODO group properties by embedded document and validate each embedded document
-      for (Property property : getAccmProperties()) {
-        if (property.getType() != Type.EMBEDDED) {
-          MutableEmbeddedDocument embeddedDocument = getEmbeddedDocumentToValidate(this, property.getName());
-
-          // The embedded doc has been fetched, remove the embedded doc name from the property name to check.
-          property.setName(property.getName().substring(property.getName().lastIndexOf(".") + 1));
-          embeddedDocument.validateSpecificProperties(List.of(property));
-        }
-      }
+      // for (Property property : getAccmProperties()) {
+      //   if (property.getType() != Type.EMBEDDED) {
+          DocumentValidator.validateClassificationMarkings(this);
+      //  }
+      // }
 
       set(CLASSIFICATION_MARKED, true);
     } catch (ValidationException e) {

@@ -101,6 +101,8 @@ public class EmbeddedSchema implements Schema {
   private final       AtomicLong                             versionSerial         = new AtomicLong();
   private final       Map<String, FunctionLibraryDefinition> functionLibraries     = new ConcurrentHashMap<>();
 
+  private final static String CLASSIFICATION_SETTING = "classification";
+
   @Getter @Setter
   private String classification;
 
@@ -109,9 +111,6 @@ public class EmbeddedSchema implements Schema {
 
   @Getter @Setter
   private boolean isPublic = true;
-
-  @Getter @Setter
-  private String attributes;
 
   @Getter
   private String createdBy;
@@ -870,8 +869,8 @@ public class EmbeddedSchema implements Schema {
         timeZone = TimeZone.getTimeZone(zoneId);
       }
 
-      if (settings.has("classification")) {
-        classification = settings.getString("classification");
+      if (settings.has(CLASSIFICATION_SETTING)) {
+        classification = settings.getString(CLASSIFICATION_SETTING);
       }
 
       if (settings.has("owner")) {
@@ -882,11 +881,11 @@ public class EmbeddedSchema implements Schema {
         isPublic = settings.getBoolean("isPublic");
       }
 
-      if (settings.has("createdBy")) {
+      if (settings.has("createdBy") && settings.get("createdBy") != null) {
         createdBy = settings.getString("createdBy");
       }
 
-      if (settings.has("createdDateTime")) {
+      if (settings.has("createdDateTime") && settings.get("createdDateTime") != null) {
         createdDateTime = settings.getString("createdDateTime");
       }
 
@@ -1123,7 +1122,7 @@ public class EmbeddedSchema implements Schema {
     settings.put("dateTimeFormat", dateTimeFormat);
 
     if (classification != null && !classification.trim().isEmpty()) {
-      settings.put("classification", classification);
+      settings.put(CLASSIFICATION_SETTING, classification);
     }
 
     if (owner != null && !owner.trim().isEmpty()) {
@@ -1131,10 +1130,6 @@ public class EmbeddedSchema implements Schema {
     }
 
     settings.put("isPublic", isPublic);
-
-    if (attributes != null && !attributes.trim().isEmpty()) {
-      settings.put("attributes", attributes);
-    }
 
     settings.put("createdDateTime", LocalDateTime.now().toString());
     settings.put("createdBy", database.getCurrentUserName());

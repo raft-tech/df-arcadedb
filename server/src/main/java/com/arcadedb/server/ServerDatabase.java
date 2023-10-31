@@ -69,7 +69,6 @@ public class ServerDatabase implements DatabaseInternal {
   private final DatabaseInternal wrapped;
 
   public ServerDatabase(final DatabaseInternal wrapped) {
-    System.out.println("XXXXXXXXX SERVER DB");
     this.wrapped = wrapped;
   }
 

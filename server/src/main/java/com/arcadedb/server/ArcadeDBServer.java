@@ -324,11 +324,11 @@ public class ArcadeDBServer {
   }
 
   public synchronized DatabaseInternal createDatabase(final String databaseName, final PaginatedFile.MODE mode) { 
-    return createDatabase(databaseName, mode, databaseName, null, null, false);
+    return createDatabase(databaseName, mode, databaseName, null, false);
   }
 
   public synchronized DatabaseInternal createDatabase(final String databaseName, final PaginatedFile.MODE mode,
-         String classification, String attributes, String owner, boolean isPublic) {   DatabaseInternal db = databases.get(databaseName);
+         String classification, String owner, boolean isPublic) {   DatabaseInternal db = databases.get(databaseName);
     if (db != null)
       throw new IllegalArgumentException("Database '" + databaseName + "' already exists");
 
@@ -337,8 +337,7 @@ public class ArcadeDBServer {
         .setAutoTransaction(true)
         .setPublic(isPublic)
         .setClassification(classification)
-        .setOwner(owner)
-        .setAttributes(attributes);
+        .setOwner(owner);
     
     if (factory.exists())
       throw new IllegalArgumentException("Database '" + databaseName + "' already exists");

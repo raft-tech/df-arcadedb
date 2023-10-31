@@ -246,14 +246,7 @@ function createDatabase(){
     // <input onkeydown='if (event.which === 13) Swal.clickConfirm()' id='inputCreateDatabaseName'>
   let html = `
   <b>Name:  </b><input id='inputCreateDatabaseName'></br>
-  <label for="classification">Choose a classification:</label>
-  <select name="classification" id="classification">
-    <option value="U">U</option>
-    <option value="CUI">CUI</option>
-    <option value="S">S</option>
-    <option value="TS">TS</option>
-  </select></br>
-  <b>Attributes:  </b><input id='inputAttributes'></br>
+  <b>Classification:  </b><input id='inputClassification'></br>
   <b>Owner:  </b><input id='inputOwner'>
   <p>Please select database visibility:</p>
   <input type="radio" id="rbPublic" name="publicPrivate" value="public">
@@ -276,7 +269,6 @@ function createDatabase(){
     if (result.value) {
       let database = encodeURI( $("#inputCreateDatabaseName").val().trim() );
       let owner = encodeURI( $("#inputOwner").val().trim() );
-      let attributes = encodeURI( $("#inputAttributes").val().trim() );
       let visibility = "public";
 
       var ele = document.getElementsByName('publicPrivate');
@@ -286,15 +278,14 @@ function createDatabase(){
               visibility = ele[i].value;
       }
 
-      let classification = encodeURI( $("#classification").val() );
+      let classification = encodeURI( $("#inputClassification").val().trim() );
 
       var options = {
         owner: owner,
         visibility: visibility,
-        classification: classification,
-        attributes: attributes
+        classification: classification
       }
-      console.log("options: ", database, owner, visibility, attributes, classification);
+      console.log("options: ", database, owner, visibility, classification);
 
       if ( database == "" ){
         globalNotify( "Error", "Database name empty", "danger");
@@ -980,7 +971,6 @@ function loadDatabaseMetadata() {
       for ( let i in data.result ) {
         if ( data.result[i].name == $("#inputDatabase").val()) {
             $("#lblClassification").text( data.result[i].classification || "" );
-            $("#lblAttributes").text( data.result[i].attributes || "" );
             $("#lblOwner").text( data.result[i].owner || "" );
             $("#lblPublic").text( data.result[i].isPublic || "" );
             $("#lblCreatedBy").text( data.result[i].createdBy || "" );

@@ -73,4 +73,10 @@ public interface SecurityDatabaseUser {
   long getResultSetLimit();
 
   long getReadTimeout();
+
+  String getClearance();
+
+  String getNationality();
+
+  // TODO location, organization, etc.
 }

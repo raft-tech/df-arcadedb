@@ -38,10 +38,6 @@ public class GetDatabasesInfoHandler  extends AbstractHandler {
                 }
                 root.put("isPublic", embeddedSchema.isPublic());
 
-                if (embeddedSchema.getAttributes() != null) {
-                  root.put("attributes", embeddedSchema.getAttributes());
-                }
-
                 if (embeddedSchema.getCreatedBy() != null) {
                   root.put("createdBy", embeddedSchema.getCreatedBy());
                 }

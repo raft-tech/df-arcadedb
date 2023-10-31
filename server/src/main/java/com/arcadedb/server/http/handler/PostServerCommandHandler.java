@@ -25,6 +25,8 @@ import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
+import com.arcadedb.security.AuthorizationUtils;
+//import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.ha.HAServer;
@@ -209,7 +211,6 @@ public class PostServerCommandHandler extends AbstractHandler {
       final String CLASSIFICATION = "classification";
       final String OWNER = "owner";
       final String VISIBILITY = "visibility";
-      final String ATTRIBUTES = "attributes";
 
       if (databaseName.isEmpty())
         throw new IllegalArgumentException("Database name empty");
@@ -236,20 +237,18 @@ public class PostServerCommandHandler extends AbstractHandler {
 
       // TODO cap acceptable classifications at the deployment level.
       // make static util method for this
-      var acceptableClassifications = List.of("U", "CUI", "C", "S", "TS");
       
-      if (!acceptableClassifications.contains(classification)) {
-        throw new IllegalArgumentException(String.format("Invalid classification %s. Acceptable values are %s", classification, acceptableClassifications));
+      if (!AuthorizationUtils.isClassificationValidForDeployment(classification)) {
+        throw new IllegalArgumentException(String.format("Invalid classification %s. Acceptable values are %s", classification));
       }
       
       String owner = options.has(OWNER) ? options.get(OWNER).getAsString() : null;
-      String attributes = options.has(ATTRIBUTES) ? options.get(ATTRIBUTES).getAsString() : null;
       boolean isPublic = options.has(VISIBILITY) ? options.get(VISIBILITY).getAsString().equalsIgnoreCase("public") : false;
 
       final ArcadeDBServer server = httpServer.getServer();
       server.getServerMetrics().meter("http.create-database").hit();
 
-      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE, classification, owner, attributes, isPublic);
+      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE, classification, owner, isPublic);
 
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();

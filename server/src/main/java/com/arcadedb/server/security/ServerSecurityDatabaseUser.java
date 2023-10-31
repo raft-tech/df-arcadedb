@@ -44,12 +44,14 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   private long readTimeout = -1;
   private final boolean[] databaseAccessMap = new boolean[DATABASE_ACCESS.values().length];
   private List<ArcadeRole> arcadeRoles = new ArrayList<>();
+  private Map<String,Object> attributes;
 
-  public ServerSecurityDatabaseUser(final String databaseName, final String userName, final String[] groups, final List<ArcadeRole> arcadeRoles) {
+  public ServerSecurityDatabaseUser(final String databaseName, final String userName, final String[] groups, final List<ArcadeRole> arcadeRoles, Map<String, Object> attributes) {
     this.databaseName = databaseName;
     this.userName = userName;
     this.groups = groups;
     this.arcadeRoles = arcadeRoles;
+    this.attributes = attributes;
   }
 
   public String[] getGroups() {
@@ -322,5 +324,30 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   public boolean isServiceAccount() {
     // Keycloak client service account naming convention follows this. Update as needed.
     return this.userName.startsWith("service-account-");
+  }
+
+  public String getClearance() {
+    return getStringAttribute("clearance");
+  }
+
+  public String getNationality() {
+    return getStringAttribute("nationality");
+  }
+
+  /**
+   * Workaround for keycloak sending over string attributes as arrays........
+   * Strip the array brackets out of the string and return the string.
+   * @param attributeName
+   * @return
+   */
+  private String getStringAttribute(String attributeName) {
+    if (attributes != null && attributes.containsKey(attributeName)) {
+      var nationality = attributes.get(attributeName).toString();
+      nationality = nationality.replace("[", "");
+      nationality = nationality.replace("]", "");
+      return nationality;
+    } else { 
+      return null;
+    }
   }
 }
