@@ -40,9 +40,10 @@ public class AuthorizationUtils {
    * @param resourceClassification
    * @return
    */
-  public static boolean isUserAuthorizedForResourceMarking(final String userClearance, final String nationality, 
+  public static boolean isUserAuthorizedForResourceMarking(final String userClearance, final String nationality, final String tetragraphs,
         final String resourceClassification) {
     
+    // TODO are tetrapgrahs that group countries auto applicable to users of those countires, or do users need explicit authoirzation for their data?
     var processedResourceClassification = resourceClassification.replace("FVEY", "USA,AUS,CAN,GBR,NZL");
 
     if (!isClearanceAuthorized(userClearance, processedResourceClassification)) {
@@ -54,7 +55,7 @@ public class AuthorizationUtils {
         return false;
     }
 
-    if (isBlockedByReleaseableTo(nationality, processedResourceClassification)) {
+    if (isBlockedByReleaseableTo(nationality, tetragraphs, processedResourceClassification)) {
         return false;
     }
 
@@ -94,7 +95,8 @@ public class AuthorizationUtils {
    * @param resouceClassificationMarkings
    * @return
    */
-  private static boolean isBlockedByReleaseableTo(final String nationality, final String resourceClassificationMarkings) {
+  private static boolean isBlockedByReleaseableTo(final String nationality, final String tetragraphs, 
+        final String resourceClassificationMarkings) {
     // TODO add support for banner barking AUTHORIZED FOR RELEASE TO
     if (resourceClassificationMarkings.contains("REL TO")) {
         if (nationality == null || nationality.isEmpty()) {
@@ -109,9 +111,17 @@ public class AuthorizationUtils {
         releaseableTo = releaseableTo.substring("REL TO".length() + 1);
         releaseableTo = releaseableTo.replaceAll(" ", "");
 
-        // Replace Five Eyes shorthand with the actual country codes.
         if (releaseableTo.contains(",")) {
-            return !Set.of(releaseableTo.split(",")).contains(nationality);
+            return !Set.of(releaseableTo.split(",")).stream().map(r -> r.toString()).anyMatch(r -> {
+              if (r.trim().isEmpty()) {
+                return false;
+              } else if (r.length() == 3) {
+                return r.equals(nationality);
+              } else if (tetragraphs != null && !tetragraphs.isEmpty() && r.length() == 4) {
+                return tetragraphs.contains(r);
+              }
+              return false;
+            });
         } else {
             return !releaseableTo.equals(nationality);
         }

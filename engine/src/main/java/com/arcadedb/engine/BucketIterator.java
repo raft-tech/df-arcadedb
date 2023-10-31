@@ -172,8 +172,10 @@ public class BucketIterator implements Iterator<Record> {
       return false;
     }
 
-    var clearance = currentUser.getClearance();
+    // TODO detect and provide org for clearance
+    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
     var nationality = currentUser.getNationality();
+    var tetragraphs = currentUser.getTetragraphs();
 
     if (document.has(MutableDocument.SOURCES)) {
       // sources will be a map, in the form of source number : (classification//ACCM) source id
@@ -189,7 +191,7 @@ public class BucketIterator implements Iterator<Record> {
         }
 
         var sourceClassification = source.substring(source.indexOf("(") + 1, source.indexOf(")"));
-        return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, sourceClassification);
+        return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, sourceClassification);
       });
 
       if (isSourceAuthorized) {
@@ -205,7 +207,7 @@ public class BucketIterator implements Iterator<Record> {
       var docClassification = 
           document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
       if (docClassification != null && !docClassification.isEmpty()) {
-        var isAuthorized = AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, docClassification);
+        var isAuthorized = AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
         Instant finish = Instant.now();
         long timeElapsed = Duration.between(start, finish).toMillis();
         System.out.println("2 Time elapsed: " + timeElapsed);

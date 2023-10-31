@@ -326,12 +326,31 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
     return this.userName.startsWith("service-account-");
   }
 
-  public String getClearance() {
-    return getStringAttribute("clearance");
+  public String getClearanceForCountryOrTetragraphCode(String code) {
+    return getStringValueFromKeycloakAttribute("clearance" + "-" + code);
   }
 
   public String getNationality() {
-    return getStringAttribute("nationality");
+    return getStringValueFromKeycloakAttribute("nationality");
+  }
+
+  /**
+   * Checks if the user has the specific Tetragraph, or 4 character code representing an organization, like NATO, etc.
+   */
+  public boolean hasTetragraph(String tetraGraph) {
+    String tetras = getStringValueFromKeycloakAttribute("tetragraphs");
+    if (tetras != null) {
+      return tetras.contains(tetraGraph);
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Gets any Tetragraphs, or 4 character codes representing organizations, like NATO, etc. that the user may be a member of.
+   */
+  public String getTetragraphs() {
+    return getStringValueFromKeycloakAttribute("tetragraphs");
   }
 
   /**
@@ -340,7 +359,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
    * @param attributeName
    * @return
    */
-  private String getStringAttribute(String attributeName) {
+  private String getStringValueFromKeycloakAttribute(String attributeName) {
     if (attributes != null && attributes.containsKey(attributeName)) {
       var nationality = attributes.get(attributeName).toString();
       nationality = nationality.replace("[", "");
