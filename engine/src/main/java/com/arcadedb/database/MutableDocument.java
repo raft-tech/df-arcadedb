@@ -168,6 +168,11 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public void validateAndAccmCheck() {
     
+    // skip initial edge creation, as they are not required to have a classification
+    if (toJSON().getString("@cat").equals("e") && !toJSON().has("@rid")) {
+      return;
+    }
+
     validate();
 
     /* The following is ACCM validation. Properties are most likely nested down a few objects from the root document,
