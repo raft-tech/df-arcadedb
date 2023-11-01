@@ -182,6 +182,8 @@ public class BucketIterator implements Iterator<Record> {
         if (source == null || source.isEmpty()) {
           return false;
         }
+
+        // if the source is not in the form of (classification/[/ACCM[]) [source id], then it is not a valid source
         if (!source.contains("(") || !source.contains(")")) {
           return false;
         }

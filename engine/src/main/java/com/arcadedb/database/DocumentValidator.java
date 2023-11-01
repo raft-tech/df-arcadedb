@@ -38,7 +38,7 @@ public class DocumentValidator {
   public static final Map<String, Integer> classificationOptions = 
       Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
 
-  public static void verifyDocymentClassificationValidForDeployment(String classification) {
+  public static void verifyDocumentClassificationValidForDeployment(String classification) {
     if (classification == null || classification.isEmpty())
       throw new IllegalArgumentException("Classification cannot be null or empty");
 
@@ -73,7 +73,7 @@ public class DocumentValidator {
         classification = classificationMarkings.substring(0, classificationMarkings.indexOf("//"));
       }
       try {
-        verifyDocymentClassificationValidForDeployment(classification);
+        verifyDocumentClassificationValidForDeployment(classification);
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification: " + classification);
       }
@@ -91,16 +91,20 @@ public class DocumentValidator {
     var sources = document.toJSON().getJSONObject(MutableDocument.SOURCES);
     sources.toMap().entrySet().forEach(entry -> {
       var source = entry.getValue().toString().trim();
+
+      // Check for portion marked classification information. Should be in parantheses, and not empty
       if (source.contains("(") && source.contains(")") && source.substring(0, 1).equals("(")) {
         var markings = source.substring(1, source.indexOf(")"));
         if (markings.trim().isEmpty()) {
           throw new ValidationException("Source " + source + " is not valid");
         }
+
+        // Classification will end with a double separator if there are any additional ACCM markings.
         if (markings.contains("//")) {
           markings = markings.substring(0, markings.indexOf("//"));
         }
         try {
-          verifyDocymentClassificationValidForDeployment(markings);
+          verifyDocumentClassificationValidForDeployment(markings);
         } catch (IllegalArgumentException e) {
           throw new ValidationException("Invalid classification for source: " + markings);
         }
