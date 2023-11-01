@@ -129,23 +129,14 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     return result;
   }
 
+  /**
+   * Convert externally configurable required proeprty defintiions into arcade internal required properties.
+   * Not used at the moment, leaving short term for possible use.
+   * @return
+   */
   public List<Property> getAccmProperties() {
 
     List<AccmProperty> accmProperties = new ArrayList<>();
-    AccmProperty ap = new AccmProperty()
-         .name(CLASSIFICATION_PROPERTY + "." + CLASSIFICATION_GENERAL_PROPERTY)
-         .parentType(CLASSIFICATION_TYPE)
-         .dataType(Type.STRING)
-         .readOnly(true)
-         .notNull(true)
-         .required(true)
-         .options(List.of("U", "CUI", "C", "S"));
-
-    // TODO further limit options based on databsase classification- can't be classified higher than the instance
-    // TODO recieve classification level from env var/k8s
-
-    accmProperties.add(ap);
-
     List<Property> properties = new ArrayList<>();
 
     for (AccmProperty accmProperty : accmProperties) {

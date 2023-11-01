@@ -31,8 +31,6 @@ import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.security.SecurityDatabaseUser;
 
 import java.io.*;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.logging.*;
 
@@ -153,8 +151,6 @@ public class BucketIterator implements Iterator<Record> {
   }
 
   private boolean checkPermissionsOnDocument(final Document document) {
-    // start timer
-    Instant start = Instant.now();
 
     var currentUser = database.getContext().getCurrentUser();
 
@@ -195,9 +191,6 @@ public class BucketIterator implements Iterator<Record> {
       });
 
       if (isSourceAuthorized) {
-        Instant finish = Instant.now();
-        long timeElapsed = Duration.between(start, finish).toNanos();
-        System.out.println("1 Time elapsed: " + timeElapsed);
         return true;
       }
     }
@@ -208,9 +201,6 @@ public class BucketIterator implements Iterator<Record> {
           document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
       if (docClassification != null && !docClassification.isEmpty()) {
         var isAuthorized = AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
-        Instant finish = Instant.now();
-        long timeElapsed = Duration.between(start, finish).toMillis();
-        System.out.println("2 Time elapsed: " + timeElapsed);
         return isAuthorized;
       } else {
         return false;
