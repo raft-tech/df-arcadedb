@@ -38,16 +38,20 @@ public class DocumentValidator {
   public static final Map<String, Integer> classificationOptions = 
       Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
 
-  public static void verifyDocumentClassificationValidForDeployment(String classification) {
-    if (classification == null || classification.isEmpty())
+  public static void verifyDocumentClassificationValidForDeployment(String toCheck, MutableDocument document) {
+    if (toCheck == null || toCheck.isEmpty())
       throw new IllegalArgumentException("Classification cannot be null or empty");
 
-    if (!classificationOptions.containsKey(classification))
-      throw new IllegalArgumentException("Classification must be one of " + classificationOptions);
+    if (!classificationOptions.containsKey(toCheck))
+      throw new ValidationException("Classification must be one of " + classificationOptions);
 
     var deploymentClassification = System.getProperty("deploymentClassifcation", "S");
-    if (classificationOptions.get(deploymentClassification) < classificationOptions.get(classification))
-      throw new IllegalArgumentException("Classification " + classification + " is not allowed in this deployment");
+    if (classificationOptions.get(deploymentClassification) < classificationOptions.get(toCheck))
+      throw new ValidationException("Classification " + toCheck + " is not allowed in this deployment");
+
+    var databaseClassification = document.getDatabase().getSchema().getEmbedded().getClassification();
+    if (classificationOptions.get(databaseClassification) < classificationOptions.get(toCheck))
+      throw new ValidationException("Classification " + toCheck + " is not allowed in this database");
   }
 
   public static void validateClassificationMarkings(final MutableDocument document) {
@@ -73,7 +77,7 @@ public class DocumentValidator {
         classification = classificationMarkings.substring(0, classificationMarkings.indexOf("//"));
       }
       try {
-        verifyDocumentClassificationValidForDeployment(classification);
+        verifyDocumentClassificationValidForDeployment(classification, document);
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification: " + classification);
       }
@@ -104,7 +108,7 @@ public class DocumentValidator {
           markings = markings.substring(0, markings.indexOf("//"));
         }
         try {
-          verifyDocumentClassificationValidForDeployment(markings);
+          verifyDocumentClassificationValidForDeployment(markings, document);
         } catch (IllegalArgumentException e) {
           throw new ValidationException("Invalid classification for source: " + markings);
         }
