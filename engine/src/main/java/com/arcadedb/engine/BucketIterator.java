@@ -99,7 +99,7 @@ public class BucketIterator implements Iterator<Record> {
               if (!bucket.existsRecord(rid))
                 continue;
 
-              if (!checkPermissionsOnDocument(rid.asDocument(true))) {
+              if (!AuthorizationUtils.checkPermissionsOnDocument(rid.asDocument(true), database)) {
                 continue;
               }
 
@@ -122,7 +122,7 @@ public class BucketIterator implements Iterator<Record> {
               var record = database.getRecordFactory()
                   .newImmutableRecord(database, database.getSchema().getType(database.getSchema().getTypeNameByBucketId(rid.getBucketId())), rid, view, null);
 
-              if (!checkPermissionsOnDocument(record.asDocument(true))) {
+              if (!AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), database)) {
                 continue;
               }
 
@@ -148,68 +148,6 @@ public class BucketIterator implements Iterator<Record> {
         }
       }
     });
-  }
-
-  private boolean checkPermissionsOnDocument(final Document document) {
-
-    var currentUser = database.getContext().getCurrentUser();
-
-    // TODO short term - check classification, attribution on document
-
-    // TODO long term - replace with filtering by low classification of related/linked document.
-    // Expensive to do at read time. Include linkages and classification at write time?
-    // Needs performance testing and COA analysis.
-
-    if (currentUser.isServiceAccount() || currentUser.isDataSteward(document.getTypeName())) {
-      return true;
-    }
-
-    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
-      return false;
-    }
-
-    // TODO detect and provide org for clearance
-    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
-    var nationality = currentUser.getNationality();
-    var tetragraphs = currentUser.getTetragraphs();
-
-    if (document.has(MutableDocument.SOURCES)) {
-      // sources will be a map, in the form of source number : (classification//ACCM) source id
-      // check if user has appropriate clearance for any of the sources for the document
-      var isSourceAuthorized = document.toJSON().getJSONObject(MutableDocument.SOURCES).toMap().entrySet().stream().anyMatch(s -> {
-        
-        var source = s.getValue().toString();
-        if (source == null || source.isEmpty()) {
-          return false;
-        }
-
-        // if the source is not in the form of (classification/[/ACCM[]) [source id], then it is not a valid source
-        if (!source.contains("(") || !source.contains(")")) {
-          return false;
-        }
-
-        var sourceClassification = source.substring(source.indexOf("(") + 1, source.indexOf(")"));
-        return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, sourceClassification);
-      });
-
-      if (isSourceAuthorized) {
-        return true;
-      }
-    }
-
-    if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-          && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
-      var docClassification = 
-          document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
-      if (docClassification != null && !docClassification.isEmpty()) {
-        var isAuthorized = AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
-        return isAuthorized;
-      } else {
-        return false;
-      }
-    }
-
-    return false;
   }
 
   @Override
