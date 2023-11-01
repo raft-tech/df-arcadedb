@@ -245,14 +245,24 @@ function updateDatabases( callback ){
 function createDatabase(){
     // <input onkeydown='if (event.which === 13) Swal.clickConfirm()' id='inputCreateDatabaseName'>
   let html = `
+  <div style='text-align: left'>
+  <div style="padding-bottom: 10px">
   <b>Name:  </b><input id='inputCreateDatabaseName'></br>
+  </div>
+  <div style="padding-bottom: 10px">
   <b>Classification:  </b><input id='inputClassification'></br>
+  </div>
+  <div style="padding-bottom: 10px">
   <b>Owner:  </b><input id='inputOwner'>
-  <p>Please select database visibility:</p>
+  </div>
+  <p style="margin-bottom: 5px; font-weight: bold;">Please select database visibility:</p>
   <input type="radio" id="rbPublic" name="publicPrivate" value="public">
   <label for="rbPublic">Public</label><br>
   <input type="radio" id="rbPrivate" name="publicPrivate" value="private">
   <label for="rbPrivate">Private</label><br>
+  <label for="import"><b>Import WIP SDL Ontology:</b></label>
+  <input type="checkbox" id="chkImport" name="chkImport" value="import">
+  </div>
 
   `;
   Swal.fire({
@@ -280,10 +290,16 @@ function createDatabase(){
 
       let classification = encodeURI( $("#inputClassification").val().trim() );
 
+      var chkImport = document.getElementsByName('chkImport');
+      let importOntology = chkImport[0].checked;
+
+      console.log("checked", chkImport, importOntology);
+
       var options = {
         owner: owner,
         visibility: visibility,
-        classification: classification
+        classification: classification,
+        importOntology: importOntology
       }
       console.log("options: ", database, owner, visibility, classification);
 

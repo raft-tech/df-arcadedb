@@ -28,6 +28,7 @@ import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.server.ArcadeDBServer;
+import com.arcadedb.server.ServerException;
 import com.arcadedb.server.ha.HAServer;
 import com.arcadedb.server.ha.Leader2ReplicaNetworkExecutor;
 import com.arcadedb.server.ha.Replica2LeaderNetworkExecutor;
@@ -49,6 +50,7 @@ import com.nimbusds.oauth2.sdk.util.StringUtils;
 import io.undertow.server.HttpServerExchange;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.rmi.*;
 import java.util.*;
 
@@ -257,10 +259,40 @@ public class PostServerCommandHandler extends AbstractHandler {
       ArcadeRole schemaRole = new ArcadeRole(RoleType.DATABASE_ADMIN, databaseName, DatabaseAdminRole.ALL);
       createAndAssignRoleToUser(dataRole, user.getName());
       createAndAssignRoleToUser(schemaRole, user.getName());
+
+      if (options.has("importOntology") && options.get("importOntology").getAsBoolean()) {
+        // get the ontology file from project resources
+        try {
+          InputStream inputStream = PostServerCommandHandler.class.getResourceAsStream("/ontology");
+          String data = readFromInputStream(inputStream);
+
+          // get JSONArray from data
+          JSONArray jsonArray = new JSONArray(data);
+
+          // iterate over jsonArray and insert into database
+          for (int i = 0; i < jsonArray.length(); i++) {
+            db.command("sql", jsonArray.getString(i));
+          }
+        } catch (Exception e) {
+          throw new ServerException("Error importing ontology: " + e.getMessage());
+        }
+      }
     } else {
       throw new ServerSecurityException("Create database operation not allowed for user " + user.getName());
     }
   }
+
+  private String readFromInputStream(InputStream inputStream) throws IOException {
+    StringBuilder resultStringBuilder = new StringBuilder();
+    try (BufferedReader br
+      = new BufferedReader(new InputStreamReader(inputStream))) {
+        String line;
+        while ((line = br.readLine()) != null) {
+            resultStringBuilder.append(line).append("\n");
+        }
+    }
+  return resultStringBuilder.toString();
+}
 
   private void createAndAssignRoleToUser(ArcadeRole arcadeRole, String username) {
     String newRole = arcadeRole.getKeycloakRoleName();
