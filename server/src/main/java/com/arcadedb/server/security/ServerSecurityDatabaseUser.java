@@ -27,8 +27,6 @@ import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.security.oidc.ArcadeRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
-import com.arcadedb.server.security.oidc.ArcadeRole;
-import com.arcadedb.server.security.oidc.role.RoleType;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -86,6 +84,11 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnDatabase(final DATABASE_ACCESS access) {
+    // Allow root user to access all databases for HA syncing between nodes
+    if (this.getName().equals("root")) {
+      return true;
+    }
+
     log.debug("requestAccessOnDatabase: access: {}, decision: {}", access,
         databaseAccessMap[access.ordinal()]);
     return databaseAccessMap[access.ordinal()];
@@ -93,6 +96,11 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnFile(final int fileId, final ACCESS access) {
+    // Allow root user to access all files for HA syncing between nodes
+    if (this.getName().equals("root")) {
+      return true;
+    }
+
     final boolean[] permissions = fileAccessMap[fileId];
     // log.info("requestAccessOnFile: database: {}; fileId: {}, access: {}, permissions: {}", databaseName, fileId, access,
     //     permissions);

@@ -200,6 +200,11 @@ public class AuthorizationUtils {
 
     var currentUser = database.getContext().getCurrentUser();
 
+    // Allow root user to access all documents for HA syncing between nodes
+    if (currentUser.getName().equals("root")) {
+      return true;
+    }
+
     // TODO short term - check classification, attribution on document
 
     // TODO long term - replace with filtering by low classification of related/linked document.

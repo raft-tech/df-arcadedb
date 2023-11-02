@@ -152,11 +152,21 @@ public class ServerSecurityUser implements SecurityUser {
 
   @Override
   public Set<String> getAuthorizedDatabases() {
+    // Allow root user to access all databases for HA syncing between nodes
+    if (this.name.equals("root")) {
+      return server.getDatabaseNames();
+    }
+
     return databasesNames;
   }
 
   @Override
   public boolean canAccessToDatabase(final String databaseName) {
+    // Allow root user to access all databases for HA syncing between nodes
+    if (name.equals("root")) {
+      return true;
+    }
+
     log.debug("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
     return databasesNames.contains(SecurityManager.ANY) || databasesNames.contains(databaseName);
   }
@@ -188,12 +198,13 @@ public class ServerSecurityUser implements SecurityUser {
     if (prev != null)
       // USE THE EXISTENT ONE
       dbu = prev;
-
-    if (database != null) {
+    
+    // Parsing the database groups configuration is unnecessary for the root user, we pass all requests
+    if (database != null && !name.equals("root")) {
       if (!SecurityManager.ANY.equals(database.getName())) {
         final JSONObject databaseGroups = server.getSecurity().getDatabaseGroupsConfiguration(database.getName());
         dbu.updateDatabaseConfiguration(databaseGroups);
-        log.debug("registerDatabaseUser, calling updateFileAccess {} {}", databaseName, databaseGroups.toString());
+        log.debug("registerDatabaseUser, calling updateFileAccess {} {}", databaseName, databaseGroups);
         dbu.updateFileAccess((DatabaseInternal) database, databaseGroups);
       }
     }
