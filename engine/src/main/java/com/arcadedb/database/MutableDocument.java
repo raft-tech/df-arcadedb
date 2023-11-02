@@ -22,6 +22,7 @@ import com.arcadedb.exception.ValidationException;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
+import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.ACCM.AccmProperty;
 import com.arcadedb.serializer.json.JSONObject;
 
@@ -165,8 +166,9 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Triggers the native required property valiation of arcade, as well as the one time ACCM validation.
    * ACCM validation follows a different recursive type checking pattern than arcade, so it is done separately.
+ * @param securityDatabaseUser
    */
-  public void validateAndAccmCheck() {
+  public void validateAndAccmCheck(SecurityDatabaseUser securityDatabaseUser) {
     
     /**
      * Skip validitng during initial edge creation, as they don't have properties set yet.
@@ -185,7 +187,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
      * users until a data steward properly marks the document.
      */ 
     try {
-      DocumentValidator.validateClassificationMarkings(this);
+      DocumentValidator.validateClassificationMarkings(this, securityDatabaseUser);
 
       set(CLASSIFICATION_MARKED, true);
     } catch (ValidationException e) {

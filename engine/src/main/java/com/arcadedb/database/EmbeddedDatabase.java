@@ -785,7 +785,7 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
     setDefaultValues(record);
 
     if (record instanceof MutableDocument)
-      ((MutableDocument) record).validateAndAccmCheck();
+      ((MutableDocument) record).validateAndAccmCheck(getContext().getCurrentUser());
 
     // INVOKE EVENT CALLBACKS
     if (!events.onBeforeCreate(record))
@@ -841,7 +841,7 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
       throw new DatabaseIsReadOnlyException("Cannot update a record");
 
     if (record instanceof MutableDocument)
-      ((MutableDocument) record).validateAndAccmCheck();
+      ((MutableDocument) record).validateAndAccmCheck(getContext().getCurrentUser());
 
     // INVOKE EVENT CALLBACKS
     if (!events.onBeforeUpdate(record))

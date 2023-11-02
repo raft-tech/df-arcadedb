@@ -3,7 +3,6 @@ package com.arcadedb.security;
 import java.util.Map;
 import java.util.Set;
 
-import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
 
@@ -195,11 +194,7 @@ public class AuthorizationUtils {
     return classification;
   }
 
-
-  public static boolean checkPermissionsOnDocument(final Document document, final DatabaseInternal database) {
-
-    var currentUser = database.getContext().getCurrentUser();
-
+  public static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser) {
     // Allow root user to access all documents for HA syncing between nodes
     if (currentUser.getName().equals("root")) {
       return true;
@@ -215,7 +210,8 @@ public class AuthorizationUtils {
       return true;
     }
 
-    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
+    // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
+    if (document.getIdentity() != null && (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
       return false;
     }
 

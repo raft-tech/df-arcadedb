@@ -97,7 +97,7 @@ public class BucketIterator implements Iterator<Record> {
               if (!bucket.existsRecord(rid))
                 continue;
 
-              if (!AuthorizationUtils.checkPermissionsOnDocument(rid.asDocument(true), database)) {
+              if (!AuthorizationUtils.checkPermissionsOnDocument(rid.asDocument(true), database.getContext().getCurrentUser())) {
                 continue;
               }
 
@@ -120,7 +120,7 @@ public class BucketIterator implements Iterator<Record> {
               var record = database.getRecordFactory()
                   .newImmutableRecord(database, database.getSchema().getType(database.getSchema().getTypeNameByBucketId(rid.getBucketId())), rid, view, null);
 
-              if (!AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), database)) {
+              if (!AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), database.getContext().getCurrentUser())) {
                 continue;
               }
 

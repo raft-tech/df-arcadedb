@@ -21,6 +21,8 @@ package com.arcadedb.database;
 import com.arcadedb.exception.ValidationException;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
+import com.arcadedb.security.AuthorizationUtils;
+import com.arcadedb.security.SecurityDatabaseUser;
 
 import java.math.*;
 import java.util.*;
@@ -54,18 +56,21 @@ public class DocumentValidator {
       throw new ValidationException("Classification " + toCheck + " is not allowed in this database");
   }
 
-  public static void validateClassificationMarkings(final MutableDocument document) {
+  public static void validateClassificationMarkings(final MutableDocument document, 
+          SecurityDatabaseUser securityDatabaseUser) {
     boolean validSources = false;
 
     // validate sources, if present
     if (document.has(MutableDocument.SOURCES) && !document.toJSON().getJSONObject(MutableDocument.SOURCES).isEmpty()) {
-      validateSources(document);
+      validateSources(document, securityDatabaseUser);
       validSources = true;
     }
 
     if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
         && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
-      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
+
+      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY)
+          .getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
 
       if (classificationMarkings.trim().isEmpty()) {
         throw new ValidationException("Classification " + classificationMarkings + " is not valid");
@@ -76,6 +81,12 @@ public class DocumentValidator {
       if (classificationMarkings.contains("//")) {
         classification = classificationMarkings.substring(0, classificationMarkings.indexOf("//"));
       }
+
+      // Validate the user can set the classification of the document. Can't create higher than what you can access.
+      if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser)) {
+        throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
+      }
+
       try {
         verifyDocumentClassificationValidForDeployment(classification, document);
       } catch (IllegalArgumentException e) {
@@ -91,7 +102,7 @@ public class DocumentValidator {
    * Sources are stored in the document as a JSON object, with the key being a numbered list, and the values being the portion marked source id.
    * @param document
    */
-  private static void validateSources(final MutableDocument document) {
+  private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser) {
     var sources = document.toJSON().getJSONObject(MutableDocument.SOURCES);
     sources.toMap().entrySet().forEach(entry -> {
       var source = entry.getValue().toString().trim();
@@ -101,6 +112,10 @@ public class DocumentValidator {
         var markings = source.substring(1, source.indexOf(")"));
         if (markings.trim().isEmpty()) {
           throw new ValidationException("Source " + source + " is not valid");
+        }
+
+        if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser)) {
+          throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
         }
 
         // Classification will end with a double separator if there are any additional ACCM markings.

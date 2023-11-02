@@ -20,7 +20,6 @@ package com.arcadedb.query.sql.executor;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.Identifiable;
-import com.arcadedb.database.MutableDocument;
 import com.arcadedb.database.Record;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.exception.TimeoutException;
@@ -96,7 +95,8 @@ public class ExpandStep extends AbstractExecutionStep {
             }
          
             // Prevent loading edges the user doesn't have access to.
-            if (!AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), context.getDatabase())) {
+            if (!AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), 
+                context.getDatabase().getContext().getCurrentUser())) {
               continue;
             }
 
