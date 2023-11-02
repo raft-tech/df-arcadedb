@@ -95,7 +95,7 @@ public class ExpandStep extends AbstractExecutionStep {
             }
          
             // Prevent loading edges the user doesn't have access to.
-            if (!AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), 
+            if (!AuthorizationUtils.checkPermissionsOnDocumentToRead(record.asDocument(true), 
                 context.getDatabase().getContext().getCurrentUser())) {
               continue;
             }

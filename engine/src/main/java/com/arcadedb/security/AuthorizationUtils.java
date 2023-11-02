@@ -48,18 +48,20 @@ public class AuthorizationUtils {
     
     // TODO are tetrapgrahs that group countries auto applicable to users of those countires, or do users need explicit authoirzation for their data?
     var processedResourceClassification = resourceClassification.replace("FVEY", "USA,AUS,CAN,GBR,NZL");
-
     if (!isClearanceAuthorized(userClearance, processedResourceClassification)) {
+      // System.out.println("blocked by clearance");
       return false;
     }
 
     // NO FORN takes precedence over REL TO?
     if (isBlockedByNoForn(nationality, processedResourceClassification)) {
-        return false;
+      // System.out.println("blocked by noforn");
+      return false;
     }
 
     if (isBlockedByReleaseableTo(nationality, tetragraphs, processedResourceClassification)) {
-        return false;
+      // System.out.println("blocked by noforn");
+      return false;
     }
 
     return true;
@@ -76,8 +78,10 @@ public class AuthorizationUtils {
       return false;
 
     String processedUserClearance = userClearance.toUpperCase();
+    processedUserClearance = processedUserClearance.trim();
 
     String processedResourceClearance = getClassificationFromResourceMarkings(resourceClassificationMarking);
+    processedResourceClearance = processedResourceClearance.trim();
 
     if (!classificationOptions.containsKey(processedUserClearance))
       throw new IllegalArgumentException("Clearance must be one of " + classificationOptions);
@@ -194,7 +198,15 @@ public class AuthorizationUtils {
     return classification;
   }
 
-  public static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser) {
+  public static boolean checkPermissionsOnDocumentToRead(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, false);
+  }
+
+  public static boolean checkPermissionsOnDocumentToWrite(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, true);
+  }
+
+  private static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser, final boolean isWriteAction) {
     // Allow root user to access all documents for HA syncing between nodes
     if (currentUser.getName().equals("root")) {
       return true;
@@ -211,7 +223,8 @@ public class AuthorizationUtils {
     }
 
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
-    if (document.getIdentity() != null && (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
+    if (!isWriteAction && (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
+      // todo throw illegal arg exception, no valid marking
       return false;
     }
 

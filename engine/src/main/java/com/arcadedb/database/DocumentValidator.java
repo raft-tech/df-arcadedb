@@ -83,7 +83,7 @@ public class DocumentValidator {
       }
 
       // Validate the user can set the classification of the document. Can't create higher than what you can access.
-      if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser)) {
+      if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
         throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
       }
 
@@ -114,7 +114,7 @@ public class DocumentValidator {
           throw new ValidationException("Source " + source + " is not valid");
         }
 
-        if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser)) {
+        if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
           throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
         }
 
