@@ -166,6 +166,7 @@ public enum GlobalConfiguration {
   KEYCLOAK_ROOT_URL("arcadedb.keycloakRootUrl", SCOPE.SERVER, "Keycloak root URL", String.class, "http://df-keycloak.data-fabric:8080"),
   KEYCLOAK_ADMIN_USERNAME("arcadedb.keycloakAdminUsername", SCOPE.SERVER, "Keycloak admin username", String.class, "admin"),
   KEYCLOAK_ADMIN_PASSWORD("arcadedb.keycloakAdminPassword", SCOPE.SERVER, "Keycloak admin password", String.class, ""),
+  KEYCLOAK_CLIENT_ID("arcadedb.keycloakClientId", SCOPE.SERVER, "Keycloak client ID", String.class, "df-backend"),
   KEYCLOAK_REALM("arcadedb.keycloakRealm", SCOPE.SERVER, "Keycloak realm", String.class, "data-fabric"),
 
   DATE_TIME_FORMAT("arcadedb.dateTimeFormat", SCOPE.DATABASE, "Default date time format using Java SimpleDateFormat syntax", String.class,
