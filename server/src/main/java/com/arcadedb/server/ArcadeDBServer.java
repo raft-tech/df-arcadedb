@@ -26,6 +26,7 @@ import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.database.EmbeddedDatabase;
 import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.event.AfterRecordCreateListener;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.exception.ConfigurationException;
 import com.arcadedb.exception.DatabaseIsClosedException;
@@ -40,6 +41,8 @@ import com.arcadedb.server.event.ServerEventLog;
 import com.arcadedb.server.ha.HAServer;
 import com.arcadedb.server.ha.ReplicatedDatabase;
 import com.arcadedb.server.http.HttpServer;
+import com.arcadedb.server.kafka.KafkaClient;
+import com.arcadedb.server.kafka.Message;
 import com.arcadedb.server.monitor.DefaultServerMetrics;
 import com.arcadedb.server.monitor.ServerMetrics;
 import com.arcadedb.server.monitor.ServerMonitor;
@@ -178,6 +181,29 @@ public class ArcadeDBServer {
     }
 
     serverMonitor.start();
+  }
+
+  private void registerListeners() {
+    
+    var databaseNames = this.getDatabaseNames();
+
+    for (String databaseName : databaseNames) {
+      Database database = this.getDatabase(databaseName);
+      AfterRecordCreateListener listener = record -> {
+        if (this.getHA().isLeader()) {
+          System.out.println("Record created: " + record);
+          Message message = new Message("create", record.toJSON().toString(), this.getSecurity().g);
+
+          // create topic for each database
+        }
+      };
+      database.getEvents().registerListener(listener);
+    }
+
+    KafkaClient kafkaClient = new KafkaClient();
+    kafkaClient.createTopicIfNotExists("arcade_cdc");
+
+    
   }
 
   private void welcomeBanner() {
