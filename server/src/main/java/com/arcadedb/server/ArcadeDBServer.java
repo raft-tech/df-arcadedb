@@ -193,7 +193,6 @@ public class ArcadeDBServer {
         String data = readFromInputStream(inputStream);
         database.command("sql", data);
       } catch (Exception e) {
-        e.printStackTrace();
         throw new ServerException("Error creating food demo dataset: " + e.getMessage());
       }
     } else {
