@@ -50,8 +50,6 @@ import com.nimbusds.oauth2.sdk.util.StringUtils;
 import io.undertow.server.HttpServerExchange;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.rmi.*;
 import java.util.*;
 
 public class PostServerCommandHandler extends AbstractHandler {
