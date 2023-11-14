@@ -266,7 +266,7 @@ function createDatabase(){
   <label for="rbPrivate">Private</label><br>
   <label for="import"><b>Import WIP SDL Ontology:</b></label>
   <input type="checkbox" id="chkImport" name="chkImport" value="import">
-  <label for="validation"><b>Enable SDL Classification Validation:</b></label>
+  <label for="validation"><b>Enable SDL Classification Data Access Enforcement:</b></label>
   <input type="checkbox" id="chkValidation" name="chkValidation" value="enabled" checked oninput=onValidationEnabledChange()>
   </div>
   `;
@@ -999,8 +999,9 @@ function updateDatabaseSetting(key, value){
 }
 
 function loadDatabaseMetadata(){
-  let data = getDatabaseMetadata();
-  setDatabaseMetadata(data);
+  getDatabaseMetadata().then((data) => {
+    setDatabaseMetadata(data)
+  });
 }
 
 async function getClassificationForDatabase(database) {
@@ -1033,12 +1034,13 @@ async function getDatabaseMetadata() {
 
 function setDatabaseMetadata(data) {
   for ( let i in data ) {
-    if ( data[i].name == $("#inputDatabase").val()) {
+    if ( data[i].name == escapeHtml($("#inputDatabase").val())) {
         $("#lblClassification").text( data[i].classification || "" );
         $("#lblOwner").text( data[i].owner || "" );
         $("#lblPublic").text( data[i].isPublic || "" );
         $("#lblCreatedBy").text( data[i].createdBy || "" );
         $("#lblCreatedDate").text( data[i].createdDateTime || "" );
+        $("#lblClassificationValidationEnabled").text( data[i].classificationValidationEnabled);
       }
     }
 }
