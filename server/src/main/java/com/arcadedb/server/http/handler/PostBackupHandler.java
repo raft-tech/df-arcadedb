@@ -29,7 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Backup all databases (with backups enabled) to minio
  */
-// public class PostBackupHandler extends AbstractHandler {
 @Slf4j
 public class PostBackupHandler implements HttpHandler {
 

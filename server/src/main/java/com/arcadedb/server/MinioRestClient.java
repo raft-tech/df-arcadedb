@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MinioRestClient extends DataFabricRestClient {
 
-    private static final String minioUrl = "http://df-minio:9000"; //System.getenv("INTERNAL_MINIO_URL");
+    private static final String minioUrl = System.getenv("INTERNAL_MINIO_URL");
     private static final String bucketName =  System.getenv("BACKUP_BUCKET_NAME");
     private static final String rootArcadePath =  System.getenv("BACKUP_PATH");
 
@@ -28,6 +28,9 @@ public class MinioRestClient extends DataFabricRestClient {
         return null;
     }
 
+    /** 
+     * Creates a presigned url to upload a given file name for a expirating period of time.
+     */
     public static String getPreSignedUrl(String backupName, int expiryHours) {
 
         try {
