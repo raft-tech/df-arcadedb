@@ -58,11 +58,11 @@ public class PostBackupHandler implements HttpHandler {
             if (GlobalConfiguration.OIDC_AUTH.getValueAsBoolean()) {
                 // TODO only allow root user basic access if JWT auth enabled
 
-                if (exchange.getRequestHeaders().get(Headers.AUTHORIZATION) != null
-                        && exchange.getRequestHeaders().get(Headers.AUTHORIZATION).toString().contains("Bearer ")) {
+                HeaderValues authHeader = exchange.getRequestHeaders().get(Headers.AUTHORIZATION);
 
-                    String encodedJwt = exchange.getRequestHeaders().get(Headers.AUTHORIZATION).get(0);
+                if (authHeader != null && authHeader.toString().contains("Bearer ")) {
 
+                    String encodedJwt = authHeader.get(0);
                     String decodedJwt = AbstractHandler.decodeTokenParts(encodedJwt)[1];
                     decodedJwt = decodedJwt.replaceAll(" ", "");
                     JSONObject json = new JSONObject(decodedJwt);
@@ -102,6 +102,8 @@ public class PostBackupHandler implements HttpHandler {
      * Send an event to the client over SSE, formatted for severity and timestamp
      */
     private void sendEvent(final HttpServerExchange exchange, String message) {
+
+        // Log message to container
         if (message.contains("INFO")) {
             log.info(message);
         } else {
@@ -175,7 +177,8 @@ public class PostBackupHandler implements HttpHandler {
         String fileName = String.format("%s-backup-%s.zip", database.getName(),
                 dateFormat.format(System.currentTimeMillis()));
 
-        // Construct and execute the arcade sql command to backup the database to a local file.
+        // Construct and execute the arcade sql command to backup the database to a
+        // local file.
         String command = String.format("backup database file://%s", fileName);
         database.command("sql", command, httpServer.getServer().getConfiguration(), new HashMap<>());
 
@@ -208,7 +211,8 @@ public class PostBackupHandler implements HttpHandler {
         return String.format("%02d:%02d:%02d", HH, MM, SS);
     }
 
-    private void sendErrorResponse(final HttpServerExchange exchange, final int code, final String errorMessage, final Throwable e, final String exceptionArgs) {
+    private void sendErrorResponse(final HttpServerExchange exchange, final int code, final String errorMessage,
+            final Throwable e, final String exceptionArgs) {
         if (!exchange.isResponseStarted())
             exchange.setStatusCode(code);
         exchange.getResponseSender().send(errorMessage);
