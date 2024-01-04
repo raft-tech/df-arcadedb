@@ -27,6 +27,8 @@ import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.database.EmbeddedDatabase;
 import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.event.AfterRecordCreateListener;
+import com.arcadedb.event.AfterRecordDeleteListener;
+import com.arcadedb.event.AfterRecordUpdateListener;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.exception.ConfigurationException;
 import com.arcadedb.exception.DatabaseIsClosedException;
@@ -81,6 +83,8 @@ public class ArcadeDBServer {
   private volatile    STATUS                                  status                               = STATUS.OFFLINE;
   private             ServerMetrics                           serverMetrics                        = new DefaultServerMetrics();
   private             ServerMonitor                           serverMonitor;
+
+  private KafkaClient kafkaClient = new KafkaClient();
 
   public ArcadeDBServer() {
     this.configuration = new ContextConfiguration();
@@ -159,6 +163,8 @@ public class ArcadeDBServer {
 
     loadDefaultFoodDatabase();
 
+    registerListeners();
+
     httpServer.startService();
 
     status = STATUS.ONLINE;
@@ -216,26 +222,40 @@ public class ArcadeDBServer {
   }
 
   private void registerListeners() {
-    
-    var databaseNames = this.getDatabaseNames();
+    if (this.getHA().isLeader()) {
+      var databaseNames = this.getDatabaseNames();
 
-    for (String databaseName : databaseNames) {
-      Database database = this.getDatabase(databaseName);
-      AfterRecordCreateListener listener = record -> {
-        if (this.getHA().isLeader()) {
-          System.out.println("Record created: " + record);
-          Message message = new Message("create", record.toJSON().toString(), this.getSecurity().g);
-
-          // create topic for each database
-        }
-      };
-      database.getEvents().registerListener(listener);
+      for (String databaseName : databaseNames) {
+        registerListenersForDatabase(databaseName);
+      }
     }
+  }
 
-    KafkaClient kafkaClient = new KafkaClient();
-    kafkaClient.createTopicIfNotExists("arcade_cdc");
+  private void registerListenersForDatabase(String databaseName) {
+    Database database = this.getDatabase(databaseName);
 
-    
+    if (database != null && !database.isOpen()) { //} && database.getEvents().getListenersCount() == 0) {
+      AfterRecordCreateListener createListener = record -> {
+          System.out.println("Record created: " + record);
+          Message message = new Message("create", record.toJSON().toString(), record.getDatabase().getCurrentUserName());
+          kafkaClient.sendMessage(databaseName, message);
+      };
+      database.getEvents().registerListener(createListener);
+
+      AfterRecordUpdateListener updateListener = record -> {
+          System.out.println("Record updated: " + record);
+          Message message = new Message("update", record.toJSON().toString(), record.getDatabase().getCurrentUserName());
+          kafkaClient.sendMessage(databaseName, message);
+      };
+      database.getEvents().registerListener(updateListener);
+
+      AfterRecordDeleteListener deleteListener = record -> {
+          System.out.println("Record deleted: " + record);
+          Message message = new Message("delete", record.toJSON().toString(), record.getDatabase().getCurrentUserName());
+          kafkaClient.sendMessage(databaseName, message);
+      };
+      database.getEvents().registerListener(deleteListener);
+    }
   }
 
   private void welcomeBanner() {
@@ -414,6 +434,8 @@ public class ArcadeDBServer {
     // FORCE LOADING INTO THE SERVER
     databases.put(databaseName, db);
 
+    registerListenersForDatabase(databaseName);
+
     return db;
   }
 
@@ -519,8 +541,9 @@ public class ArcadeDBServer {
 
       if (configuration.getValueAsBoolean(GlobalConfiguration.SERVER_DATABASE_LOADATSTARTUP)) {
         final File[] databaseDirectories = databaseDir.listFiles(File::isDirectory);
-        for (final File f : databaseDirectories)
+        for (final File f : databaseDirectories) {
           getDatabase(f.getName());
+        }
       }
     }
   }

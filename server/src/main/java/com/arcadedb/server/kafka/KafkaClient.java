@@ -2,6 +2,7 @@ package com.arcadedb.server.kafka;
 
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -15,14 +16,12 @@ public class KafkaClient {
 
     private final AdminClient adminClient;
 
-    private final Producer producer;
+    private ConcurrentHashMap<String, Producer> producerCache = new ConcurrentHashMap<>();
 
     public KafkaClient() {
         Properties config = new Properties();
         config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokerUrl);
         adminClient = AdminClient.create(config);
-
-        producer = new Producer();
     }
 
     public void createTopicIfNotExists(String topicName) {
@@ -50,7 +49,12 @@ public class KafkaClient {
         }
     }
 
-    public void send(Message message) {
-        producer.send(message);
+    public void sendMessage(String database, Message message) {
+        producerCache.computeIfAbsent(database, d -> new Producer(getTopicNameForDatabase(d)));
+        producerCache.get(database).send(message);
+    }
+
+    private String getTopicNameForDatabase(String databaseName) {
+        return "arcade-cdc_" + databaseName;
     }
 }

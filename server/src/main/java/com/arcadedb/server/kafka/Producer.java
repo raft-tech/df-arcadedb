@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.ser.std.StringSerializer;
 public class Producer implements Callback {
     // Constants for configuration
     private static final String BOOTSTRAP_SERVERS = "df-kafka-bootstrap:9092";
-    private static final String TOPIC_NAME = "my-topic";
+    private String topicName = "my-topic";
     private static final long NUM_MESSAGES = 50;
     private static final int MESSAGE_SIZE_BYTES = 100;
     private static final long PROCESSING_DELAY_MS = 1000L;
@@ -28,22 +28,15 @@ public class Producer implements Callback {
 
     KafkaProducer<String, Message> kafkaProducer;
 
-    public Producer() {
+    public Producer(String topicName) {
+        this.topicName = topicName;
         try (var producer = createKafkaProducer()) {
             this.kafkaProducer = producer;
-            // Generate a random byte array as the message payload
-            // byte[] value = randomBytes(MESSAGE_SIZE_BYTES);
-            // while (messageCount.get() < NUM_MESSAGES) {
-            //     sleep(PROCESSING_DELAY_MS);                
-            //     // Send a message to the Kafka topic, specifying topic name, message key, and message value
-            //     producer.send(new ProducerRecord<>(TOPIC_NAME, messageCount.get(), value), this);
-            //     messageCount.incrementAndGet();
-            // }
         }
     }
 
     public void send(Message message) {
-        kafkaProducer.send(new ProducerRecord<>(TOPIC_NAME, message.getEventId(), message), this);
+        kafkaProducer.send(new ProducerRecord<>(topicName, message.getEventId(), message), this);
         messageCount.incrementAndGet();
     }
 

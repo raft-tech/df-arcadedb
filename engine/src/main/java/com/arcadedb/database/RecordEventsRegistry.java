@@ -26,6 +26,7 @@ import com.arcadedb.event.BeforeRecordDeleteListener;
 import com.arcadedb.event.BeforeRecordUpdateListener;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RecordEventsRegistry implements RecordEvents {
   private final List<BeforeRecordCreateListener> beforeCreateListeners = new ArrayList<>();
@@ -35,11 +36,28 @@ public class RecordEventsRegistry implements RecordEvents {
   private final List<AfterRecordUpdateListener>  afterUpdateListeners  = new ArrayList<>();
   private final List<AfterRecordDeleteListener>  afterDeleteListeners  = new ArrayList<>();
 
+  // private int listenersCount = 0;
+  // private AtomicBoolean 
+
+  // private synchronized void incrementListenersCount() {
+  //   listenersCount++;
+  // }
+
+  // private synchronized void decrementListenersCount() {
+  //   listenersCount--;
+  // }
+
+  // public synchronized int getListenersCount() {
+  //   return listenersCount;
+  // }
+
   @Override
   public RecordEventsRegistry registerListener(final BeforeRecordCreateListener listener) {
     synchronized (beforeCreateListeners) {
-      if (!beforeCreateListeners.contains(listener))
+      if (!beforeCreateListeners.contains(listener)) {
         beforeCreateListeners.add(listener);
+   //     incrementListenersCount();
+      }
     }
     return this;
   }
@@ -47,8 +65,10 @@ public class RecordEventsRegistry implements RecordEvents {
   @Override
   public RecordEventsRegistry registerListener(final BeforeRecordUpdateListener listener) {
     synchronized (beforeUpdateListeners) {
-      if (!beforeUpdateListeners.contains(listener))
+      if (!beforeUpdateListeners.contains(listener)) {
         beforeUpdateListeners.add(listener);
+   //     incrementListenersCount();
+      }
     }
     return this;
   }
@@ -56,8 +76,10 @@ public class RecordEventsRegistry implements RecordEvents {
   @Override
   public RecordEventsRegistry registerListener(final BeforeRecordDeleteListener listener) {
     synchronized (beforeDeleteListeners) {
-      if (!beforeDeleteListeners.contains(listener))
+      if (!beforeDeleteListeners.contains(listener)) {
         beforeDeleteListeners.add(listener);
+   //     incrementListenersCount();
+      }
     }
     return this;
   }
@@ -65,8 +87,10 @@ public class RecordEventsRegistry implements RecordEvents {
   @Override
   public RecordEventsRegistry registerListener(final AfterRecordCreateListener listener) {
     synchronized (afterCreateListeners) {
-      if (!afterCreateListeners.contains(listener))
+      if (!afterCreateListeners.contains(listener)) {
         afterCreateListeners.add(listener);
+  //      incrementListenersCount();
+      }
     }
     return this;
   }
@@ -74,8 +98,10 @@ public class RecordEventsRegistry implements RecordEvents {
   @Override
   public RecordEventsRegistry registerListener(final AfterRecordUpdateListener listener) {
     synchronized (afterUpdateListeners) {
-      if (!afterUpdateListeners.contains(listener))
+      if (!afterUpdateListeners.contains(listener)) {
         afterUpdateListeners.add(listener);
+  //      incrementListenersCount();
+      }
     }
     return this;
   }
@@ -83,8 +109,10 @@ public class RecordEventsRegistry implements RecordEvents {
   @Override
   public RecordEventsRegistry registerListener(final AfterRecordDeleteListener listener) {
     synchronized (afterDeleteListeners) {
-      if (!afterDeleteListeners.contains(listener))
+      if (!afterDeleteListeners.contains(listener)) {
         afterDeleteListeners.add(listener);
+   //     incrementListenersCount();
+      }
     }
     return this;
   }
