@@ -55,7 +55,7 @@ public class Producer implements Callback {
                 exception.printStackTrace();
             }
         } else {
-            LogManager.instance().log(this, Level.FINE, "Record sent to %s-%d with offset %d%n",
+            LogManager.instance().log(this, Level.FINE, "Record sent to %s-%d with offset %d",
                     metadata.topic(), metadata.partition(), metadata.offset());
         }
     }
