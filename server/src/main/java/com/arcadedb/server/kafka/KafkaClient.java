@@ -45,7 +45,7 @@ public class KafkaClient {
     }
 
     public void sendMessage(String database, Message message) {
-        LogManager.instance().log(this, Level.INFO, "Event triggered for database %s, payload: %s", database, message);
+        LogManager.instance().log(this, Level.FINE, "Event triggered for database %s, payload: %s", database, message);
         producerCache.computeIfAbsent(database, d -> new Producer(getTopicNameForDatabase(d)));
         producerCache.get(database).send(message);
     }
