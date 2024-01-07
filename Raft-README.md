@@ -4,6 +4,18 @@
 - Studio: https://arcadedb.[localhost|custom df domain]
 - API: ~/api/v1/arcadedb
 
+#### Configuration
+| EnvVariable | Default | Description | 
+|---|---|---| 
+| BOOTSTRAP_SERVERS_CONFIG | "kafka-bootstrap.localhost:9092" | Kafka cluster connection string  | 
+| CLIENT_ID_CONFIG | "admin-arcadedb-kafka-client" | Kafka client id. | 
+| SECURITY_PROTOCOL_CONFIG | "PLAINTEXT" | Security protocol used. Can be SSL or PLAINTEXT. |
+| SASL_MECHANISM | None | SASL auth mechanism. Can be SCRAM-SHA-256 or SCRAM-SHA-512.  | 
+| SASL_JAAS_CONFIG | None | Jaas configuration which will contain credentials. | 
+| DATABASE_SUBSCRIPTION_PATTERN | ".*" | Regex which will used to pattern match databases to register kafka events. | 
+| STREAM_DATABASE_SUBSCRIPTION_SERVICE_TIMEOUT_MILLIS | "500" | Frequency in milliseconds at which Kafka event subscription service will check for new databases and if the database should be subscibed to emit events on record create, update or delete to Kafka. | 
+
+
 ## 1. Demos
 
 ### 1.1 Included by default
