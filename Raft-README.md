@@ -15,7 +15,6 @@
 | DATABASE_SUBSCRIPTION_PATTERN | ".*" | Regex which will used to pattern match databases to register kafka events. | 
 | STREAM_DATABASE_SUBSCRIPTION_SERVICE_TIMEOUT_MILLIS | "500" | Frequency in milliseconds at which Kafka event subscription service will check for new databases and if the database should be subscibed to emit events on record create, update or delete to Kafka. | 
 
-
 ## 1. Demos
 
 ### 1.1 Included by default
@@ -27,7 +26,11 @@ To view a good graph result set in the food dataset, run the following query
 
 ### 1.2 Classification handling
 
-Arcade has been extended to optionally require general or source based classification markings on all graph nodes/edges.
+
+Arcade has been extended to optionally require general or source based classification markings on all graph nodes/edges for specific databases.
+
+Classification/ACCM data access enforcements are currently limited to clearance checks and no foreign nationaity checks. More advanced ACCM controls to come.
+
 
 To demo this functionality....
 
