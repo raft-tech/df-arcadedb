@@ -46,6 +46,7 @@ import com.arcadedb.server.http.HttpServer;
 import com.arcadedb.server.http.handler.PostServerCommandHandler;
 import com.arcadedb.server.kafka.KafkaClient;
 import com.arcadedb.server.kafka.Message;
+import com.arcadedb.server.kafka.StreamDBSubscriptionService;
 import com.arcadedb.server.monitor.DefaultServerMetrics;
 import com.arcadedb.server.monitor.ServerMetrics;
 import com.arcadedb.server.monitor.ServerMonitor;
@@ -84,7 +85,7 @@ public class ArcadeDBServer {
   private             ServerMetrics                           serverMetrics                        = new DefaultServerMetrics();
   private             ServerMonitor                           serverMonitor;
 
-  private KafkaClient kafkaClient = new KafkaClient();
+  private             StreamDBSubscriptionService             streamDBSubscriptionService;
 
   public ArcadeDBServer() {
     this.configuration = new ContextConfiguration();
@@ -163,7 +164,7 @@ public class ArcadeDBServer {
 
     loadDefaultFoodDatabase();
 
-    registerListeners();
+    startStreamDBSubscriptionService();
 
     httpServer.startService();
 
@@ -190,6 +191,21 @@ public class ArcadeDBServer {
     }
 
     serverMonitor.start();
+  }
+
+  private void startStreamDBSubscriptionService() {
+    String dbNamePattern = System.getenv("DATABASE_SUBSCRIPTION_PATTERN") == null ?  ".*" : System.getenv("DATABASE_SUBSCRIPTION_PATTERN");
+    String stringTimeout = System.getenv("STREAM_DATABASE_SUBSCRIPTION_SERVICE_TIMEOUT_MILLIS") == null ? "500" : System.getenv("STREAM_DATABASE_SUBSCRIPTION_SERVICE_TIMEOUT_MILLIS");
+    long subscriptionServiceTimeout;
+    try {
+      subscriptionServiceTimeout = Long.parseLong(stringTimeout);
+    } catch (NumberFormatException e) {
+      // Will use default value for timeout
+      subscriptionServiceTimeout = 500L;
+    }
+
+    streamDBSubscriptionService = new StreamDBSubscriptionService(dbNamePattern, this.databases, subscriptionServiceTimeout);
+    streamDBSubscriptionService.start();
   }
 
   private void loadDefaultFoodDatabase() {
@@ -219,43 +235,6 @@ public class ArcadeDBServer {
         }
     }
     return resultStringBuilder.toString();
-  }
-
-  private void registerListeners() {
-    if (this.getHA().isLeader()) {
-      var databaseNames = this.getDatabaseNames();
-
-      for (String databaseName : databaseNames) {
-        registerListenersForDatabase(databaseName);
-      }
-    }
-  }
-
-  private void registerListenersForDatabase(String databaseName) {
-    Database database = this.getDatabase(databaseName);
-
-    if (database != null && !database.isOpen()) { //} && database.getEvents().getListenersCount() == 0) {
-      AfterRecordCreateListener createListener = record -> {
-          System.out.println("Record created: " + record);
-          Message message = new Message("create", record.toJSON().toString(), record.getDatabase().getCurrentUserName());
-          kafkaClient.sendMessage(databaseName, message);
-      };
-      database.getEvents().registerListener(createListener);
-
-      AfterRecordUpdateListener updateListener = record -> {
-          System.out.println("Record updated: " + record);
-          Message message = new Message("update", record.toJSON().toString(), record.getDatabase().getCurrentUserName());
-          kafkaClient.sendMessage(databaseName, message);
-      };
-      database.getEvents().registerListener(updateListener);
-
-      AfterRecordDeleteListener deleteListener = record -> {
-          System.out.println("Record deleted: " + record);
-          Message message = new Message("delete", record.toJSON().toString(), record.getDatabase().getCurrentUserName());
-          kafkaClient.sendMessage(databaseName, message);
-      };
-      database.getEvents().registerListener(deleteListener);
-    }
   }
 
   private void welcomeBanner() {
@@ -433,8 +412,6 @@ public class ArcadeDBServer {
 
     // FORCE LOADING INTO THE SERVER
     databases.put(databaseName, db);
-
-    registerListenersForDatabase(databaseName);
 
     return db;
   }

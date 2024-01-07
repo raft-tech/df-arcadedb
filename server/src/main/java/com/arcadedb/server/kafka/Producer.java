@@ -1,87 +1,67 @@
 package com.arcadedb.server.kafka;
 
 import java.util.Properties;
-import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 
+import com.arcadedb.log.LogManager;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RetriableException;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 
-import com.fasterxml.jackson.databind.ser.std.StringSerializer;
 
 public class Producer implements Callback {
-    // Constants for configuration
-    private static final String BOOTSTRAP_SERVERS = "df-kafka-bootstrap:9092";
-    private String topicName = "my-topic";
-    private static final long NUM_MESSAGES = 50;
-    private static final int MESSAGE_SIZE_BYTES = 100;
-    private static final long PROCESSING_DELAY_MS = 1000L;
-
-    protected AtomicLong messageCount = new AtomicLong(0);
-
-    KafkaProducer<String, Message> kafkaProducer;
+    KafkaProducer<String, String> kafkaProducer;
+    String topicName;
 
     public Producer(String topicName) {
         this.topicName = topicName;
-        try (var producer = createKafkaProducer()) {
-            this.kafkaProducer = producer;
-        }
+        this.kafkaProducer = createKafkaProducer();
     }
 
     public void send(Message message) {
-        kafkaProducer.send(new ProducerRecord<>(topicName, message.getEventId(), message), this);
-        messageCount.incrementAndGet();
+        kafkaProducer.send(new ProducerRecord<>(this.topicName, message.getEventId(), message.toString()), this);
     }
 
-    private KafkaProducer<String, Message> createKafkaProducer() {
+    private KafkaProducer<String, String> createKafkaProducer() {
         // Create properties for the Kafka producer
-        Properties props = new Properties();
+        Properties props = KafkaClientConfiguration.getKafkaClientConfiguration();
         
-        // Configure the connection to Kafka brokers
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
-
         // Set a unique client ID for tracking
-        props.put(ProducerConfig.CLIENT_ID_CONFIG, "client_arcade-" + UUID.randomUUID());
+        props.put(ProducerConfig.CLIENT_ID_CONFIG, "producer-arcadedb-" + UUID.randomUUID());
         
         // Configure serializers for keys and values
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 
         return new KafkaProducer<>(props);
     }
 
-    private boolean retriable(Exception e) {
-        if (e instanceof IllegalArgumentException
-            || e instanceof UnsupportedOperationException
-            || !(e instanceof RetriableException)) {
-            return false;
-        } else {
-            return true;
-        }
+    private boolean retriable(Exception exception) {
+        return exception instanceof RetriableException;
     }
 
     @Override
-    public void onCompletion(RecordMetadata metadata, Exception e) {
-        if (e != null) {
+    public void onCompletion(RecordMetadata metadata, Exception exception) {
+        if (exception != null) {
             // If an exception occurred while sending the record
-            System.err.println(e.getMessage());
+            LogManager.instance().log(this, Level.SEVERE, "Failed to send message to topic: %s", metadata.topic());
 
-            if (!retriable(e)) {
-                // If the exception is not retriable, print the stack trace and exit
-                e.printStackTrace();
-      //          System.exit(1);
+            if (!retriable(exception)) {
+                exception.printStackTrace();
             }
         } else {
-            // If the record was successfully sent
-            System.out.printf("Record sent to %s-%d with offset %d%n",
+            LogManager.instance().log(this, Level.FINE, "Record sent to %s-%d with offset %d%n",
                     metadata.topic(), metadata.partition(), metadata.offset());
         }
+    }
+
+    public void flush() {
+        LogManager.instance().log(this, Level.INFO, "Flushing messages to topic: %s",  this.topicName);
+        this.kafkaProducer.flush();
     }
 }

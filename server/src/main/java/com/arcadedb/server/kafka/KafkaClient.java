@@ -1,27 +1,24 @@
 package com.arcadedb.server.kafka;
 
 import java.util.Collections;
-import java.util.Properties;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Level;
 
+import com.arcadedb.log.LogManager;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.errors.TopicExistsException;
 
 public class KafkaClient {
     
-    private final String brokerUrl = "df-kafka-bootstrap:9092"; // System.getenv("KAFKA_BOOTSTRAP");//, "df-kafka-bootstrap:9092");
-
     private final AdminClient adminClient;
 
-    private ConcurrentHashMap<String, Producer> producerCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Producer> producerCache = new ConcurrentHashMap<>();
 
     public KafkaClient() {
-        Properties config = new Properties();
-        config.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokerUrl);
-        adminClient = AdminClient.create(config);
+        adminClient = AdminClient.create(KafkaClientConfiguration.getKafkaClientConfiguration());
     }
 
     public void createTopicIfNotExists(String topicName) {
@@ -32,29 +29,34 @@ public class KafkaClient {
                 short replicationFactor = 2;
                 NewTopic newTopic = new NewTopic(topicName, numPartitions, replicationFactor);
                 adminClient.createTopics(Collections.singleton(newTopic)).all().get();
-                System.out.println("Topic created: " + topicName);
+                LogManager.instance().log(this, Level.INFO, "Topic created: %s", topicName);
             } else {
-                System.out.println("Topic already exists: " + topicName);
+                System.out.println(": " + topicName);
+                LogManager.instance().log(this, Level.INFO, "Topic already exists: %s", topicName);
+
             }
         } catch (InterruptedException | ExecutionException e) {
             if (!(e.getCause() instanceof TopicExistsException)) {
-                // Handle exception
-                e.printStackTrace();
+                LogManager.instance().log(this, Level.SEVERE, e.getMessage());
             } else {
-                // TopicExistsException - this can happen if the topic was created between the check and the create call
-                System.out.println("Topic already exists: " + topicName);
+                LogManager.instance().log(this, Level.INFO, "Topic already exists: %s", topicName);
             }
-        } finally {
-            adminClient.close();
         }
     }
 
     public void sendMessage(String database, Message message) {
+        LogManager.instance().log(this, Level.INFO, String.format("Event triggered for database %s, payload: %s", database, message));
         producerCache.computeIfAbsent(database, d -> new Producer(getTopicNameForDatabase(d)));
         producerCache.get(database).send(message);
     }
 
-    private String getTopicNameForDatabase(String databaseName) {
+    String getTopicNameForDatabase(String databaseName) {
         return "arcade-cdc_" + databaseName;
+    }
+
+    protected void shutdown() {
+        for (Map.Entry<String, Producer> entry : this.producerCache.entrySet()) {
+            entry.getValue().flush();
+        }
     }
 }

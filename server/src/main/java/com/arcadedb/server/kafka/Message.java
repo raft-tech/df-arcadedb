@@ -3,8 +3,10 @@ package com.arcadedb.server.kafka;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.google.gson.Gson;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @NoArgsConstructor
@@ -21,5 +23,10 @@ public class Message {
         this.eventType = eventType;
         this.eventPayload = eventPayload;
         this.username = username;
+    }
+
+    @Override
+    public String toString() {
+        return new Gson().toJson(this);
     }
 }
