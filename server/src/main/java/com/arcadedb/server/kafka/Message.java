@@ -15,14 +15,16 @@ public class Message {
     private String eventId = UUID.randomUUID().toString();
     private String timestamp = String.valueOf(Instant.now().toEpochMilli());
 
-    private String username;
-    private String eventType;
+    private String username; // user that made the change
+    private String eventType; // create read update
+    private String entityName; // table in database
     private String eventPayload;
 
-    public Message(String eventType, String eventPayload, String username) {
+    public Message(String eventType, String eventPayload, String username, String entityName) {
         this.eventType = eventType;
-        this.eventPayload = eventPayload;
         this.username = username;
+        this.entityName = entityName;
+        this.eventPayload = eventPayload;
     }
 
     @Override

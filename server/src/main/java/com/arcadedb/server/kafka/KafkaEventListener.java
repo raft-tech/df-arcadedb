@@ -7,9 +7,9 @@ import com.arcadedb.event.AfterRecordUpdateListener;
 
 public class KafkaEventListener implements AfterRecordCreateListener, AfterRecordUpdateListener, AfterRecordDeleteListener {
     enum RecordEvents {
-        AFTER_RECORD_UPDATE("after_record_update"),
-        AFTER_RECORD_DELETE("after_record_delete"),
-        AFTER_RECORD_CREATE("after_record_create");
+        AFTER_RECORD_UPDATE("AFTER_RECORD_UPDATE"),
+        AFTER_RECORD_DELETE("AFTER_RECORD_DELETE"),
+        AFTER_RECORD_CREATE("AFTER_RECORD_CREATE");
 
         private final String value;
 
@@ -34,10 +34,12 @@ public class KafkaEventListener implements AfterRecordCreateListener, AfterRecor
 
     @Override
     public void onAfterCreate(Record record) {
+
         Message message = new Message(
                 RecordEvents.AFTER_RECORD_CREATE.toString(),
                 record.toJSON().toString(),
-                record.getDatabase().getCurrentUserName());
+                record.getDatabase().getCurrentUserName(),
+                getEntityName(record));
 
         this.client.sendMessage(this.databaseName, message);
     }
@@ -47,7 +49,8 @@ public class KafkaEventListener implements AfterRecordCreateListener, AfterRecor
         Message message = new Message(
                 RecordEvents.AFTER_RECORD_DELETE.toString(),
                 record.toJSON().toString(),
-                record.getDatabase().getCurrentUserName());
+                record.getDatabase().getCurrentUserName(),
+                getEntityName(record));
 
         this.client.sendMessage(this.databaseName, message);
     }
@@ -57,8 +60,17 @@ public class KafkaEventListener implements AfterRecordCreateListener, AfterRecor
         Message message = new Message(
                 RecordEvents.AFTER_RECORD_UPDATE.toString(),
                 record.toJSON().toString(),
-                record.getDatabase().getCurrentUserName());
+                record.getDatabase().getCurrentUserName(),
+                getEntityName(record));
 
         this.client.sendMessage(this.databaseName, message);
+    }
+
+    private String getEntityName(Record record) {
+        if (record != null) {
+            return record.asDocument().getTypeName();
+        } else {
+            return "";
+        }
     }
 }
