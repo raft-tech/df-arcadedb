@@ -4,6 +4,7 @@ import com.arcadedb.database.Record;
 import com.arcadedb.event.AfterRecordCreateListener;
 import com.arcadedb.event.AfterRecordDeleteListener;
 import com.arcadedb.event.AfterRecordUpdateListener;
+import com.raft.arcadedb.cdc.Message;
 
 public class KafkaEventListener implements AfterRecordCreateListener, AfterRecordUpdateListener, AfterRecordDeleteListener {
     enum RecordEvents {
@@ -34,43 +35,22 @@ public class KafkaEventListener implements AfterRecordCreateListener, AfterRecor
 
     @Override
     public void onAfterCreate(Record record) {
-
-        Message message = new Message(
-                RecordEvents.AFTER_RECORD_CREATE.toString(),
-                record.toJSON().toString(),
-                record.getDatabase().getCurrentUserName(),
-                getEntityName(record));
+        Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_CREATE, record);
 
         this.client.sendMessage(this.databaseName, message);
     }
 
     @Override
     public void onAfterDelete(Record record) {
-        Message message = new Message(
-                RecordEvents.AFTER_RECORD_DELETE.toString(),
-                record.toJSON().toString(),
-                record.getDatabase().getCurrentUserName(),
-                getEntityName(record));
+        Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_DELETE, record);
 
         this.client.sendMessage(this.databaseName, message);
     }
 
     @Override
     public void onAfterUpdate(Record record) {
-        Message message = new Message(
-                RecordEvents.AFTER_RECORD_UPDATE.toString(),
-                record.toJSON().toString(),
-                record.getDatabase().getCurrentUserName(),
-                getEntityName(record));
+        Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_UPDATE, record);
 
         this.client.sendMessage(this.databaseName, message);
-    }
-
-    private String getEntityName(Record record) {
-        if (record != null) {
-            return record.asDocument().getTypeName();
-        } else {
-            return "";
-        }
     }
 }

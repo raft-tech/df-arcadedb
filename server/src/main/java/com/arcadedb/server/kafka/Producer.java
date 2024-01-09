@@ -1,21 +1,19 @@
 package com.arcadedb.server.kafka;
 
+import com.arcadedb.log.LogManager;
+import com.raft.arcadedb.cdc.Message;
+import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.common.errors.RetriableException;
+import org.apache.kafka.common.serialization.StringSerializer;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
+
 import java.util.Properties;
 import java.util.UUID;
 import java.util.logging.Level;
 
-import com.arcadedb.log.LogManager;
-import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.errors.RetriableException;
-import org.apache.kafka.common.serialization.StringSerializer;
-
 
 public class Producer implements Callback {
-    KafkaProducer<String, String> kafkaProducer;
+    KafkaProducer<String, Message> kafkaProducer;
     String topicName;
 
     public Producer(String topicName) {
@@ -24,10 +22,10 @@ public class Producer implements Callback {
     }
 
     public void send(Message message) {
-        kafkaProducer.send(new ProducerRecord<>(this.topicName, message.getEventId(), message.toString()), this);
+        kafkaProducer.send(new ProducerRecord<>(this.topicName, null, message), this);
     }
 
-    private KafkaProducer<String, String> createKafkaProducer() {
+    private KafkaProducer<String, Message> createKafkaProducer() {
         // Create properties for the Kafka producer
         Properties props = KafkaClientConfiguration.getKafkaClientConfiguration();
         
@@ -36,7 +34,7 @@ public class Producer implements Callback {
         
         // Configure serializers for keys and values
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
 
         return new KafkaProducer<>(props);
     }

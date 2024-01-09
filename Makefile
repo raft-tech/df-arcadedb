@@ -18,7 +18,7 @@ buildx:
 	$(DOCKER) buildx build -f ${PROJECT_HOME}/Dockerfile \
 		${PROJECT_HOME} \
 		-t ${FULL_IMAGE} \
-		--platform linux/amd64 \
-		--progress plain
+		--platform linux/amd64
+
 kind: buildx
 	kind load docker-image ${FULL_IMAGE} --name ${KIND_CLUSTER}
