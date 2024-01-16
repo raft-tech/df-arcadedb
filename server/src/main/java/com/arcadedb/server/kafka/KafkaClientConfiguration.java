@@ -1,16 +1,19 @@
 package com.arcadedb.server.kafka;
 
+import com.arcadedb.log.LogManager;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.SaslConfigs;
 
 import java.util.Properties;
+import java.util.logging.Level;
 
 public class KafkaClientConfiguration {
     private static final String SCHEMA_REGISTRY_URL = "schema.registry.url";
+    protected static final String ARCADEDB_TOPIC_PREFIX = "arcadecdc";
 
     private static String getValueOrDefault(String configurationKey, String defaultValue) {
         String envConfigKey = String.format("KAFKA_%s", configurationKey.toUpperCase().replaceAll("\\.", "_"));
-        System.out.printf("looking for env variable '%s'\n", envConfigKey);
+        LogManager.instance().log(KafkaClientConfiguration.class, Level.INFO, "looking for env variable '%s'", envConfigKey);
         return System.getenv(envConfigKey) != null ? System.getenv(envConfigKey) : defaultValue;
     }
 

@@ -1,6 +1,9 @@
 package com.arcadedb.server.kafka;
 
+import com.arcadedb.database.Database;
 import com.arcadedb.log.LogManager;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.errors.TopicExistsException;
@@ -13,8 +16,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 
 public class KafkaClient {
+    @EqualsAndHashCode
+    @AllArgsConstructor
+    static class DatabaseEntry {
+        String databaseName;
+        String username;
+    }
+
     private final AdminClient adminClient;
-    private final ConcurrentHashMap<String, Producer> producerCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<DatabaseEntry, Producer> producerCache = new ConcurrentHashMap<>();
 
     public KafkaClient() {
         this.adminClient = AdminClient.create(KafkaClientConfiguration.getKafkaClientConfiguration());
@@ -23,13 +33,13 @@ public class KafkaClient {
     public void createTopicIfNotExists(String topicName) {
         try {
             if (!adminClient.listTopics().names().get().contains(topicName)) {
-                int numPartitions = 1;
-                short replicationFactor = 2;
+                int numPartitions = 1; // todo refactor magic number
+                short replicationFactor = 2; // todo refactor magic number
+
                 NewTopic newTopic = new NewTopic(topicName, numPartitions, replicationFactor);
                 adminClient.createTopics(Collections.singleton(newTopic)).all().get();
                 LogManager.instance().log(this, Level.INFO, "Topic created: %s", topicName);
             } else {
-                System.out.println(": " + topicName);
                 LogManager.instance().log(this, Level.INFO, "Topic already exists: %s", topicName);
             }
 
@@ -42,17 +52,22 @@ public class KafkaClient {
         }
     }
 
-    public void sendMessage(String database, Message message) {
-        producerCache.computeIfAbsent(database, d -> new Producer(getTopicNameForDatabase(d)));
-        producerCache.get(database).send(message);
+    public void sendMessage(String database, String userName, Message message) {
+        producerCache.computeIfAbsent(new DatabaseEntry(database, userName), d -> new Producer(getTopicNameForDatabase(d.databaseName, d.username)));
+        producerCache.get(new DatabaseEntry(database, userName)).send(message);
     }
 
-    String getTopicNameForDatabase(String databaseName) {
-        return "arcade-cdc_" + databaseName;
+    // Removes any special characters from the database name. Ensuring we are not breaking downstream ingestion.
+    protected String normalizeDatabaseName(String databaseName) {
+        return databaseName.replaceAll("[^a-zA-Z]", "");
+    }
+
+    protected String getTopicNameForDatabase(String databaseName, String databaseUsername) {
+        return String.format("%s--%s--%s", KafkaClientConfiguration.ARCADEDB_TOPIC_PREFIX, databaseUsername, normalizeDatabaseName(databaseName));
     }
 
     protected void shutdown() {
-        for (Map.Entry<String, Producer> entry : this.producerCache.entrySet()) {
+        for (Map.Entry<DatabaseEntry, Producer> entry : this.producerCache.entrySet()) {
             entry.getValue().flush();
         }
     }

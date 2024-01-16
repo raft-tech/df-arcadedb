@@ -63,11 +63,6 @@
     </profiles>
 
     <build>
-        <resources>
-            <resource>
-                <directory>${project.build.directory}/generated-resources</directory>
-            </resource>
-        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -90,11 +85,10 @@
                             <goal>schema</goal>
                         </goals>
                         <configuration>
-                            <sourceDirectory>${project.basedir}/src/main/resources/avro/com/raft/arcadedb/cdc/</sourceDirectory>
+                            <sourceDirectory>src/main/avro/com/raft/arcadedb/cdc/</sourceDirectory>
                             <includes>
                                 <include>Message.avsc</include>
                             </includes>
-                            <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>
                         </configuration>
                     </execution>
                 </executions>
