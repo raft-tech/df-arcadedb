@@ -9,7 +9,7 @@ import java.util.logging.Level;
 
 public class KafkaClientConfiguration {
     private static final String SCHEMA_REGISTRY_URL = "schema.registry.url";
-    protected static final String ARCADEDB_TOPIC_PREFIX = "arcadecdc";
+    protected static final String ARCADEDB_TOPIC_PREFIX = "arcadedbcdc";
 
     private static String getValueOrDefault(String configurationKey, String defaultValue) {
         String envConfigKey = String.format("KAFKA_%s", configurationKey.toUpperCase().replaceAll("\\.", "_"));
