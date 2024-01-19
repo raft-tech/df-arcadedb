@@ -59,7 +59,7 @@ public class KafkaClient {
 
     // Removes any special characters from the database name. Ensuring we are not breaking downstream ingestion.
     protected String normalizeDatabaseName(String databaseName) {
-        return databaseName.replaceAll("[^a-zA-Z]", "");
+        return databaseName.replaceAll("[^a-zA-Z]", "").toLowerCase();
     }
 
     protected String getTopicNameForDatabase(String databaseName, String databaseUsername) {
