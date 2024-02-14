@@ -85,7 +85,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     this.map = new LinkedHashMap<>(map.size());
     for (final Map.Entry<String, Object> entry : map.entrySet()) {
       final String key = entry.getKey();
-      if (key.startsWith("@"))
+      if (key.startsWith("@") && !Utils.isExtraMetadataProp(key))
         // SKIP METADATA
         continue;
       final Object value = setTransformValue(entry.getValue(), key);
@@ -360,6 +360,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   public synchronized MutableDocument set(final Map<String, Object> properties) {
     checkForLazyLoadingProperties();
     dirty = true;
+
+    // TODO block updating created by, created date
 
     for (final Map.Entry<String, Object> entry : properties.entrySet()) {
       final String propertyName = entry.getKey();
