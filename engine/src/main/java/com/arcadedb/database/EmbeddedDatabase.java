@@ -85,8 +85,6 @@ import java.util.concurrent.atomic.*;
 import java.util.concurrent.locks.*;
 import java.util.logging.*;
 
-import org.apache.lucene.util.packed.PackedInts.Mutable;
-
 public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal {
   public static final  int                                       EDGE_LIST_INITIAL_CHUNK_SIZE         = 64;
   public static final  int                                       MAX_RECOMMENDED_EDGE_LIST_CHUNK_SIZE = 8192;
@@ -790,9 +788,16 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
     if (record instanceof MutableDocument) {
       ((MutableDocument) record).validateAndAccmCheck(getContext().getCurrentUser());
 
-      // TODO try catch if errors
       ((MutableDocument) record).set(Utils.CREATED_BY, getCurrentUserName());
       ((MutableDocument) record).set(Utils.CREATED_DATE, LocalDateTime.now());
+
+      // Prevent a smartass from setting this on record creation.
+      if (((MutableDocument) record).has(Utils.LAST_MODIFIED_BY)) {
+        ((MutableDocument) record).remove(Utils.LAST_MODIFIED_BY);
+      }
+      if (((MutableDocument) record).has(Utils.LAST_MODIFIED_DATE)) {
+        ((MutableDocument) record).remove(Utils.LAST_MODIFIED_DATE);
+      }
     }
 
     // INVOKE EVENT CALLBACKS
@@ -874,6 +879,8 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
             var createdDate = originalRecord.getLocalDateTime(Utils.CREATED_DATE);
 
             Document recordDoc = localRecord.asDocument(true);
+
+            // Overwrite created by and date with the original record value to keep a user from changing it...
             ((MutableDocument) recordDoc).set(Utils.CREATED_BY, createdBy);
             ((MutableDocument) recordDoc).set(Utils.CREATED_DATE, createdDate);
             ((MutableDocument) recordDoc).set(Utils.LAST_MODIFIED_BY, getCurrentUserName());

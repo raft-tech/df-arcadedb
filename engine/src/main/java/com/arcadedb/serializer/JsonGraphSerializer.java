@@ -26,9 +26,6 @@ import com.arcadedb.graph.Vertex;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class JsonGraphSerializer extends JsonSerializer {
@@ -84,25 +81,7 @@ public class JsonGraphSerializer extends JsonSerializer {
           // JSON DOES NOT SUPPORT INFINITY
           value = "NegInfinity";
         else if (prop.getKey().equals(Utils.CREATED_DATE) || prop.getKey().equals(Utils.LAST_MODIFIED_DATE)) {
-          System.out.println("json graph serializer is number: " + value + " " + (value instanceof Number));
-
-          value = value.toString();
-
-          if (value != null && value instanceof Number) {
-            try {
-              // Convert epoch milliseconds to LocalDateTime
-              Instant instant = Instant.ofEpochMilli(Long.parseLong(value.toString()));
-              
-              // Format date-time. You can adjust the pattern to suit your needs.
-              DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                                                            .withZone(ZoneId.systemDefault());
-
-              // Format and print the date-time
-              value = formatter.format(instant);
-            } catch (Exception e) {
-              e.printStackTrace();
-            }
-          }
+          value = value.toString() + "Z";
         }
       }
       properties.put(prop.getKey(), value);

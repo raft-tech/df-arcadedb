@@ -361,8 +361,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     checkForLazyLoadingProperties();
     dirty = true;
 
-    // TODO block updating created by, created date
-
     for (final Map.Entry<String, Object> entry : properties.entrySet()) {
       final String propertyName = entry.getKey();
       if (propertyName.startsWith("@"))
