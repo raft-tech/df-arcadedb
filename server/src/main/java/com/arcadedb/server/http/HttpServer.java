@@ -136,6 +136,7 @@ public class HttpServer implements ServerPlugin {
             .post("/login", new PostLoginHandler(this))
             .post("/refreshToken", new PostRefreshTokenHandler(this))
             .post("/backup", new PostBackupHandler(this))
+            .get("/history/{database}/{entityType}/{rid}", new GetHistoryHandler(this))
     );
 
     if (!"production".equals(GlobalConfiguration.SERVER_MODE.getValueAsString())) {
