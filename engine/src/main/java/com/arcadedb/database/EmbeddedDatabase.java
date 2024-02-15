@@ -78,7 +78,9 @@ import com.arcadedb.utility.RWLockContext;
 import java.io.*;
 import java.nio.channels.*;
 import java.nio.file.*;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -876,7 +878,15 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
             originalRecord = getOriginalDocument(localRecord);
             // confirm created date, by hasn't changed. If so set it back if someone is being a smartass
             var createdBy = originalRecord.getString(Utils.CREATED_BY);
-            var createdDate = originalRecord.getLocalDateTime(Utils.CREATED_DATE);
+
+            System.out.println("createDate " + originalRecord.get(Utils.CREATED_DATE) + "; " + originalRecord.get(Utils.CREATED_DATE).getClass().getSimpleName());
+
+            LocalDateTime createdDate = null;
+            if (originalRecord.get(Utils.CREATED_DATE) instanceof Long) {
+              createdDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(originalRecord.getLong(Utils.CREATED_DATE)), ZoneId.systemDefault());
+            } else {
+              createdDate = originalRecord.getLocalDateTime(Utils.CREATED_DATE);
+            }
 
             Document recordDoc = localRecord.asDocument(true);
 

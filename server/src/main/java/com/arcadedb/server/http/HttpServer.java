@@ -137,6 +137,7 @@ public class HttpServer implements ServerPlugin {
             .post("/refreshToken", new PostRefreshTokenHandler(this))
             .post("/backup", new PostBackupHandler(this))
             .get("/history/{database}/{entityType}/{rid}", new GetHistoryHandler(this))
+            .post("/history/{database}/{entityType}/{rid}/rollback/{eventId}", new PostRollbackHistoryHandler(this))
     );
 
     if (!"production".equals(GlobalConfiguration.SERVER_MODE.getValueAsString())) {

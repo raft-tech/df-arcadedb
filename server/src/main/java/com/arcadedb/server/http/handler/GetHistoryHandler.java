@@ -55,25 +55,25 @@ public class GetHistoryHandler extends AbstractHandler {
 
             // Make REST request to lakehouse
             String url = "http://df-lakehouse/api/v1/lakehouse/schemas/arcadedbcdc_" + database;
-            log.info("history request url {}", url);
             String query = String.format(
-                "SELECT eventid, from_unixtime(CAST(timestamp AS BIGINT)/1000) as datetime, eventtype, username, entityid, eventpayload " +
+                "SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('eventId', eventid ), ('timestamp ', CAST(from_unixtime(CAST(timestamp AS BIGINT)/1000) AS VARCHAR)), " +
+                " ('entityId', entityid ), ('user', username), ('eventType', eventType), ('entity', eventpayload)]) AS JSON) as history " +
                 "FROM arcadedbcdc_%s.admin_%s WHERE entityname = '%s' AND entityid = '%s' ORDER BY timestamp DESC", database, database, entityType, rid);
             JSONObject body = new JSONObject();
             body.put("sql", query);
-            log.info("query {}", body);
 
             String response = DataFabricRestClient.postAuthenticatedAndGetResponse(url, body.toString());
             log.info("response {}", response);
             if (response != null) {
-                
-                if(response.trim().startsWith("{")) {
-                    var ja = new JSONObject(response);
-                    return new ExecutionResponse(200, "{ \"result\" : " + ja + "}");
-                } else {
-                    var ja = new JSONArray(response);
-                    return new ExecutionResponse(200, "{ \"result\" : " + ja + "}");
+                var jo = new JSONObject(response);
+                var ja = jo.getJSONArray("data");
+                var newArray = new JSONArray();
+
+                for (int i = 0; i < ja.length(); i++) {
+                    newArray.put(new JSONObject(ja.getString(i)).getJSONObject("history"));
                 }
+
+                return new ExecutionResponse(200, "{ \"result\" : " + newArray + "}");
             } else {
                 return new ExecutionResponse(400, "{ \"result\" : bad request}");
             }
