@@ -60,6 +60,7 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
             return new ExecutionResponse(400, "{ \"error\" : \"Rid parameter is null\"}");
         }
 
+        // Replace the leading hash in the RID. The caller putting the hash in the RID will mess up with REST request pathing
         rid = "#" + rid;
 
         final Deque<String> eventIdParam = exchange.getQueryParameters().get("eventId");
@@ -74,37 +75,25 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
 
         // Make REST request to lakehouse
         String url = "http://df-lakehouse/api/v1/lakehouse/schemas/arcadedbcdc_" + database;
-        log.info("history request url {}", url);
         String query = String.format(
             "SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('eventId', eventid ), ('timestamp ', CAST(from_unixtime(CAST(timestamp AS BIGINT)/1000) AS VARCHAR)), " +
             " ('entityId', entityid ), ('user', username), ('eventType', eventType), ('entity', eventpayload)]) AS JSON) AS history " +
             "FROM arcadedbcdc_%s.admin_%s WHERE entityname = '%s' AND entityid = '%s' AND eventid = '%s'", database, database, entityType, rid, eventId);
         JSONObject body = new JSONObject();
         body.put("sql", query);
-        log.info("query {}", body);
 
         String response = DataFabricRestClient.postAuthenticatedAndGetResponse(url, body.toString());
-        log.info("response {}", response);
+
         if (response != null) {
 
             var ja = new JSONObject(response);
             var arr = ja.getJSONArray("data");
-            log.info("data {}", arr);
             if (arr.length() == 1) {
 
                 String value = arr.getString(0);
 
-                // value = value.replaceAll("(\\w+):", "\"$1\":")
-                //                            .replaceAll(":\\s*(\\w+)", ":\"$1\"");
-
-                log.info("cleaned value {}", value);
-
-            //    log.info("1 {} {}", arr.get(0).getClass().getSimpleName(), arr.get(0));
-                log.info("1 {} {}", new JSONObject(value));
                 var payload = new JSONObject(value).getJSONObject("history").getString("entity");
-                log.info("payload {}", payload);
                 var content = new JSONObject(payload);
-                log.info("content {}", content);
                 
                 final ArcadeDBServer server = httpServer.getServer();
                 var activeDatabase = server.getDatabase(database);
@@ -114,21 +103,17 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                 MutableDocument mutable = record.asDocument().modify();
                 mutable.fromJSON(content);
 
-            // LocalDateTime createdDate = null;
-            // if (record.get(Utils.CREATED_DATE) instanceof Long) {
-            //   createdDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(originalRecord.getLong(Utils.CREATED_DATE)), ZoneId.systemDefault());
-            // } else {
-            //   createdDate = originalRecord.getLocalDateTime(Utils.CREATED_DATE);
-            // }
+                LocalDateTime createdDate = null;
+                if (record.asDocument().get(Utils.CREATED_DATE) instanceof Long) {
+                  createdDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(record.asDocument().getLong(Utils.CREATED_DATE)), ZoneId.systemDefault());
+                } else {
+                  createdDate = record.asDocument().getLocalDateTime(Utils.CREATED_DATE);
+                }
 
-            // Document recordDoc = localRecord.asDocument(true);
-
-            // // Overwrite created by and date with the original record value to keep a user from changing it...
-            // ((MutableDocument) recordDoc).set(Utils.CREATED_DATE, createdDate);
-            // ((MutableDocument) recordDoc).set(Utils.LAST_MODIFIED_BY, httpServer.getServer().getSecurity().);
-            // ((MutableDocument) recordDoc).set(Utils.LAST_MODIFIED_DATE, LocalDateTime.now());
-
-
+                // Overwrite created by and date with the original record value to keep a user from changing it...
+                mutable.set(Utils.CREATED_DATE, createdDate);
+                mutable.set(Utils.LAST_MODIFIED_BY, user.getName());
+                mutable.set(Utils.LAST_MODIFIED_DATE, LocalDateTime.now());
                 mutable.setIdentity(new RID(activeDatabase, rid));
                 mutable.save();
             }

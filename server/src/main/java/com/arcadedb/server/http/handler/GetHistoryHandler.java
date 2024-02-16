@@ -63,7 +63,7 @@ public class GetHistoryHandler extends AbstractHandler {
             body.put("sql", query);
 
             String response = DataFabricRestClient.postAuthenticatedAndGetResponse(url, body.toString());
-            log.info("response {}", response);
+
             if (response != null) {
                 var jo = new JSONObject(response);
                 var ja = jo.getJSONArray("data");
