@@ -115,7 +115,7 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                     mutable.setIdentity(new RID(activeDatabase, rid));
                     mutable.save();
                 } else if (arr.length() == 0) {
-                    return new ExecutionResponse(404, "{ \"result\" : \"NotFound\"}");
+                    return new ExecutionResponse(404, "{ \"error\" : \"NotFound\"}");
                 }
             }
 
@@ -124,6 +124,6 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
             log.error("Error handling history rollback request.", e.getMessage());
             log.debug("Exception", e);
         }
-        return new ExecutionResponse(400, "{ \"result\" : \"failed\"}");
+        return new ExecutionResponse(400, "{ \"error\" : \"Request failed\"}");
     }
 }

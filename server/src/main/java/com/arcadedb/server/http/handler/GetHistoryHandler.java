@@ -70,7 +70,7 @@ public class GetHistoryHandler extends AbstractHandler {
                 var newArray = new JSONArray();
 
                 if (newArray.length() == 0) {
-                    return new ExecutionResponse(404, "{ \"result\" : \"NotFound\"}");
+                    return new ExecutionResponse(404, "{ \"error\" : \"NotFound\"}");
                 }
 
                 for (int i = 0; i < ja.length(); i++) {
@@ -79,13 +79,13 @@ public class GetHistoryHandler extends AbstractHandler {
 
                 return new ExecutionResponse(200, "{ \"result\" : " + newArray + "}");
             } else {
-                return new ExecutionResponse(400, "{ \"result\" : bad request}");
+                return new ExecutionResponse(400, "{ \"error\" : bad request}");
             }
         } catch (Exception e) {
             log.error("Error serving history request.", e.getMessage());
             log.debug("Exception", e);
         }
 
-        return new ExecutionResponse(400, "{ \"result\" : bad request}");
+        return new ExecutionResponse(400, "{ \"error\" : bad request}");
     }
 }
