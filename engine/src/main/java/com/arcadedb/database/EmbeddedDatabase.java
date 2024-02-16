@@ -879,8 +879,6 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
             // confirm created date, by hasn't changed. If so set it back if someone is being a smartass
             var createdBy = originalRecord.getString(Utils.CREATED_BY);
 
-            System.out.println("createDate " + originalRecord.get(Utils.CREATED_DATE) + "; " + originalRecord.get(Utils.CREATED_DATE).getClass().getSimpleName());
-
             LocalDateTime createdDate = null;
             if (originalRecord.get(Utils.CREATED_DATE) instanceof Long) {
               createdDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(originalRecord.getLong(Utils.CREATED_DATE)), ZoneId.systemDefault());
@@ -942,8 +940,6 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
       if (!indexes.isEmpty()) {
         // UPDATE THE INDEXES TOO
         final Document originalRecord = getOriginalDocument(record);
-
-        // TODO block updating created, createdby
 
         schema.getBucketById(record.getIdentity().getBucketId()).updateRecord(record, discardRecordAfter);
 

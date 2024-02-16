@@ -78,7 +78,8 @@ public class GetHistoryHandler extends AbstractHandler {
                 return new ExecutionResponse(400, "{ \"result\" : bad request}");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error serving history request.", e.getMessage());
+            log.debug("Exception", e);
         }
 
         return new ExecutionResponse(400, "{ \"result\" : bad request}");
