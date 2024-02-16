@@ -58,6 +58,10 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                 return new ExecutionResponse(400, "{ \"error\" : \"Rid parameter is null\"}");
             }
 
+            // Replace a url escaped colon with the actual colon.
+            rid = rid.replace("%3a", ":");
+            rid = rid.replace("%3A", ":");
+
             // Replace the leading hash in the RID. The caller putting the hash in the RID
             // will mess up with REST request pathing
             rid = "#" + rid;
@@ -125,7 +129,7 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                 }
             }
 
-            return new ExecutionResponse(200, "{ \"result\" : \"successful\"}");
+            return new ExecutionResponse(200, "{ \"result\" : \"Success\"}");
         } catch (Exception e) {
             log.error("Error handling history rollback request.", e.getMessage());
             log.debug("Exception", e);

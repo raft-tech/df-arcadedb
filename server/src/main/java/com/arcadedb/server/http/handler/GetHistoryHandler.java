@@ -51,6 +51,12 @@ public class GetHistoryHandler extends AbstractHandler {
                 return new ExecutionResponse(400, "{ \"error\" : \"Rid parameter is null\"}");
             }
 
+            // Replace a url escaped colon with the actual colon.
+            rid = rid.replace("%3a", ":");
+            rid = rid.replace("%3A", ":");
+
+            // Replace the leading hash in the RID. The caller putting the hash in the RID
+            // will mess up with REST request pathing
             rid = "#" + rid;
 
             // Make REST request to lakehouse
@@ -72,7 +78,7 @@ public class GetHistoryHandler extends AbstractHandler {
                 var ja = jo.getJSONArray("data");
                 var newArray = new JSONArray();
 
-                if (newArray.length() == 0) {
+                if (ja.length() == 0) {
                     return new ExecutionResponse(404, "{ \"error\" : \"NotFound\"}");
                 }
 
@@ -82,13 +88,13 @@ public class GetHistoryHandler extends AbstractHandler {
 
                 return new ExecutionResponse(200, "{ \"result\" : " + newArray + "}");
             } else {
-                return new ExecutionResponse(400, "{ \"error\" : bad request}");
+                return new ExecutionResponse(400, "{ \"error\" : \"bad request\"}");
             }
         } catch (Exception e) {
             log.error("Error serving history request.", e.getMessage());
             log.debug("Exception", e);
         }
 
-        return new ExecutionResponse(400, "{ \"error\" : bad request}");
+        return new ExecutionResponse(400, "{ \"error\" : \"bad request\"}");
     }
 }
