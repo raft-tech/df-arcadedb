@@ -111,8 +111,8 @@ public class HttpServer implements ServerPlugin {
 
     routes.addPrefixPath("/ws", new WebSocketConnectionHandler(this, webSocketEventBus));
 
-    routes.addPrefixPath("/api/v1/arcadedb",//
-        basicRoutes//
+    routes.addPrefixPath("/api/v1/arcadedb",
+        basicRoutes
             .post("/begin/{database}", new PostBeginHandler(this))//
             .post("/close/{database}", new PostCloseDatabaseHandler(this))// DEPRECATED
             .post("/command/{database}", new PostCommandHandler(this))//
