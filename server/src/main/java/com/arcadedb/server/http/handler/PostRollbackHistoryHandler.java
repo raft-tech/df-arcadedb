@@ -97,7 +97,6 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                     final ArcadeDBServer server = httpServer.getServer();
                     var activeDatabase = server.getDatabase(database);
                     Record record = server.getDatabase(database).lookupByRID(new RID(activeDatabase, rid), true);
-                // Document mutableDocument = MutableDocument;
 
                     MutableDocument mutable = record.asDocument().modify();
                     mutable.fromJSON(content);
@@ -115,6 +114,8 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                     mutable.set(Utils.LAST_MODIFIED_DATE, LocalDateTime.now());
                     mutable.setIdentity(new RID(activeDatabase, rid));
                     mutable.save();
+                } else if (arr.length() == 0) {
+                    return new ExecutionResponse(404, "{ \"result\" : \"NotFound\"}");
                 }
             }
 

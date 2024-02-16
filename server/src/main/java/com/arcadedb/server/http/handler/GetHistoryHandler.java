@@ -69,6 +69,10 @@ public class GetHistoryHandler extends AbstractHandler {
                 var ja = jo.getJSONArray("data");
                 var newArray = new JSONArray();
 
+                if (newArray.length() == 0) {
+                    return new ExecutionResponse(404, "{ \"result\" : \"NotFound\"}");
+                }
+
                 for (int i = 0; i < ja.length(); i++) {
                     newArray.put(new JSONObject(ja.getString(i)).getJSONObject("history"));
                 }
