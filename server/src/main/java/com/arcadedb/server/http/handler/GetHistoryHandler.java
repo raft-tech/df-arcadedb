@@ -14,9 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GetHistoryHandler extends AbstractHandler {
     public GetHistoryHandler(final HttpServer httpServer) {
-      super(httpServer);
+        super(httpServer);
     }
-  
+
     @Override
     protected ExecutionResponse execute(HttpServerExchange exchange, ServerSecurityUser user) {
         try {
@@ -24,7 +24,7 @@ public class GetHistoryHandler extends AbstractHandler {
             final Deque<String> databaseParam = exchange.getQueryParameters().get("database");
             String database = databaseParam.isEmpty() ? null : databaseParam.getFirst().trim();
             if (database != null && database.isEmpty()) {
-            database = null;
+                database = null;
             }
 
             if (database == null) {
@@ -44,7 +44,7 @@ public class GetHistoryHandler extends AbstractHandler {
             final Deque<String> ridParam = exchange.getQueryParameters().get("rid");
             String rid = ridParam.isEmpty() ? null : ridParam.getFirst().trim();
             if (rid != null && rid.isEmpty()) {
-            rid = null;
+                rid = null;
             }
 
             if (rid == null) {
@@ -56,9 +56,12 @@ public class GetHistoryHandler extends AbstractHandler {
             // Make REST request to lakehouse
             String url = "http://df-lakehouse/api/v1/lakehouse/schemas/arcadedbcdc_" + database;
             String query = String.format(
-                "SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('eventId', eventid ), ('timestamp ', CAST(from_unixtime(CAST(timestamp AS BIGINT)/1000) AS VARCHAR)), " +
-                " ('entityId', entityid ), ('user', username), ('eventType', eventType), ('entity', eventpayload)]) AS JSON) as history " +
-                "FROM arcadedbcdc_%s.admin_%s WHERE entityname = '%s' AND entityid = '%s' ORDER BY timestamp DESC", database, database, entityType, rid);
+                    "SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('eventId', eventid ), ('timestamp ', CAST(from_unixtime(CAST(timestamp AS BIGINT)/1000) AS VARCHAR)), "
+                            +
+                            " ('entityId', entityid ), ('user', username), ('eventType', eventType), ('entity', eventpayload)]) AS JSON) as history "
+                            +
+                            "FROM arcadedbcdc_%s.admin_%s WHERE entityname = '%s' AND entityid = '%s' ORDER BY timestamp DESC",
+                    database, database, entityType, rid);
             JSONObject body = new JSONObject();
             body.put("sql", query);
 

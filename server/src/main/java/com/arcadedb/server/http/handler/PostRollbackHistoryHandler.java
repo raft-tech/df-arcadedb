@@ -1,6 +1,5 @@
 package com.arcadedb.server.http.handler;
 
-
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -22,9 +21,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PostRollbackHistoryHandler extends AbstractHandler {
     public PostRollbackHistoryHandler(final HttpServer httpServer) {
-      super(httpServer);
+        super(httpServer);
     }
-  
+
     @Override
     protected ExecutionResponse execute(HttpServerExchange exchange, ServerSecurityUser user) {
         try {
@@ -32,7 +31,7 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
             final Deque<String> databaseParam = exchange.getQueryParameters().get("database");
             String database = databaseParam.isEmpty() ? null : databaseParam.getFirst().trim();
             if (database != null && database.isEmpty()) {
-            database = null;
+                database = null;
             }
 
             if (database == null) {
@@ -52,14 +51,15 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
             final Deque<String> ridParam = exchange.getQueryParameters().get("rid");
             String rid = ridParam.isEmpty() ? null : ridParam.getFirst().trim();
             if (rid != null && rid.isEmpty()) {
-            rid = null;
+                rid = null;
             }
 
             if (rid == null) {
                 return new ExecutionResponse(400, "{ \"error\" : \"Rid parameter is null\"}");
             }
 
-            // Replace the leading hash in the RID. The caller putting the hash in the RID will mess up with REST request pathing
+            // Replace the leading hash in the RID. The caller putting the hash in the RID
+            // will mess up with REST request pathing
             rid = "#" + rid;
 
             final Deque<String> eventIdParam = exchange.getQueryParameters().get("eventId");
@@ -75,9 +75,12 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
             // Make REST request to lakehouse
             String url = "http://df-lakehouse/api/v1/lakehouse/schemas/arcadedbcdc_" + database;
             String query = String.format(
-                "SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('eventId', eventid ), ('timestamp ', CAST(from_unixtime(CAST(timestamp AS BIGINT)/1000) AS VARCHAR)), " +
-                " ('entityId', entityid ), ('user', username), ('eventType', eventType), ('entity', eventpayload)]) AS JSON) AS history " +
-                "FROM arcadedbcdc_%s.admin_%s WHERE entityname = '%s' AND entityid = '%s' AND eventid = '%s'", database, database, entityType, rid, eventId);
+                    "SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('eventId', eventid ), ('timestamp ', CAST(from_unixtime(CAST(timestamp AS BIGINT)/1000) AS VARCHAR)), "
+                            +
+                            " ('entityId', entityid ), ('user', username), ('eventType', eventType), ('entity', eventpayload)]) AS JSON) AS history "
+                            +
+                            "FROM arcadedbcdc_%s.admin_%s WHERE entityname = '%s' AND entityid = '%s' AND eventid = '%s'",
+                    database, database, entityType, rid, eventId);
             JSONObject body = new JSONObject();
             body.put("sql", query);
 
@@ -93,7 +96,7 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
 
                     var payload = new JSONObject(value).getJSONObject("history").getString("entity");
                     var content = new JSONObject(payload);
-                    
+
                     final ArcadeDBServer server = httpServer.getServer();
                     var activeDatabase = server.getDatabase(database);
                     Record record = server.getDatabase(database).lookupByRID(new RID(activeDatabase, rid), true);
@@ -103,12 +106,15 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
 
                     LocalDateTime createdDate = null;
                     if (record.asDocument().get(Utils.CREATED_DATE) instanceof Long) {
-                    createdDate = LocalDateTime.ofInstant(Instant.ofEpochMilli(record.asDocument().getLong(Utils.CREATED_DATE)), ZoneId.systemDefault());
+                        createdDate = LocalDateTime.ofInstant(
+                                Instant.ofEpochMilli(record.asDocument().getLong(Utils.CREATED_DATE)),
+                                ZoneId.systemDefault());
                     } else {
-                    createdDate = record.asDocument().getLocalDateTime(Utils.CREATED_DATE);
+                        createdDate = record.asDocument().getLocalDateTime(Utils.CREATED_DATE);
                     }
 
-                    // Overwrite created by and date with the original record value to keep a user from changing it...
+                    // Overwrite created by and date with the original record value to keep a user
+                    // from changing it...
                     mutable.set(Utils.CREATED_DATE, createdDate);
                     mutable.set(Utils.LAST_MODIFIED_BY, user.getName());
                     mutable.set(Utils.LAST_MODIFIED_DATE, LocalDateTime.now());
