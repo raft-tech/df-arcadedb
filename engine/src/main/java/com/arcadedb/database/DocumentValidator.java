@@ -23,6 +23,7 @@ import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.security.SecurityDatabaseUser;
+import com.arcadedb.serializer.json.JSONObject;
 
 import java.math.*;
 import java.util.*;
@@ -67,7 +68,7 @@ public class DocumentValidator {
     boolean validSources = false;
 
     // validate sources, if present
-    if (document.has(MutableDocument.SOURCES) && !document.toJSON().getJSONObject(MutableDocument.SOURCES).isEmpty()) {
+    if (document.has(MutableDocument.SOURCES) && !document.toJSON().getJSONArray(MutableDocument.SOURCES).isEmpty()) {
       validateSources(document, securityDatabaseUser);
       validSources = true;
     }
@@ -109,32 +110,30 @@ public class DocumentValidator {
    * @param document
    */
   private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser) {
-    var sources = document.toJSON().getJSONObject(MutableDocument.SOURCES);
-    sources.toMap().entrySet().forEach(entry -> {
-      var source = entry.getValue().toString().trim();
+    var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES);
+    sources.forEach(obj -> {
 
-      // Check for portion marked classification information. Should be in parantheses, and not empty
-      if (source.contains("(") && source.contains(")") && source.substring(0, 1).equals("(")) {
-        var markings = source.substring(1, source.indexOf(")"));
-        if (markings.trim().isEmpty()) {
-          throw new ValidationException("Source " + source + " is not valid");
-        }
+      var jo = (JSONObject) obj;
 
-        if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
-          throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
-        }
+      if (!jo.has(MutableDocument.CLASSIFICATION_PROPERTY)) {
+        throw new ValidationException("Source " + jo + " is missing classification property");
+      }
 
-        // Classification will end with a double separator if there are any additional ACCM markings.
-        if (markings.contains("//")) {
-          markings = markings.substring(0, markings.indexOf("//"));
-        }
-        try {
-          verifyDocumentClassificationValidForDeployment(markings, document);
-        } catch (IllegalArgumentException e) {
-          throw new ValidationException("Invalid classification for source: " + markings);
-        }
-      } else {
-        throw new ValidationException("Source " + source + " is not valid");
+      var classification = jo.getString(MutableDocument.CLASSIFICATION_PROPERTY);
+
+      if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
+        throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
+      }
+
+      // Classification will end with a double separator if there are any additional ACCM markings.
+      if (classification.contains("//")) {
+        classification = classification.substring(0, classification.indexOf("//"));
+      }
+      
+      try {
+        verifyDocumentClassificationValidForDeployment(classification, document);
+      } catch (IllegalArgumentException e) {
+        throw new ValidationException("Invalid classification for source: " + classification);
       }
     });
   }

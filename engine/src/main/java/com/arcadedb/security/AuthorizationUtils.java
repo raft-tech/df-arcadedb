@@ -5,6 +5,7 @@ import java.util.Set;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
+import com.arcadedb.serializer.json.JSONObject;
 
 public class AuthorizationUtils {
 
@@ -236,20 +237,13 @@ public class AuthorizationUtils {
     if (document.has(MutableDocument.SOURCES)) {
       // sources will be a map, in the form of source number : (classification//ACCM) source id
       // check if user has appropriate clearance for any of the sources for the document
-      var isSourceAuthorized = document.toJSON().getJSONObject(MutableDocument.SOURCES).toMap().entrySet().stream().anyMatch(s -> {
+      var isSourceAuthorized = document.toJSON().getJSONArray(MutableDocument.SOURCES).toList().stream().anyMatch(o -> {
         
-        var source = s.getValue().toString();
-        if (source == null || source.isEmpty()) {
-          return false;
-        }
+        var jo = (JSONObject) o;
 
-        // if the source is not in the form of (classification/[/ACCM[]) [source id], then it is not a valid source
-        if (!source.contains("(") || !source.contains(")")) {
-          return false;
-        }
-
-        var sourceClassification = source.substring(source.indexOf("(") + 1, source.indexOf(")"));
-        return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, sourceClassification);
+        return jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
+            AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
+              jo.getString(MutableDocument.CLASSIFICATION_PROPERTY));
       });
 
       if (isSourceAuthorized) {

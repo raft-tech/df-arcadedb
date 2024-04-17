@@ -40,13 +40,16 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   protected Map<String, Object> map;
   protected boolean dirty = false;
 
-  public static final String CLASSIFICATION_TYPE = "Classification";
   public static final String CLASSIFICATION_PROPERTY = "classification";
   public static final String CLASSIFICATION_GENERAL_PROPERTY = "general";
   public static final String CLASSIFICATION_ATTRIBUTES_PROPERTY = "attributes";
   public static final String CLASSIFICATION_MARKED = "classificationMarked";
 
+  public static final String SOURCES_ARRAY_ATTRIBUTE = "sources";
+
   public static final String SOURCES = "sources";
+
+  //public static final String 
 
   protected MutableDocument(final Database database, final DocumentType type, final RID rid) {
     super(database, type, rid, null);
@@ -569,3 +572,15 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     return value;
   }
 }
+
+/**
+ * 
+ * Source:
+ *   df_id
+ *   name
+ *   classification
+ *   location
+ *   attributes
+ *     name
+ *     classification
+ */
