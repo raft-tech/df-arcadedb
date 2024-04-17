@@ -68,7 +68,7 @@ public class DocumentValidator {
     boolean validSources = false;
 
     // validate sources, if present
-    if (document.has(MutableDocument.SOURCES) && !document.toJSON().getJSONArray(MutableDocument.SOURCES).isEmpty()) {
+    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE) && !document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).isEmpty()) {
       validateSources(document, securityDatabaseUser);
       validSources = true;
     }
@@ -99,8 +99,49 @@ public class DocumentValidator {
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification: " + classification);
       }
+
+      validateAttributeClassificationTagging(document, new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString()).getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
     } else if (!validSources){
       throw new ValidationException("Missing classification data on document");
+    }
+  }
+
+  private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser) {
+
+    // confirm each json key in document has a matching key in attributes
+    // have counter for each key in document, and decrement when found in attributes
+    var propNames = document.getPropertyNames();
+    propNames.remove(MutableDocument.CLASSIFICATION_PROPERTY);
+    propNames.remove(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+    propNames.remove(MutableDocument.CLASSIFICATION_MARKED);
+    propNames.remove(Utils.CREATED_BY);
+    propNames.remove(Utils.CREATED_DATE);
+    propNames.remove(Utils.LAST_MODIFIED_BY);
+    propNames.remove(Utils.LAST_MODIFIED_DATE);
+
+    var numProps = propNames.size();
+
+    attributes.toMap().entrySet().forEach(entry -> {
+      var key = entry.getKey();
+
+      // validate valid key
+      if (!document.has(key)) {
+        throw new ValidationException("Invalid attribute key: " + key);
+      }
+
+      var value = entry.getValue().toString();
+
+      if (value != null && value.trim() != "") {
+        if (!AuthorizationUtils.checkPermissionsOnClassificationMarking(value, securityDatabaseUser)){
+          throw new ValidationException("User cannot set attribute classification markings on documents higher than or outside their current access.");
+        }
+      } else {
+        throw new ValidationException("Invalid attribute classification marking for: " + key);
+      }
+    });
+
+    if (attributes.length() < numProps) {
+      throw new ValidationException("Missing attribute classification data on document: " + attributes.length() + "/" + numProps);
     }
   }
 
@@ -110,7 +151,7 @@ public class DocumentValidator {
    * @param document
    */
   private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser) {
-    var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES);
+    var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
     sources.forEach(obj -> {
 
       var jo = (JSONObject) obj;
@@ -129,12 +170,14 @@ public class DocumentValidator {
       if (classification.contains("//")) {
         classification = classification.substring(0, classification.indexOf("//"));
       }
-      
+
       try {
         verifyDocumentClassificationValidForDeployment(classification, document);
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification for source: " + classification);
       }
+
+      validateAttributeClassificationTagging(document, jo.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
     });
   }
 

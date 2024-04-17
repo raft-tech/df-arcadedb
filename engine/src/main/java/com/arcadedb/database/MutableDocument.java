@@ -47,10 +47,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
 
   public static final String SOURCES_ARRAY_ATTRIBUTE = "sources";
 
-  public static final String SOURCES = "sources";
-
-  //public static final String 
-
   protected MutableDocument(final Database database, final DocumentType type, final RID rid) {
     super(database, type, rid, null);
     this.map = new LinkedHashMap<>();
@@ -584,3 +580,10 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
  *     name
  *     classification
  */
+
+
+ // TODO
+ // add props for above
+ // filter out attributes for that source based on user classification
+
+ // check merge writing behavior

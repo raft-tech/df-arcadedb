@@ -234,12 +234,12 @@ public class AuthorizationUtils {
     var nationality = currentUser.getNationality();
     var tetragraphs = currentUser.getTetragraphs();
 
-    if (document.has(MutableDocument.SOURCES)) {
+    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
       // sources will be a map, in the form of source number : (classification//ACCM) source id
       // check if user has appropriate clearance for any of the sources for the document
-      var isSourceAuthorized = document.toJSON().getJSONArray(MutableDocument.SOURCES).toList().stream().anyMatch(o -> {
+      var isSourceAuthorized = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).toList().stream().anyMatch(o -> {
         
-        var jo = (JSONObject) o;
+        var jo = new JSONObject(o.toString());
 
         return jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
             AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
@@ -264,5 +264,16 @@ public class AuthorizationUtils {
     }
 
     return false;
+  }
+
+  public static boolean checkPermissionsOnClassificationMarking(String classificationMarking, final SecurityDatabaseUser currentUser) {
+
+    // TODO detect and provide org for clearance
+    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
+    var nationality = currentUser.getNationality();
+    var tetragraphs = currentUser.getTetragraphs();
+   
+    return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
+                 classificationMarking);
   }
 }
