@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Deque;
+import java.util.Map;
 
 import com.arcadedb.database.*;
 import com.arcadedb.database.Record;
@@ -101,12 +102,19 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                     final ArcadeDBServer server = httpServer.getServer();
                     var activeDatabase = server.getDatabase(database);
                     Record record = server.getDatabase(database).lookupByRID(new RID(activeDatabase, rid), true);
-                    var classificationObj = (JSONObject)content.remove(MutableDocument.CLASSIFICATION_PROPERTY);
-                    var classification = classificationObj.toMap();
+                    Map<String, Object> classification = null;
+                    if (activeDatabase.getSchema().getEmbedded().isClassificationValidationEnabled()) {
+                        var classificationObj = (JSONObject)content.remove(MutableDocument.CLASSIFICATION_PROPERTY);
+                        classification = classificationObj.toMap();
+                    }
 
                     MutableDocument mutable = record.asDocument().modify();
                     mutable.fromJSON(content);
                     mutable.set(MutableDocument.CLASSIFICATION_PROPERTY, classification);
+
+                    if (activeDatabase.getSchema().getEmbedded().isClassificationValidationEnabled()) {
+                        mutable.set(MutableDocument.CLASSIFICATION_PROPERTY, classification);
+                    }
 
                     LocalDateTime createdDate = null;
                     if (record.asDocument().get(Utils.CREATED_DATE) instanceof Long) {
