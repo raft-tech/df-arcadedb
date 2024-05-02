@@ -2,9 +2,11 @@ package com.arcadedb.security;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.serializer.json.JSONObject;
 
 public class AuthorizationUtils {
@@ -145,6 +147,7 @@ public class AuthorizationUtils {
    * @return
    */
   private static boolean isBlockedByNoForn(final String nationality, final String resourceClassification) {
+    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "Checking for NOFORN in " + resourceClassification);
     return (containsBlockText("NOFORN", resourceClassification) || containsBlockText("NF", resourceClassification)) 
         && (nationality == null || !nationality.equals("USA"));
   }
@@ -237,17 +240,17 @@ public class AuthorizationUtils {
     if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
       // sources will be a map, in the form of source number : (classification//ACCM) source id
       // check if user has appropriate clearance for any of the sources for the document
-      var isSourceAuthorized = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).toList().stream().anyMatch(o -> {
-        
-        var jo = new JSONObject(o.toString());
+      
+      var array = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+      
+      for (int i = 0; i < array.length(); i++) {
+        JSONObject jo = array.getJSONObject(i);
 
-        return jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
+        if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
             AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
-              jo.getString(MutableDocument.CLASSIFICATION_PROPERTY));
-      });
-
-      if (isSourceAuthorized) {
-        return true;
+              jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
+          return true;
+        }
       }
     }
 

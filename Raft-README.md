@@ -98,174 +98,240 @@ To demo this functionality....
    }
    ```
 
-9. Confirm the following command fails because the user doesn't have sufficient clearance. This demonstrates that __source based__ classification marking enforcement is in effect.
+9. Confirm the following command fails because the data payload doesn't contain attribute clearance tagging
    ```
    INSERT INTO People CONTENT 
    { 
-     firstName: 'Enzo U',
-     lastName: 'Ferrari',
-     sources: {
-       '1': '(S) ABC 33322'
-     }
-   }
-   ```
-   
-#### Demonstrate that the user can create unclass objects
-
-10. Confirm the following command succeeds, because the user can create unclass objects with __general__ classification markings.
-   ```
-   INSERT INTO People CONTENT 
-   { 
-     firstName: 'Enzo1', 
+     firstName: 'Enzo', 
      lastName: 'Ferrari', 
      classification: { general: 'U'}
    }
    ```
 
-11. Confirm the following command succeeds, because the user can create unclass objects with __source based__ classification markings.
+10. Confirm the following command fails because the user doesn't have sufficient clearance. This demonstrates that __source based__ classification marking enforcement is in effect.
+   ```
+   INSERT INTO People CONTENT 
+   { 
+     firstName: 'Enzo U',
+     lastName: 'Ferrari',
+     sources: [
+       {
+         name: 'IIR 123456',
+         classification: 'S',
+         attributes: {
+          firstName: 'S',
+           lastName: 'U'
+         }
+       }
+     ]
+   }
+   ```
+   
+#### Demonstrate that the user can create unclass objects
+
+11. Confirm the following command succeeds, because the user can create unclass objects with __general__ classification markings.
+   ```
+   INSERT INTO People CONTENT 
+   { 
+     firstName: 'Enzo1', 
+     lastName: 'Ferrari', 
+     classification: { 
+       general: 'U',
+       attributes: {
+         firstName: 'U',
+         lastName: 'U'
+       }
+     }
+   }
+   ```
+
+12. Confirm the following command succeeds, because the user can create unclass objects with __source based__ classification markings.
    ```
    INSERT INTO People CONTENT 
    { 
      firstName: 'Enzo2',
      lastName: 'Ferrari',
-     sources: {
-       '1': '(U) ABC 33322'
-     }
+     sources: [
+        {
+          name: 'IIR 123456',
+          classification: 'U',
+          attributes: {
+            firstName: 'U',
+            lastName: 'U'
+          }
+        }
+      ]
    }
    ```
 
-12. In keycloak, bump the user's `clearance-USA` attribute to `S`.
+13. In keycloak, bump the user's `clearance-USA` attribute to `S`.
 
 #### Demonstrate that the user can now create Secret classified objects.
 
-13. In Arcade, confirm the following command succeeds now with general classification markings
+14. In Arcade, confirm the following command succeeds now with general classification markings
    ```
    INSERT INTO People CONTENT 
    { 
     firstName: 'Enzo3', 
     lastName: 'Ferrari', 
-    classification: { general: 'S'}
+     classification: { 
+       general: 'S',
+       attributes: {
+         firstName: 'S',
+         lastName: 'U'
+       }
+     }
    }
    ```
 
-14. Confirm the following command succeeds now with source based classification markings
+15. Confirm the following command succeeds now with source based classification markings
    ```
    INSERT INTO People CONTENT 
    { 
      firstName: 'Enzo4',
      lastName: 'Ferrari',
-     sources: {
-       '1': '(S) ABC 33322'
-     }
+     sources: [
+        {
+          name: 'IIR 123456',
+          classification: 'S',
+          attributes: {
+            firstName: 'S',
+            lastName: 'U'
+          }
+        }
+      ]
    }
    ```
 
-15. Create the following object with an ACCM no foreign attribute in preperation for demoing basic ACCM handling.
+16. Create the following object with an ACCM no foreign attribute in preperation for demoing basic ACCM handling.
    ```
    INSERT INTO People CONTENT 
    { 
      firstName: 'Enzo5',
      lastName: 'Ferrari',
-     sources: {
-       '1': '(S//NF) IIR 12345'
-     }
+     sources: [
+        {
+          name: 'IIR 123456',
+          classification: 'S//NF',
+          attributes: {
+            firstName: 'S',
+            lastName: 'U'
+          }
+        }
+      ]
    }
    ```
 
 #### Demonstrate that all __U__, __S__, and __S No Foreign__ objects are visible to a US national with a Secret clearance
 
-16. Run the following command, and confirm that 5 objects are returned
+17. Run the following command, and confirm that 5 objects are returned
    ```
    select from `People` limit 30
    ```
 
 #### Demonstrate that the previously created object with a __No Foreign__ attribute are hidden from a foreign national
 
-17. In keycloak, update the user's nationality attribute to `GBR`.
+18. In keycloak, update the user's nationality attribute to `GBR`.
 
-18. Rerun the select command above, and confirm that only 4 objects are returned. The No Foreign object should be hidden.
+19. Rerun the select command above, and confirm that only 4 objects are returned. The No Foreign object should be hidden.
 
-19. Confirm the following command fails where a foreign national tries to create a no foreign marked object.
+20. Confirm the following command fails where a foreign national tries to create a no foreign marked object.
    ```
    INSERT INTO People CONTENT 
    { 
      firstName: 'Enzo6',
      lastName: 'Ferrari',
-     sources: {
-       '1': '(S//NF) IIR 12345'
-     }
+     sources: [
+        {
+          name: 'IIR 123456',
+          classification: 'S//NF',
+          attributes: {
+            firstName: 'U',
+            lastName: 'U'
+          }
+        }
+      ]
    }
    ```
 
 #### Demonstrate that users can't see objects higher than their clearance level.
 
-20. In keycloak, update the user's `clearance-USA` attribute to `U`.
+21. In keycloak, update the user's `clearance-USA` attribute to `U`.
 
-21. In arcade, run the following query and confirm that only 2 objects are returned, both of them unclass.
+22. In arcade, run the following query and confirm that only 2 objects are returned, both of them unclass.
    ```
    select from `People` limit 30
    ```
 
 #### Now we are going to demonstrate data access enforcement with graph relationships
 
-22. In keycloak, revert the value of the `clearance-USA` attribute back to `S`
+23. In keycloak, revert the value of the `clearance-USA` attribute back to `S`
 
-23. In keycloak, revert the `nationality` attribute back to `USA`
+24. In keycloak, revert the `nationality` attribute back to `USA`
 
-24. In aracde, run the following command to create a new `Location` node type
+25. In aracde, run the following command to create a new `Location` node type
    ```
    CREATE VERTEX TYPE Location
    ```
 
-25. Create a new Location object
+26. Create a new Location object
    ```
    INSERT INTO Location CONTENT 
    { 
      name: 'Richmond',
      type: 'City',
      classification: {
-       general: 'U'
+       general: 'S',
+       attributes: {
+         name: 'S',
+         type: 'U'
+       }
      }
    }
    ```
 
-26. Create a new edge type, LivesIn
+27. Create a new edge type, LivesIn
    ```
    CREATE EDGE TYPE LivesIn
    ```
 
-27. Confirm that new edge creation fails with invalid classification markings
+28. Confirm that new edge creation fails with invalid classification markings
    ```
    CREATE EDGE LivesIn 
    FROM (SELECT FROM People WHERE firstName = 'Enzo1') TO
         (SELECT FROM Location WHERE name = 'Richmond')
    ```
-28. Confirm that new edge creation succeeds with proper classification markings
+29. Confirm that new edge creation succeeds with proper classification markings
    ```
    CREATE EDGE LivesIn 
    FROM (SELECT FROM People WHERE firstName = 'Enzo1') TO
         (SELECT FROM Location WHERE name = 'Richmond')
    CONTENT {
-     sources: {
-       '1': '(S//NF) IIR 12345'
-     }
+     sources: [
+        {
+          name: 'IIR 123456',
+          classification: 'S//NF',
+          attributes: {
+          }
+        }
+      ]
    }
    ```
 
-29. Run the following command to load the person for which we just added an edge.
+30. Run the following command to load the person for which we just added an edge.
 ```
 SELECT FROM People WHERE firstName = 'Enzo1'
 ```
 
-30. In the Arcade graph result GUI, select the returned node
+31. In the Arcade graph result GUI, select the returned node
 
-31. In the context paragraph on the right side, select the `both` button to load incoming and outgoing edges 
+32. In the context paragraph on the right side, select the `both` button to load incoming and outgoing edges 
 
-32. Confirm the LivesIn edge, and location Richmond load into the GUI.
+33. Confirm the LivesIn edge, and location Richmond load into the GUI.
 
 #### Now we will demonstrate that this relationship will not load if you don't have permissions to the relationship
 
-33. In keycloak, update the user's `nationality` attribute to `GBR`.
+34. In keycloak, update the user's `nationality` attribute to `GBR`.
 
-34. Repeat steps 29 - 31. Confirm the LivesIn edge and location Richmond __do not__ load
+35. Repeat steps 29 - 31. Confirm the LivesIn edge and location Richmond __do not__ load
 
