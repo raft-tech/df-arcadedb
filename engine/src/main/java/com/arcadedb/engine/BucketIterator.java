@@ -101,7 +101,7 @@ public class BucketIterator implements Iterator<Record> {
                 continue;
               }
 
-              next = rid.getRecord(false);
+              next = rid.getRecord(true);
 
               // TODO strip out properties the user doesn't have access to
               // TODO here 1
@@ -134,7 +134,9 @@ public class BucketIterator implements Iterator<Record> {
           } catch (final Exception e) {
             final String msg = String.format("Error on loading record #%d:%d (error: %s)", currentPage.pageId.getFileId(),
                 (nextPageNumber * bucket.getMaxRecordsInPage()) + currentRecordInPage, e.getMessage());
-            LogManager.instance().log(this, Level.SEVERE, msg);
+            // LogManager.instance().log(this, Level.SEVERE, msg);
+            // LogManager.instance().log(this, Level.FINE, msg, e);
+            // e.printStackTrace();
           } finally {
             currentRecordInPage++;
           }

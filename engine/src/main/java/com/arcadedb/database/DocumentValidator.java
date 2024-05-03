@@ -27,6 +27,7 @@ import com.arcadedb.serializer.json.JSONObject;
 
 import java.math.*;
 import java.util.*;
+import java.util.logging.LogManager;
 
 /**
  * Validates documents against constraints defined in the schema.
@@ -48,7 +49,7 @@ public class DocumentValidator {
     if (!classificationOptions.containsKey(toCheck))
       throw new ValidationException("Classification must be one of " + classificationOptions);
 
-    var deploymentClassification = System.getProperty("deploymentClassifcation", "S");
+    var deploymentClassification = System.getProperty("deploymentClassification", "S");
     if (classificationOptions.get(deploymentClassification) < classificationOptions.get(toCheck))
       throw new ValidationException("Classification " + toCheck + " is not allowed in this deployment");
 
@@ -59,6 +60,31 @@ public class DocumentValidator {
 
   public static void validateClassificationMarkings(final MutableDocument document, 
           SecurityDatabaseUser securityDatabaseUser) {
+
+    if (document == null) {
+      throw new ValidationException("Document is null");
+    }
+
+    System.out.println("doctostring: " + document.toString());
+
+    if (document instanceof MutableEmbeddedDocument) {
+      System.out.println("embedded doc check 1");
+      return;
+    }
+
+    if (document.getRecordType() == EmbeddedDocument.RECORD_TYPE) {
+      System.out.println("embedded doc check 2");
+      return;
+    }
+
+    try{
+      LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 0" + document.toString());
+      LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 1" + document.toMap().get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
+    } catch
+    (Exception e) {
+      e.printStackTrace();
+   //   LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 1" + e.toString());
+    }
 
     // Skip validation checks if classification validation is disabled for the database
     if (!document.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
@@ -100,10 +126,25 @@ public class DocumentValidator {
         throw new ValidationException("Invalid classification: " + classification);
       }
 
-      validateAttributeClassificationTagging(document, new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString()).getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
+      var classificationObj = new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
+      
+      var nonSystemPropsCount = document.getPropertyNames().stream()
+          .filter(prop -> !prop.startsWith("@"))
+          .filter(prop -> !MutableDocument.CUSTOM_SYSTEM_PROPERTIES.contains(prop))
+          .count();
+
+      // TODO this check only matters if there are non system attributes on the object.
+      if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
+        throw new ValidationException("Missing classification attributes on document");
+      }
+
+      validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
     } else if (!validSources){
-      throw new ValidationException("Missing classification data on document");
+      throw new ValidationException("Missing overall classification data on document");
     }
+
+    // LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 2" 
+    //         + document.toJSON());//.getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).toString());
   }
 
   private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser) {

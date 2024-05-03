@@ -35,7 +35,7 @@ public class AuthorizationUtils {
     if (!classificationOptions.containsKey(c))
       throw new IllegalArgumentException("Classification must be one of " + classificationOptions);
 
-    var deploymentClassification = System.getProperty("deploymentClassifcation", "S");
+    var deploymentClassification = System.getProperty("deploymentClassification", "S");
     return classificationOptions.get(deploymentClassification) >= classificationOptions.get(c);
   }
 
@@ -216,6 +216,8 @@ public class AuthorizationUtils {
       return true;
     }
 
+  //  LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "4 check" + document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).toString());
+
     // TODO short term - check classification, attribution on document
 
     // TODO long term - replace with filtering by low classification of related/linked document.
@@ -246,6 +248,7 @@ public class AuthorizationUtils {
       for (int i = 0; i < array.length(); i++) {
         JSONObject jo = array.getJSONObject(i);
 
+        // TODO update
         if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
             AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
               jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
@@ -253,6 +256,9 @@ public class AuthorizationUtils {
         }
       }
     }
+
+    
+    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "5 check" + document.toString());
 
     if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
           && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
@@ -265,6 +271,7 @@ public class AuthorizationUtils {
         return false;
       }
     }
+    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "6 check" + document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).toString());
 
     return false;
   }
