@@ -192,13 +192,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
       if (this.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
 
         if (toJSON() != null) {
-          System.out.println("Validating classification markings for document: " + toJSON().toString());
-
-          System.out.println("Validating classification markings for document: " + toJSON().toString());
           DocumentValidator.validateClassificationMarkings(this, securityDatabaseUser);
           set(CLASSIFICATION_MARKED, true);
-        } else {
-          System.out.println("Document is null");
         }
       }
     } catch (ValidationException e) {
