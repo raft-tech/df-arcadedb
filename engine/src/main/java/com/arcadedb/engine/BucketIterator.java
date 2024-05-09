@@ -30,7 +30,7 @@ import com.arcadedb.security.SecurityDatabaseUser;
 
 import java.io.*;
 import java.util.*;
-import java.util.logging.*;
+import java.util.logging.Level;
 
 import static com.arcadedb.database.Binary.INT_SERIALIZED_SIZE;
 
@@ -104,8 +104,6 @@ public class BucketIterator implements Iterator<Record> {
               next = rid.getRecord(true);
 
               // TODO strip out properties the user doesn't have access to
-              // TODO here 1
-
               return null;
 
             } else if (recordSize[0] == Bucket.RECORD_PLACEHOLDER_POINTER) {
@@ -126,7 +124,6 @@ public class BucketIterator implements Iterator<Record> {
               }
 
               // TODO strip out properties the user doesn't have access to
-              // TODO here 2
 
               next = record;
               return null;
@@ -134,9 +131,7 @@ public class BucketIterator implements Iterator<Record> {
           } catch (final Exception e) {
             final String msg = String.format("Error on loading record #%d:%d (error: %s)", currentPage.pageId.getFileId(),
                 (nextPageNumber * bucket.getMaxRecordsInPage()) + currentRecordInPage, e.getMessage());
-            // LogManager.instance().log(this, Level.SEVERE, msg);
-            // LogManager.instance().log(this, Level.FINE, msg, e);
-            // e.printStackTrace();
+            LogManager.instance().log(this, Level.SEVERE, msg);
           } finally {
             currentRecordInPage++;
           }

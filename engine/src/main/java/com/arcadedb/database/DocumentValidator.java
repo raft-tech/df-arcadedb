@@ -128,9 +128,6 @@ public class DocumentValidator {
     } else if (!validSources){
       throw new ValidationException("Missing overall classification data on document");
     }
-
-    // LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 2" 
-    //         + document.toJSON());//.getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).toString());
   }
 
   private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser) {

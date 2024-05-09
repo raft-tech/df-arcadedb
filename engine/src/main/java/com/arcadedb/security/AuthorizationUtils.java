@@ -147,7 +147,6 @@ public class AuthorizationUtils {
    * @return
    */
   private static boolean isBlockedByNoForn(final String nationality, final String resourceClassification) {
-    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "Checking for NOFORN in " + resourceClassification);
     return (containsBlockText("NOFORN", resourceClassification) || containsBlockText("NF", resourceClassification)) 
         && (nationality == null || !nationality.equals("USA"));
   }
@@ -216,8 +215,6 @@ public class AuthorizationUtils {
       return true;
     }
 
-  //  LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "4 check" + document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).toString());
-
     // TODO short term - check classification, attribution on document
 
     // TODO long term - replace with filtering by low classification of related/linked document.
@@ -257,9 +254,6 @@ public class AuthorizationUtils {
       }
     }
 
-    
-    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "5 check" + document.toString());
-
     if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
           && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
       var docClassification = 
@@ -271,7 +265,6 @@ public class AuthorizationUtils {
         return false;
       }
     }
-    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "6 check" + document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).toString());
 
     return false;
   }
