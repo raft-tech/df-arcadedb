@@ -27,7 +27,6 @@ import com.arcadedb.serializer.json.JSONObject;
 
 import java.math.*;
 import java.util.*;
-import java.util.logging.LogManager;
 
 /**
  * Validates documents against constraints defined in the schema.
@@ -65,25 +64,12 @@ public class DocumentValidator {
       throw new ValidationException("Document is null");
     }
 
-    System.out.println("doctostring: " + document.toString());
-
     if (document instanceof MutableEmbeddedDocument) {
-      System.out.println("embedded doc check 1");
       return;
     }
 
     if (document.getRecordType() == EmbeddedDocument.RECORD_TYPE) {
-      System.out.println("embedded doc check 2");
       return;
-    }
-
-    try{
-      LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 0" + document.toString());
-      LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 1" + document.toMap().get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
-    } catch
-    (Exception e) {
-      e.printStackTrace();
-   //   LogManager.getLogManager().getLogger(DocumentValidator.class.getName()).info("Validating classification markings 1" + e.toString());
     }
 
     // Skip validation checks if classification validation is disabled for the database
@@ -127,7 +113,7 @@ public class DocumentValidator {
       }
 
       var classificationObj = new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
-      
+
       var nonSystemPropsCount = document.getPropertyNames().stream()
           .filter(prop -> !prop.startsWith("@"))
           .filter(prop -> !MutableDocument.CUSTOM_SYSTEM_PROPERTIES.contains(prop))
@@ -151,7 +137,7 @@ public class DocumentValidator {
 
     // confirm each json key in document has a matching key in attributes
     // have counter for each key in document, and decrement when found in attributes
-    var propNames = document.getPropertyNames();
+    var propNames = new HashSet<>(document.getPropertyNames());
     propNames.remove(MutableDocument.CLASSIFICATION_PROPERTY);
     propNames.remove(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
     propNames.remove(MutableDocument.CLASSIFICATION_MARKED);
@@ -229,6 +215,7 @@ public class DocumentValidator {
   }
 
   public static void validateField(final MutableDocument document, final Property p) throws ValidationException {
+
     if (p.isMandatory() && !document.has(p.getName()))
       throwValidationException(p, "is mandatory, but not found on record: " + document);
 
