@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
+import com.arcadedb.server.ArcadeDBServer;
 
 import java.util.*;
 import java.util.concurrent.*;

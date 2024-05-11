@@ -25,12 +25,15 @@ import com.arcadedb.query.sql.executor.Result;
 import com.arcadedb.query.sql.executor.ResultInternal;
 import com.arcadedb.query.sql.executor.ResultSet;
 import com.arcadedb.schema.DocumentType;
+import com.arcadedb.serializer.json.JSONArray;
+import com.arcadedb.serializer.json.JSONObject;
 import de.bwaldvogel.mongo.MongoBackend;
 import de.bwaldvogel.mongo.MongoCollection;
 import de.bwaldvogel.mongo.MongoDatabase;
 import de.bwaldvogel.mongo.backend.CollectionOptions;
 import de.bwaldvogel.mongo.backend.Cursor;
 import de.bwaldvogel.mongo.backend.CursorRegistry;
+import de.bwaldvogel.mongo.backend.DatabaseResolver;
 import de.bwaldvogel.mongo.backend.QueryResult;
 import de.bwaldvogel.mongo.backend.Utils;
 import de.bwaldvogel.mongo.backend.aggregation.Aggregation;
@@ -38,13 +41,8 @@ import de.bwaldvogel.mongo.bson.Document;
 import de.bwaldvogel.mongo.exception.MongoServerError;
 import de.bwaldvogel.mongo.exception.MongoServerException;
 import de.bwaldvogel.mongo.oplog.Oplog;
-import de.bwaldvogel.mongo.wire.message.MongoDelete;
-import de.bwaldvogel.mongo.wire.message.MongoInsert;
 import de.bwaldvogel.mongo.wire.message.MongoQuery;
-import de.bwaldvogel.mongo.wire.message.MongoUpdate;
 import io.netty.channel.Channel;
-import com.arcadedb.serializer.json.JSONArray;
-import com.arcadedb.serializer.json.JSONObject;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -54,22 +52,20 @@ import static de.bwaldvogel.mongo.backend.Utils.markOkay;
 
 public class MongoDBDatabaseWrapper implements MongoDatabase {
   protected final Database                           database;
+  protected final MongoDBProtocolPlugin              plugin;
   protected final MongoBackend                       backend;
   protected final Map<String, MongoCollection<Long>> collections    = new ConcurrentHashMap();
   protected final Map<Channel, List<Document>>       lastResults    = new ConcurrentHashMap();
   protected final CursorRegistry                     cursorRegistry = new CursorRegistry();
 
-  public MongoDBDatabaseWrapper(final Database database, final MongoBackend backend) {
+  public MongoDBDatabaseWrapper(final Database database, final MongoDBProtocolPlugin plugin, final MongoBackend backend) {
     this.database = database;
+    this.plugin = plugin;
     this.backend = backend;
 
     for (final DocumentType dt : database.getSchema().getTypes()) {
       collections.put(dt.getName(), new MongoDBCollectionWrapper(database, dt.getName()));
     }
-  }
-
-  public static MongoDBDatabaseWrapper open(final Database database) {
-    return new MongoDBDatabaseWrapper(database, null);
   }
 
   @Override
@@ -79,13 +75,18 @@ public class MongoDBDatabaseWrapper implements MongoDatabase {
 
   @Override
   public void handleClose(final Channel channel) {
-    database.close();
+    // THIS IS CALLED FROM THE CLIENT TO FREE CONNECTION RESOURCES. DO NOT CLOSE THE DATABASE BECAUSE OTHER CONNECTIONS MAY NEED IT
+    collections.clear();
+    lastResults.clear();
   }
 
   @Override
-  public Document handleCommand(final Channel channel, final String command, final Document document, final Oplog opLog) throws MongoServerException {
+  public Document handleCommand(final Channel channel, final String command, final Document document, final DatabaseResolver databaseResolver,
+      final Oplog opLog) {
     try {
-      if (command.equalsIgnoreCase("create"))
+      if (command.equalsIgnoreCase("find"))
+        return find(document);
+      else if (command.equalsIgnoreCase("create"))
         return createCollection(document);
       else if (command.equalsIgnoreCase("count"))
         return countCollection(document);
@@ -176,21 +177,6 @@ public class MongoDBDatabaseWrapper implements MongoDatabase {
     }
   }
 
-  @Override
-  public void handleInsert(final MongoInsert mongoInsert, final Oplog opLog) {
-    // TODO
-  }
-
-  @Override
-  public void handleDelete(final MongoDelete mongoDelete, final Oplog opLog) {
-    // TODO
-  }
-
-  @Override
-  public void handleUpdate(final MongoUpdate mongoUpdate, final Oplog opLog) {
-    // TODO
-  }
-
   private Document aggregateCollection(final String command, final Document document, final Oplog oplog) throws MongoServerException {
     final String collectionName = document.get("aggregate").toString();
     database.countType(collectionName, false);
@@ -202,12 +188,12 @@ public class MongoDBDatabaseWrapper implements MongoDatabase {
     if (!pipeline.isEmpty()) {
       final Document changeStream = (Document) pipeline.get(0).get("$changeStream");
       if (changeStream != null) {
-        final Aggregation aggregation = Aggregation.fromPipeline(pipeline.subList(1, pipeline.size()), this, collection, oplog);
+        final Aggregation aggregation = Aggregation.fromPipeline(pipeline.subList(1, pipeline.size()), plugin, this, collection, oplog);
         aggregation.validate(document);
         return commandChangeStreamPipeline(document, oplog, collectionName, changeStream, aggregation);
       }
     }
-    final Aggregation aggregation = Aggregation.fromPipeline(pipeline, this, collection, oplog);
+    final Aggregation aggregation = Aggregation.fromPipeline(pipeline, plugin, this, collection, oplog);
     aggregation.validate(document);
 
     return firstBatchCursorResponse(collectionName, "firstBatch", aggregation.computeResult(), 0);
@@ -300,6 +286,23 @@ public class MongoDBDatabaseWrapper implements MongoDatabase {
     return response;
   }
 
+  private Document find(final Document document) throws MongoServerException {
+    final Document filter = (Document) document.get("filter");
+    final int limit = this.getOptionalNumber(document, "limit", -1);
+    final int skip = this.getOptionalNumber(document, "skip", 0);
+    final String collectionName = (String) document.get("find");
+
+    final MongoQuery mongoQuery = new MongoQuery(null, null, collectionName, skip, limit, filter, null);
+
+    final QueryResult result = handleQuery(mongoQuery);
+
+    final List<Document> documents = new ArrayList<>();
+    for (Iterator<Document> it = result.iterator(); it.hasNext(); )
+      documents.add(it.next());
+
+    return firstBatchCursorResponse(collectionName, "firstBatch", documents, 0);
+  }
+
   private Document insertDocument(final Channel channel, final Document query) throws MongoServerException {
     final String collectionName = query.get("insert").toString();
     final boolean isOrdered = Utils.isTrue(query.get("ordered"));
@@ -315,7 +318,8 @@ public class MongoDBDatabaseWrapper implements MongoDatabase {
           throw new MongoServerError(16459, "attempt to insert in system namespace");
         } else {
           final MongoCollection<Long> collection = getOrCreateCollection(collectionName);
-          n = collection.insertDocuments(documents).size();
+          collection.insertDocuments(documents);
+          n = documents.size();
 
           assert n == documents.size();
 

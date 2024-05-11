@@ -20,7 +20,7 @@ package com.arcadedb.server.ha.message;
 
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.engine.WALException;
 import com.arcadedb.engine.WALFile;
 import com.arcadedb.log.LogManager;
@@ -29,6 +29,7 @@ import com.arcadedb.server.ha.HAServer;
 import com.arcadedb.server.ha.ReplicationException;
 
 import java.nio.channels.*;
+import java.util.*;
 import java.util.logging.*;
 
 /**
@@ -37,12 +38,14 @@ import java.util.logging.*;
 public class TxRequest extends TxRequestAbstract {
   private boolean                        waitForResponse;
   public  DatabaseChangeStructureRequest changeStructure;
+  public  long                           installDatabaseLastLogNumber = -1;
 
   public TxRequest() {
   }
 
-  public TxRequest(final String dbName, final Binary bufferChanges, final boolean waitForResponse) {
-    super(dbName, bufferChanges);
+  public TxRequest(final String dbName, final Map<Integer, Integer> bucketRecordDelta, final Binary bufferChanges,
+      final boolean waitForResponse) {
+    super(dbName, bucketRecordDelta, bufferChanges);
     this.waitForResponse = waitForResponse;
   }
 
@@ -71,7 +74,7 @@ public class TxRequest extends TxRequestAbstract {
 
   @Override
   public HACommand execute(final HAServer server, final String remoteServerName, final long messageNumber) {
-    final DatabaseInternal db = (DatabaseInternal) server.getServer().getDatabase(databaseName);
+    final DatabaseInternal db = server.getServer().getDatabase(databaseName);
     if (!db.isOpen())
       throw new ReplicationException("Database '" + databaseName + "' is closed");
 
@@ -81,7 +84,7 @@ public class TxRequest extends TxRequestAbstract {
         changeStructure.updateFiles(db);
 
         // RELOAD THE SCHEMA BUT NOT INITIALIZE THE COMPONENTS (SOME NEW PAGES COULD BE IN THE TX ITSELF)
-        db.getSchema().getEmbedded().load(PaginatedFile.MODE.READ_WRITE, false);
+        db.getSchema().getEmbedded().load(ComponentFile.MODE.READ_WRITE, false);
       } catch (final Exception e) {
         LogManager.instance().log(this, Level.SEVERE, "Error on changing database structure request from the leader node", e);
         throw new ReplicationException("Error on changing database structure request from the leader node", e);
@@ -90,14 +93,19 @@ public class TxRequest extends TxRequestAbstract {
     final WALFile.WALTransaction walTx = readTxFromBuffer();
 
     try {
-      LogManager.instance().log(this, Level.FINE, "Applying tx %d from server %s (modifiedPages=%d)...", walTx.txId, remoteServerName, walTx.pages.length);
+      LogManager.instance()
+          .log(this, Level.FINE, "Applying tx %d from server %s (modifiedPages=%d)...", walTx.txId, remoteServerName,
+              walTx.pages.length);
 
-      db.getTransactionManager().applyChanges(walTx, false);
+      final boolean ignoreErrors = installDatabaseLastLogNumber > -1 && messageNumber <= installDatabaseLastLogNumber;
+
+      db.getTransactionManager().applyChanges(walTx, bucketRecordDelta, ignoreErrors);
 
     } catch (final WALException e) {
       if (e.getCause() instanceof ClosedChannelException) {
         // CLOSE THE ENTIRE DB
-        LogManager.instance().log(this, Level.SEVERE, "Closed file during transaction, closing the entire database (error=%s)", e.toString());
+        LogManager.instance()
+            .log(this, Level.SEVERE, "Closed file during transaction, closing the entire database (error=%s)", e.toString());
         db.getEmbedded().close();
       }
       throw e;

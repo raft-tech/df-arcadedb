@@ -51,7 +51,7 @@ public class BucketIndexBuilder extends IndexBuilder<Index> {
   public Index create() {
     database.checkPermissionsOnDatabase(SecurityDatabaseUser.DATABASE_ACCESS.UPDATE_SCHEMA);
 
-    if (database.async().isProcessing())
+    if (database.isAsyncProcessing())
       throw new NeedRetryException("Cannot create a new index while asynchronous tasks are running");
 
     final EmbeddedSchema schema = database.getSchema().getEmbedded();
@@ -78,7 +78,7 @@ public class BucketIndexBuilder extends IndexBuilder<Index> {
       database.transaction(() -> {
 
         Bucket bucket = null;
-        final List<Bucket> buckets = type.getBuckets(false);
+        final List<Bucket> buckets = type.getBuckets(true);
         for (final Bucket b : buckets) {
           if (bucketName.equals(b.getName())) {
             bucket = b;

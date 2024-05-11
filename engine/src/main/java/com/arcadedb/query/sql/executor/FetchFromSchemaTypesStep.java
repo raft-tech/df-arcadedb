@@ -72,6 +72,7 @@ public class FetchFromSchemaTypesStep extends AbstractExecutionStep {
             t = "edge";
 
           r.setProperty("type", t);
+          r.setProperty("records", context.getDatabase().countType(typeName, false));
           r.setProperty("buckets", type.getBuckets(false).stream().map((b) -> b.getName()).collect(Collectors.toList()));
           r.setProperty("bucketSelectionStrategy", type.getBucketSelectionStrategy().getName());
 
@@ -85,6 +86,8 @@ public class FetchFromSchemaTypesStep extends AbstractExecutionStep {
                 propRes.setProperty("name", property.getName());
                 propRes.setProperty("type", property.getType());
 
+                if (property.getOfType() != null)
+                  propRes.setProperty("ofType", property.getOfType());
                 if (property.isMandatory())
                   propRes.setProperty("mandatory", property.isMandatory());
                 if (property.isReadonly())
@@ -95,6 +98,10 @@ public class FetchFromSchemaTypesStep extends AbstractExecutionStep {
                   propRes.setProperty("min", property.getMin());
                 if (property.getMax() != null)
                   propRes.setProperty("max", property.getMax());
+                if (property.getDefaultValue() != null)
+                  propRes.setProperty("default", property.getDefaultValue());
+                if (property.getRegexp() != null)
+                  propRes.setProperty("regexp", property.getRegexp());
 
                 final Map<String, Object> customs = new HashMap<>();
                 for (final Object customKey : property.getCustomKeys().stream().sorted(String::compareToIgnoreCase).toArray())
@@ -110,9 +117,9 @@ public class FetchFromSchemaTypesStep extends AbstractExecutionStep {
             propRes.setProperty("name", typeIndex.getName());
             propRes.setProperty("typeName", typeIndex.getTypeName());
             propRes.setProperty("type", typeIndex.getType());
+            propRes.setProperty("unique", typeIndex.isUnique());
             propRes.setProperty("properties", typeIndex.getPropertyNames());
             propRes.setProperty("automatic", typeIndex.isAutomatic());
-            propRes.setProperty("unique", typeIndex.isUnique());
             return propRes;
           }).collect(Collectors.toList());
           r.setProperty("indexes", indexes);

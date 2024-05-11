@@ -20,14 +20,18 @@ package com.arcadedb.server.ha.message;
 
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.DatabaseInternal;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.engine.ImmutablePage;
 import com.arcadedb.engine.PageId;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.PaginatedComponentFile;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.network.binary.NetworkProtocolException;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.ha.HAServer;
 
 import java.io.*;
+import java.util.concurrent.atomic.*;
+import java.util.logging.*;
 
 public class FileContentRequest extends HAAbstractCommand {
   private              String databaseName;
@@ -48,37 +52,48 @@ public class FileContentRequest extends HAAbstractCommand {
 
   @Override
   public HACommand execute(final HAServer server, final String remoteServerName, final long messageNumber) {
-    final DatabaseInternal db = (DatabaseInternal) server.getServer().getDatabase(databaseName);
-    final PaginatedFile file = db.getFileManager().getFile(fileId);
-    final int pageSize = file.getPageSize();
+    final DatabaseInternal db = server.getServer().getDatabase(databaseName);
+    final ComponentFile file = db.getFileManager().getFile(fileId);
 
-    try {
-      final int totalPages = (int) (file.getSize() / pageSize);
+    if (file instanceof PaginatedComponentFile) {
+      final int pageSize = ((PaginatedComponentFile) file).getPageSize();
 
-      final Binary pagesContent = new Binary();
+      try {
+        final int totalPages = (int) (file.getSize() / pageSize);
 
-      int pages = 0;
+        final Binary pagesContent = new Binary();
 
-      if (toPageInclusive == -1)
-        toPageInclusive = totalPages - 1;
+        final AtomicInteger pages = new AtomicInteger(0);
 
-      for (int i = fromPageInclusive; i <= toPageInclusive && pages < CHUNK_MAX_PAGES; ++i) {
-        final PageId pageId = new PageId(fileId, i);
-        final ImmutablePage page = db.getPageManager().getImmutablePage(pageId, pageSize, false, false);
-        pagesContent.putByteArray(page.getContent().array(), pageSize);
+        if (toPageInclusive == -1)
+          toPageInclusive = totalPages - 1;
 
-        ++pages;
+//        db.getPageManager().suspendFlushAndExecute(() -> {
+          for (int i = fromPageInclusive; i <= toPageInclusive && pages.get() < CHUNK_MAX_PAGES; ++i) {
+            final PageId pageId = new PageId(fileId, i);
+            final ImmutablePage page = db.getPageManager().getImmutablePage(pageId, pageSize, false, false);
+            pagesContent.putByteArray(page.getContent().array(), pageSize);
+
+            pages.incrementAndGet();
+          }
+//        });
+
+        final boolean last = pages.get() > toPageInclusive;
+
+        pagesContent.flip();
+
+        return new FileContentResponse(databaseName, fileId, file.getFileName(), fromPageInclusive, pagesContent, pages.get(),
+            last);
+
+      } catch (final IOException e) {
+        throw new NetworkProtocolException("Cannot load pages", e);
+//      } catch (InterruptedException e) {
+//        Thread.currentThread().interrupt();
+//        throw new NetworkProtocolException("Cannot load pages", e);
       }
-
-      final boolean last = pages > toPageInclusive;
-
-      pagesContent.flip();
-
-      return new FileContentResponse(databaseName, fileId, file.getFileName(), fromPageInclusive, pagesContent, pages, last);
-
-    } catch (final IOException e) {
-      throw new NetworkProtocolException("Cannot load pages", e);
     }
+    LogManager.instance().log(this, Level.SEVERE, "Cannot read not paginated file %s from the leader", file.getFileName());
+    throw new NetworkProtocolException("Cannot read not paginated file " + file.getFileName() + " from the leader");
   }
 
   @Override
@@ -99,6 +114,7 @@ public class FileContentRequest extends HAAbstractCommand {
 
   @Override
   public String toString() {
-    return "file(" + databaseName + " fileId=" + fileId + " fromPageInclusive=" + fromPageInclusive + " fromPageInclusive" + toPageInclusive + ")";
+    return "file(" + databaseName + " fileId=" + fileId + " fromPageInclusive=" + fromPageInclusive + " fromPageInclusive"
+        + toPageInclusive + ")";
   }
 }

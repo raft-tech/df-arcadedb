@@ -28,7 +28,7 @@ import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.TransactionContext;
 import com.arcadedb.database.async.AsyncResultsetCallback;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.graph.Edge;
 import com.arcadedb.graph.Vertex;
 import com.arcadedb.integration.misc.IntegrationUtils;
@@ -409,9 +409,9 @@ public class Console {
 
       checkDatabaseIsLocked(localUrl);
 
-      PaginatedFile.MODE mode = PaginatedFile.MODE.READ_WRITE;
+      ComponentFile.MODE mode = ComponentFile.MODE.READ_WRITE;
       if (urlParts.length > 1)
-        mode = PaginatedFile.MODE.valueOf(urlParts[1].toUpperCase());
+        mode = ComponentFile.MODE.valueOf(urlParts[1].toUpperCase());
 
       databaseFactory = new DatabaseFactory(localUrl);
       databaseProxy = databaseFactory.setAutoTransaction(true).open(mode);
@@ -821,9 +821,11 @@ public class Console {
           final TableFormatter.TableMapRow row = new TableFormatter.TableMapRow();
           row.setField("NAME", property.getProperty("name"));
           row.setField("TYPE", property.getProperty("type"));
+          row.setField("OF", property.hasProperty("of") ? property.getProperty("of") : null);
           row.setField("MANDATORY", property.hasProperty("mandatory") ? property.getProperty("mandatory") : "false");
           row.setField("READONLY", property.hasProperty("readOnly") ? property.getProperty("readOnly") : "false");
           row.setField("NOT NULL", property.hasProperty("notNull") ? property.getProperty("notNull") : "false");
+          row.setField("DEFAULT", property.hasProperty("default") ? property.getProperty("default") : null);
           row.setField("MIN", property.hasProperty("min") ? property.getProperty("min") : "");
           row.setField("MAX", property.hasProperty("max") ? property.getProperty("max") : "");
           row.setField("CUSTOM", property.getProperty("custom"));

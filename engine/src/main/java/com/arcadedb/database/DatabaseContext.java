@@ -18,6 +18,7 @@
  */
 package com.arcadedb.database;
 
+import com.arcadedb.exception.DatabaseOperationException;
 import com.arcadedb.exception.TransactionException;
 import com.arcadedb.security.SecurityDatabaseUser;
 
@@ -64,12 +65,45 @@ public class DatabaseContext extends ThreadLocal<Map<String, DatabaseContext.Dat
     }
 
     if (current.transactions.isEmpty())
-      current.transactions.add(firstTransaction != null ? firstTransaction : new TransactionContext(database.getWrappedDatabaseInstance()));
+      current.transactions.add(
+          firstTransaction != null ? firstTransaction : new TransactionContext(database.getWrappedDatabaseInstance()));
 
     return current;
   }
 
+  /**
+   * Clear any database context in the thread local.
+   */
+  public void clear() {
+    Map<String, DatabaseContextTL> map = get();
+
+    if (map != null) {
+      for (DatabaseContextTL current : map.values()) {
+        if (current != null) {
+          if (!current.transactions.isEmpty()) {
+            // ROLLBACK PREVIOUS TXS
+            while (!current.transactions.isEmpty()) {
+              final Transaction tx = current.transactions.remove(current.transactions.size() - 1);
+              try {
+                tx.rollback();
+              } catch (final Exception e) {
+                // IGNORE ANY ERROR DURING ROLLBACK
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   public DatabaseContextTL getContext(final String name) {
+    final DatabaseContextTL ctx = getContextIfExists(name);
+    if (ctx == null)
+      throw new DatabaseOperationException("Transaction context not found on current thread");
+    return ctx;
+  }
+
+  public DatabaseContextTL getContextIfExists(final String name) {
     final Map<String, DatabaseContextTL> map = get();
     return map != null ? map.get(name) : null;
   }

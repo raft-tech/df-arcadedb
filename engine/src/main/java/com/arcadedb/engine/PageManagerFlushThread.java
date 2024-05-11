@@ -39,8 +39,9 @@ public class PageManagerFlushThread extends Thread {
   private volatile boolean                               running   = true;
   private final    AtomicBoolean                         suspended = new AtomicBoolean(false); // USED DURING BACKUP
 
-  public PageManagerFlushThread(final PageManager pageManager, final ContextConfiguration configuration) {
-    super("ArcadeDB AsyncFlush");
+  public PageManagerFlushThread(final PageManager pageManager, final ContextConfiguration configuration,
+      final String databaseName) {
+    super("ArcadeDB AsyncFlush " + databaseName);
     setDaemon(false);
     this.pageManager = pageManager;
     this.logContext = LogManager.instance().getContext();
@@ -48,6 +49,10 @@ public class PageManagerFlushThread extends Thread {
   }
 
   public void scheduleFlushOfPages(final List<MutablePage> pages) throws InterruptedException {
+    if (pages.isEmpty())
+      // AVOID INSERTING AN EMPTY LIST BECAUSE IS USED TO SHUTDOWN THE THREAD
+      return;
+
     // TRY TO INSERT THE PAGE IN THE QUEUE UNTIL THE THREAD IS STILL RUNNING
     while (running) {
       if (queue.offer(pages, 1, TimeUnit.SECONDS))
@@ -70,29 +75,30 @@ public class PageManagerFlushThread extends Thread {
           continue;
         }
 
-        flushPagesFromQueueToDisk();
+        flushPagesFromQueueToDisk(1_000);
 
       } catch (final InterruptedException e) {
-        Thread.currentThread().interrupt();
         running = false;
-        return;
       } catch (final Exception e) {
         LogManager.instance().log(this, Level.SEVERE, "Error on processing page flush requests", e);
       }
     }
   }
 
-  protected void flushPagesFromQueueToDisk() throws InterruptedException, IOException {
-    final List<MutablePage> pages = queue.poll(1000L, TimeUnit.MILLISECONDS);
+  protected void flushPagesFromQueueToDisk(final long timeout) throws InterruptedException, IOException {
+    final List<MutablePage> pages = queue.poll(timeout, TimeUnit.MILLISECONDS);
 
     if (pages != null) {
-      for (final MutablePage page : pages)
-        try {
-          pageManager.flushPage(page);
-        } catch (final DatabaseMetadataException e) {
-          // FILE DELETED, CONTINUE WITH THE NEXT PAGES
-          LogManager.instance().log(this, Level.WARNING, "Error on flushing page '%s' to disk", e, page);
-        }
+      if (pages.isEmpty())
+        running = false;
+      else
+        for (final MutablePage page : pages)
+          try {
+            pageManager.flushPage(page);
+          } catch (final DatabaseMetadataException e) {
+            // FILE DELETED, CONTINUE WITH THE NEXT PAGES
+            LogManager.instance().log(this, Level.WARNING, "Error on flushing page '%s' to disk", e, page);
+          }
     }
   }
 
@@ -104,7 +110,9 @@ public class PageManagerFlushThread extends Thread {
     return suspended.get();
   }
 
-  public void close() {
+  public void closeAndJoin() throws InterruptedException {
     running = false;
+    queue.offer(Collections.emptyList()); // EMPTY LIST MEANS SHUTDOWN OF THE THREAD
+    join();
   }
 }

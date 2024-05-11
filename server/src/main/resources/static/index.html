@@ -83,114 +83,50 @@
       </div>
     </div>
 
-    <div
-      id="studioPanel"
-      class="card-hover-shadow-2x mb-3 card"
-      style="display: none"
-    >
-      <div class="card-header-tab card-header">
-        <div class="row">
-          <div class="col-1">
-            <ul
-              class="nav nav-tabs flex-column"
-              id="tabs"
-              style="height: 100%; background-color: white"
-            >
-              <li
-                class="nav-item text-center"
-                style="height: 85px; padding: 5px"
-              >
-                <img
-                  src="/images/arcadedb-logo-mini.png"
-                  style="width: 100%"
-                />
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-query"
-                  class="vertical-tab nav-link active show"
-                  id="tab-query-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-terminal"></i></center>
-                  </h3>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-database"
-                  class="vertical-tab nav-link"
-                  id="tab-database-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-database"></i></center>
-                  </h3>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-server"
-                  class="vertical-tab nav-link"
-                  id="tab-server-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-server"></i></center>
-                  </h3>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-cluster"
-                  class="vertical-tab nav-link"
-                  id="tab-cluster-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-network-wired"></i></center>
-                  </h3>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-api"
-                  class="vertical-tab nav-link"
-                  id="tab-api-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-plug"></i></center>
-                  </h3>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-resources"
-                  class="vertical-tab nav-link"
-                  id="tab-resources-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-info-circle"></i></center>
-                  </h3>
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  data-toggle="tab"
-                  href="#tab-profile"
-                  class="vertical-tab nav-link"
-                  id="tab-profile-sel"
-                >
-                  <h3>
-                    <center><i class="fa fa-user"></i></center>
-                  </h3>
-                </a>
-              </li>
-            </ul>
-          </div>
+<div id="studioPanel" class="card-hover-shadow-2x mb-3 card" style="display: none;">
+  <div class="card-header-tab card-header">
+    <div class="row">
+
+      <div class="col-1">
+        <ul class="nav nav-tabs flex-column" id="tabs" style="height: 100%; background-color: white;">
+          <li class="nav-item text-center" style="height: 85px; padding: 5px;"><img src="images/arcadedb-logo-mini.png" style="width: 100%;"></li>
+          <li class="nav-item"><a data-toggle="tab" href="#tab-query" class="vertical-tab nav-link active show" id="tab-query-sel">
+            <h3>
+              <center><i class="fa fa-terminal"></i></center>
+            </h3>
+          </a></li>
+          <li class="nav-item"><a data-toggle="tab" href="#tab-database" class="vertical-tab nav-link" id="tab-database-sel">
+            <h3>
+              <center><i class="fa fa-database"></i></center>
+            </h3>
+          </a></li>
+          <li class="nav-item"><a data-toggle="tab" href="#tab-server" class="vertical-tab nav-link" id="tab-server-sel">
+            <h3>
+              <center><i class="fa fa-server"></i></center>
+            </h3>
+          </a></li>
+          <li class="nav-item"><a data-toggle="tab" href="#tab-cluster" class="vertical-tab nav-link" id="tab-cluster-sel">
+            <h3>
+              <center><i class="fa fa-network-wired"></i></center>
+            </h3>
+          </a></li>
+          <li class="nav-item"><a data-toggle="tab" href="#tab-api" class="vertical-tab nav-link" id="tab-api-sel">
+            <h3>
+              <center><i class="fa fa-plug"></i></center>
+            </h3>
+          </a></li>
+          <li class="nav-item"><a data-toggle="tab" href="#tab-resources" class="vertical-tab nav-link" id="tab-resources-sel">
+            <h3>
+              <center><i class="fa fa-info-circle"></i></center>
+            </h3>
+          </a></li>
+          <li class="nav-item"><a href="javascript:globalConfirm('Log Out','Are you sure you want to log out?','warning',function(){window.location.href=window.location.href})" class="vertical-tab nav-link" id="logout-sel">
+            <h3>
+              <center><i class="fa fa-power-off"></i></center>
+            </h3>
+          </a></li>
+        </ul>
+      </div>
 
           <div class="col-11">
             <div class="tab-content">

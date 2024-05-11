@@ -31,7 +31,7 @@ import java.util.*;
  * @Deprecated Use the generic @see PostServerCommandHandler
  */
 @Deprecated
-public class DeleteDropUserHandler extends AbstractHandler {
+public class DeleteDropUserHandler extends AbstractServerHttpHandler {
   public DeleteDropUserHandler(final HttpServer httpServer) {
     super(httpServer);
   }
@@ -42,7 +42,7 @@ public class DeleteDropUserHandler extends AbstractHandler {
 
     final Deque<String> userNamePar = exchange.getQueryParameters().get("userName");
     String userName = userNamePar.isEmpty() ? null : userNamePar.getFirst().trim();
-    if (userName.isEmpty())
+    if (userName != null && userName.isEmpty())
       userName = null;
 
     if (userName == null)

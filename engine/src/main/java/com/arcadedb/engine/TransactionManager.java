@@ -54,7 +54,7 @@ public class TransactionManager {
 
     this.logContext = LogManager.instance().getContext();
 
-    if (database.getMode() == PaginatedFile.MODE.READ_WRITE) {
+    if (database.getMode() == ComponentFile.MODE.READ_WRITE) {
       createWALFilePool();
 
       task = new Timer("ArcadeDB TransactionManager " + database.getName());
@@ -120,7 +120,8 @@ public class TransactionManager {
     }
 
     if (!cleanWALFiles(drop, false))
-      LogManager.instance().log(this, Level.WARNING, "Error on removing all transaction files. Remained: %s", null, inactiveWALFilePool);
+      LogManager.instance()
+          .log(this, Level.WARNING, "Error on removing all transaction files. Remained: %s", null, inactiveWALFilePool);
     else {
       // DELETE ALL THE WAL FILES AT OS-LEVEL
       final File dir = new File(database.getDatabasePath());
@@ -131,7 +132,8 @@ public class TransactionManager {
       }
 
       if (walFiles != null && walFiles.length > 0)
-        LogManager.instance().log(this, Level.WARNING, "Error on removing all transaction files. Remained: %s", null, walFiles.length);
+        LogManager.instance()
+            .log(this, Level.WARNING, "Error on removing all transaction files. Remained: %s", null, walFiles.length);
     }
   }
 
@@ -139,7 +141,8 @@ public class TransactionManager {
     return WALFile.writeTransactionToBuffer(pages, txId);
   }
 
-  public void writeTransactionToWAL(final List<MutablePage> pages, final WALFile.FLUSH_TYPE sync, final long txId, final Binary bufferChanges) {
+  public void writeTransactionToWAL(final List<MutablePage> pages, final WALFile.FLUSH_TYPE sync, final long txId,
+      final Binary bufferChanges) {
     while (true) {
       final WALFile file = activeWALFilePool[(int) (Thread.currentThread().getId() % activeWALFilePool.length)];
 
@@ -192,7 +195,8 @@ public class TransactionManager {
         try {
           activeWALFilePool[i] = new WALFile(database.getDatabasePath() + File.separator + walFiles[i].getName());
         } catch (final FileNotFoundException e) {
-          LogManager.instance().log(this, Level.SEVERE, "Error on WAL file management for file '%s'", e, database.getDatabasePath() + walFiles[i].getName());
+          LogManager.instance().log(this, Level.SEVERE, "Error on WAL file management for file '%s'", e,
+              database.getDatabasePath() + walFiles[i].getName());
         }
       }
 
@@ -225,7 +229,7 @@ public class TransactionManager {
 
           lastTxId = lowerTxId;
 
-          applyChanges(walPositions[lowerTx], true);
+          applyChanges(walPositions[lowerTx], Collections.emptyMap(), true);
 
           walPositions[lowerTx] = activeWALFilePool[lowerTx].getTransaction(walPositions[lowerTx].endPositionInLog);
         }
@@ -267,29 +271,33 @@ public class TransactionManager {
     return map;
   }
 
-  public boolean applyChanges(final WALFile.WALTransaction tx, final boolean ignoreErrors) {
+  public boolean applyChanges(final WALFile.WALTransaction tx, final Map<Integer, Integer> bucketRecordDelta,
+      final boolean ignoreErrors) {
     boolean changed = false;
     boolean involveDictionary = false;
 
-    final int dictionaryId = database.getSchema().getDictionary() != null ? database.getSchema().getDictionary().file.getFileId() : -1;
+    final int dictionaryId =
+        database.getSchema().getDictionary() != null ? database.getSchema().getDictionary().file.getFileId() : -1;
 
     LogManager.instance().log(this, Level.FINE, "- applying changes from txId=%d", null, tx.txId);
 
     for (final WALFile.WALPage txPage : tx.pages) {
-      final PaginatedFile file;
+      final PaginatedComponentFile file;
 
       final PageId pageId = new PageId(txPage.fileId, txPage.pageNumber);
 
       if (!database.getFileManager().existsFile(txPage.fileId)) {
-        LogManager.instance().log(this, Level.WARNING, "Error on restoring transaction: received operation on deleted file %d", null, txPage.fileId);
+        LogManager.instance()
+            .log(this, Level.WARNING, "Error on restoring transaction: received operation on deleted file %d", null, txPage.fileId);
         if (ignoreErrors)
           continue;
         throw new ConcurrentModificationException(
-            "Concurrent modification on page " + pageId + ". The file with id " + pageId.getFileId() + " does not exist anymore. Please retry the operation");
+            "Concurrent modification on page " + pageId + ". The file with id " + pageId.getFileId()
+                + " does not exist anymore. Please retry the operation");
       }
 
       try {
-        file = database.getFileManager().getFile(txPage.fileId);
+        file = (PaginatedComponentFile) database.getFileManager().getFile(txPage.fileId);
       } catch (final Exception e) {
         LogManager.instance().log(this, Level.SEVERE, "Error on applying tx changes for page %s", e, txPage);
         throw e;
@@ -299,16 +307,17 @@ public class TransactionManager {
         final ImmutablePage page = database.getPageManager().getImmutablePage(pageId, file.getPageSize(), false, true);
 
         LogManager.instance()
-            .log(this, Level.FINE, "-- checking page %s versionInLog=%d versionInDB=%d", null, pageId, txPage.currentPageVersion, page.getVersion());
+            .log(this, Level.FINE, "-- checking page %s versionInLog=%d versionInDB=%d", null, pageId, txPage.currentPageVersion,
+                page.getVersion());
 
         if (txPage.currentPageVersion <= page.getVersion()) {
           if (ignoreErrors)
             // SKIP IT
             continue;
           throw new ConcurrentModificationException(
-              "Concurrent modification on page " + pageId + " in file '" + database.getFileManager().getFile(pageId.getFileId()).getFileName() + "' (current v."
-                  + page.getVersion() + " <> database v." + page.getVersion() + "). Please retry the operation (threadId=" + Thread.currentThread().getId()
-                  + ")");
+              "Concurrent modification on page " + pageId + " in file '" + database.getFileManager().getFile(pageId.getFileId())
+                  .getFileName() + "' (current v." + txPage.currentPageVersion + " <> database v." + page.getVersion()
+                  + "). Please retry the operation (threadId=" + Thread.currentThread().getId() + ")");
         }
 
         if (txPage.currentPageVersion > page.getVersion() + 1) {
@@ -318,15 +327,15 @@ public class TransactionManager {
           if (ignoreErrors)
             continue;
           throw new ConcurrentModificationException(
-              "Cannot apply changes to the database because modified page " + pageId + " version in WAL (" + txPage.currentPageVersion
-                  + ") does not match with existent version (" + page.getVersion() + ") fileId=" + txPage.fileId);
+              "Cannot apply changes to the database because modified page " + pageId + " version in WAL ("
+                  + txPage.currentPageVersion + ") does not match with existent version (" + page.getVersion() + ") fileId="
+                  + txPage.fileId);
         }
 //          throw new WALException("Cannot apply changes to the database because modified page version in WAL (" + txPage.currentPageVersion
 //              + ") does not match with existent version (" + page.getVersion() + ") fileId=" + txPage.fileId);
 
-        LogManager.instance()
-            .log(this, Level.FINE, "Updating page %s versionInLog=%d versionInDB=%d (txId=%d)", null, pageId, txPage.currentPageVersion, page.getVersion(),
-                tx.txId);
+        LogManager.instance().log(this, Level.FINE, "Updating page %s versionInLog=%d versionInDB=%d (txId=%d)", null, pageId,
+            txPage.currentPageVersion, page.getVersion(), tx.txId);
 
         // IF VERSION IS THE SAME OR MAJOR, OVERWRITE THE PAGE
         final MutablePage modifiedPage = page.modify();
@@ -339,7 +348,7 @@ public class TransactionManager {
 
         database.getPageManager().removePageFromCache(modifiedPage.pageId);
 
-        final PaginatedComponent component = database.getSchema().getFileById(txPage.fileId);
+        final PaginatedComponent component = (PaginatedComponent) database.getSchema().getFileById(txPage.fileId);
         if (component != null) {
           final int newPageCount = (int) (file.getSize() / file.getPageSize());
           if (newPageCount > component.pageCount.get())
@@ -360,6 +369,13 @@ public class TransactionManager {
         LogManager.instance().log(this, Level.SEVERE, "Error on applying changes to page %s", e, pageId);
         throw new WALException("Cannot apply changes to page " + pageId, e);
       }
+    }
+
+    for (Map.Entry<Integer, Integer> entry : bucketRecordDelta.entrySet()) {
+      final Bucket bucket = database.getSchema().getBucketById(entry.getKey());
+      if (bucket.getCachedRecordCount() > -1)
+        // UPDATE THE CACHE COUNTER ONLY IF ALREADY COMPUTED
+        bucket.setCachedRecordCount(bucket.getCachedRecordCount() + entry.getValue());
     }
 
     if (involveDictionary) {
@@ -410,7 +426,8 @@ public class TransactionManager {
     }
 
     if (!cleanWALFiles(false, true))
-      LogManager.instance().log(this, Level.WARNING, "Error on removing all transaction files during kill. Remained: %s", null, inactiveWALFilePool);
+      LogManager.instance()
+          .log(this, Level.WARNING, "Error on removing all transaction files during kill. Remained: %s", null, inactiveWALFilePool);
   }
 
   public long getNextTransactionId() {
@@ -442,15 +459,16 @@ public class TransactionManager {
 
         if (attemptFileId != null)
           throw new TimeoutException(
-              "Timeout on locking file " + attemptFileId + " (" + database.getFileManager().getFile(attemptFileId).getFileName() + ") during commit (fileIds="
-                  + orderedFilesIds + ")");
+              "Timeout on locking file " + attemptFileId + " (" + database.getFileManager().getFile(attemptFileId).getFileName()
+                  + ") during commit (fileIds=" + orderedFilesIds + ")");
 
         throw new TimeoutException("Timeout on locking files during commit (fileIds=" + orderedFilesIds + ")");
       }
     }
 
     // OK: ALL LOCKED
-    LogManager.instance().log(this, Level.FINE, "Locked files %s (threadId=%d)", null, orderedFilesIds, Thread.currentThread().getId());
+    LogManager.instance()
+        .log(this, Level.FINE, "Locked files %s (threadId=%d)", null, orderedFilesIds, Thread.currentThread().getId());
     // RETURN ONLY THE LOCKED FILES
     return lockedFiles;
   }
@@ -460,7 +478,8 @@ public class TransactionManager {
       for (final Integer fileId : lockedFileIds)
         unlockFile(fileId);
 
-      LogManager.instance().log(this, Level.FINE, "Unlocked files %s (threadId=%d)", null, lockedFileIds, Thread.currentThread().getId());
+      LogManager.instance()
+          .log(this, Level.FINE, "Unlocked files %s (threadId=%d)", null, lockedFileIds, Thread.currentThread().getId());
     }
   }
 
@@ -479,8 +498,8 @@ public class TransactionManager {
       try {
         activeWALFilePool[i] = database.getWALFileFactory().newInstance(database.getDatabasePath() + "/txlog_" + counter + ".wal");
       } catch (final FileNotFoundException e) {
-        LogManager.instance()
-            .log(this, Level.SEVERE, "Error on WAL file management for file '%s'", e, database.getDatabasePath() + "/txlog_" + counter + ".wal");
+        LogManager.instance().log(this, Level.SEVERE, "Error on WAL file management for file '%s'", e,
+            database.getDatabasePath() + "/txlog_" + counter + ".wal");
       }
     }
   }
@@ -491,10 +510,11 @@ public class TransactionManager {
         final WALFile file = activeWALFilePool[i];
         try {
           if (file != null && file.isOpen() && file.getSize() > MAX_LOG_FILE_SIZE) {
-            LogManager.instance()
-                .log(this, Level.FINE, "WAL file '%s' reached maximum size (%d), set it as inactive, waiting for the drop (page2flush=%d)", null, file,
-                    MAX_LOG_FILE_SIZE, file.getPendingPagesToFlush());
-            activeWALFilePool[i] = database.getWALFileFactory().newInstance(database.getDatabasePath() + "/txlog_" + logFileCounter.getAndIncrement() + ".wal");
+            LogManager.instance().log(this, Level.FINE,
+                "WAL file '%s' reached maximum size (%d), set it as inactive, waiting for the drop (page2flush=%d)", null, file,
+                MAX_LOG_FILE_SIZE, file.getPendingPagesToFlush());
+            activeWALFilePool[i] = database.getWALFileFactory()
+                .newInstance(database.getDatabasePath() + "/txlog_" + logFileCounter.getAndIncrement() + ".wal");
 
             // SET THE FILE AS INACTIVE READY TO BE DISPOSED
             file.setActive(false);

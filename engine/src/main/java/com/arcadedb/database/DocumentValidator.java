@@ -165,31 +165,107 @@ public class DocumentValidator {
       final Type propertyType = p.getType();
 
       if (propertyType != null) {
+        final String ofType = p.getOfType();
+
         // CHECK EMBEDDED VALUES
         switch (propertyType) {
-        case EMBEDDED:
+        case LINK: {
+          if (fieldValue instanceof EmbeddedDocument)
+            throwValidationException(p, "has been declared as LINK but an EMBEDDED document is used. Value: " + fieldValue);
+
+          if (ofType != null) {
+            final RID rid = ((Identifiable) fieldValue).getIdentity();
+            final DocumentType embSchemaType = document.getDatabase().getSchema().getTypeByBucketId(rid.getBucketId());
+            if (!embSchemaType.instanceOf(ofType))
+              throwValidationException(p,
+                  "has been declared as LINK of '" + ofType + "' but a link to type '" + embSchemaType + "' is used. Value: "
+                      + fieldValue);
+          }
+        }
+        break;
+
+        case EMBEDDED: {
+          if (!(fieldValue instanceof EmbeddedDocument))
+            throwValidationException(p, "has been declared as EMBEDDED but an incompatible type is used. Value: " + fieldValue);
+
+          if (ofType != null) {
+            final DocumentType embSchemaType = ((EmbeddedDocument) fieldValue).getType();
+            if (!embSchemaType.instanceOf(ofType))
+              throwValidationException(p,
+                  "has been declared as EMBEDDED of '" + ofType + "' but a document of type '" + embSchemaType
+                      + "' is used. Value: " + fieldValue);
+          }
           if (fieldValue instanceof MutableEmbeddedDocument)
             ((MutableEmbeddedDocument) fieldValue).validate();
-          break;
-        case LIST:
+        }
+        break;
+
+        case LIST: {
           if (!(fieldValue instanceof List))
             throwValidationException(p, "has been declared as LIST but an incompatible type is used. Value: " + fieldValue);
 
+          final Type embType = ofType != null ? Type.getTypeByName(ofType) : null;
+
           for (final Object item : ((List<?>) fieldValue)) {
+            if (ofType != null) {
+              if (embType != null) {
+                if (Type.getTypeByValue(item) != embType)
+                  throwValidationException(p,
+                      "has been declared as LIST of '" + ofType + "' but a value of type '" + Type.getTypeByValue(item)
+                          + "' is used. Value: " + fieldValue);
+              } else if (item instanceof EmbeddedDocument) {
+                if (!((EmbeddedDocument) item).getType().instanceOf(ofType))
+                  throwValidationException(p, "has been declared as LIST of '" + ofType + "' but an embedded document of type '"
+                      + ((EmbeddedDocument) item).getType().getName() + "' is used. Value: " + fieldValue);
+              } else if (item instanceof Identifiable) {
+                final RID rid = ((Identifiable) item).getIdentity();
+                final DocumentType embSchemaType = document.getDatabase().getSchema().getTypeByBucketId(rid.getBucketId());
+                if (!embSchemaType.instanceOf(ofType))
+                  throwValidationException(p,
+                      "has been declared as LIST of '" + ofType + "' but a link to type '" + embSchemaType + "' is used. Value: "
+                          + fieldValue);
+              }
+            }
+
             if (item instanceof MutableEmbeddedDocument)
               ((MutableEmbeddedDocument) item).validate();
           }
-          break;
+        }
+        break;
 
-        case MAP:
+        case MAP: {
           if (!(fieldValue instanceof Map))
             throwValidationException(p, "has been declared as MAP but an incompatible type is used. Value: " + fieldValue);
 
+          final Type embType = ofType != null ? Type.getTypeByName(ofType) : null;
+
           for (final Object item : ((Map<?, ?>) fieldValue).values()) {
+            if (ofType != null) {
+              if (embType != null) {
+                if (Type.getTypeByValue(item) != embType)
+                  throwValidationException(p,
+                      "has been declared as MAP of <String,'" + ofType + "'> but a value of type '" + Type.getTypeByValue(item)
+                          + "' is used. Value: " + fieldValue);
+              } else if (item instanceof EmbeddedDocument) {
+                if (!((EmbeddedDocument) item).getType().instanceOf(ofType))
+                  throwValidationException(p,
+                      "has been declared as MAP of <String,'" + ofType + "'> but an embedded document of type '" + embType
+                          + "' is used. Value: " + fieldValue);
+              } else if (item instanceof Identifiable) {
+                final RID rid = ((Identifiable) item).getIdentity();
+                final DocumentType embSchemaType = document.getDatabase().getSchema().getTypeByBucketId(rid.getBucketId());
+                if (!embSchemaType.instanceOf(ofType))
+                  throwValidationException(p,
+                      "has been declared as LIST of '" + ofType + "' but a link to type '" + embType + "' is used. Value: "
+                          + fieldValue);
+              }
+            }
+
             if (item instanceof MutableEmbeddedDocument)
               ((MutableEmbeddedDocument) item).validate();
           }
-          break;
+        }
+        break;
         }
       }
 
@@ -261,7 +337,8 @@ public class DocumentValidator {
           final Date fieldValueAsDate = (Date) Type.convert(database, fieldValue, Date.class);
 
           if (fieldValueAsDate.compareTo(minAsDate) < 0)
-            throwValidationException(p, "contains the date " + fieldValue + " which precedes the first acceptable date (" + min + ")");
+            throwValidationException(p,
+                "contains the date " + fieldValue + " which precedes the first acceptable date (" + min + ")");
           break;
         }
 
@@ -362,7 +439,8 @@ public class DocumentValidator {
           final Date fieldValueAsDate = (Date) Type.convert(database, fieldValue, Date.class);
 
           if (fieldValueAsDate.compareTo(maxAsDate) > 0)
-            throwValidationException(p, "contains the date " + fieldValue + " which is after the last acceptable date (" + max + ")");
+            throwValidationException(p,
+                "contains the date " + fieldValue + " which is after the last acceptable date (" + max + ")");
           break;
         }
 

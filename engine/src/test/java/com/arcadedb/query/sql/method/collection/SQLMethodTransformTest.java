@@ -36,10 +36,10 @@ import com.arcadedb.database.TransactionContext;
 import com.arcadedb.database.async.DatabaseAsyncExecutor;
 import com.arcadedb.database.async.ErrorCallback;
 import com.arcadedb.database.async.OkCallback;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.engine.ErrorRecordCallback;
 import com.arcadedb.engine.FileManager;
 import com.arcadedb.engine.PageManager;
-import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.engine.TransactionManager;
 import com.arcadedb.engine.WALFile;
 import com.arcadedb.engine.WALFileFactory;
@@ -49,6 +49,7 @@ import com.arcadedb.graph.MutableVertex;
 import com.arcadedb.graph.Vertex;
 import com.arcadedb.index.IndexCursor;
 import com.arcadedb.query.QueryEngine;
+import com.arcadedb.query.select.Select;
 import com.arcadedb.query.sql.SQLQueryEngine;
 import com.arcadedb.query.sql.executor.BasicCommandContext;
 import com.arcadedb.query.sql.executor.ResultSet;
@@ -130,7 +131,12 @@ class SQLMethodTransformTest {
     final BasicCommandContext context = new BasicCommandContext();
     context.setDatabase(new DatabaseInternal() {
       @Override
-      public TransactionContext getTransaction() {
+      public Record invokeAfterReadEvents(final Record record) {
+        return record;
+      }
+
+      @Override
+      public TransactionContext getTransactionIfExists() {
         return null;
       }
 
@@ -181,21 +187,23 @@ class SQLMethodTransformTest {
 
       @Override
       public void setWrapper(String name, Object instance) {
-
       }
 
       @Override
       public void checkPermissionsOnDatabase(SecurityDatabaseUser.DATABASE_ACCESS access) {
-
       }
 
       @Override
       public void checkPermissionsOnFile(int fileId, SecurityDatabaseUser.ACCESS access) {
-
       }
 
       @Override
       public boolean checkTransactionIsActive(boolean createTx) {
+        return false;
+      }
+
+      @Override
+      public boolean isAsyncProcessing() {
         return false;
       }
 
@@ -320,7 +328,7 @@ class SQLMethodTransformTest {
       }
 
       @Override
-      public PaginatedFile.MODE getMode() {
+      public ComponentFile.MODE getMode() {
         return null;
       }
 
@@ -341,6 +349,11 @@ class SQLMethodTransformTest {
 
       @Override
       public String getCurrentUserName() {
+        return null;
+      }
+
+      @Override
+      public Select select() {
         return null;
       }
 

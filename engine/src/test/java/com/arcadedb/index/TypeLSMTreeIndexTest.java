@@ -30,6 +30,8 @@ import com.arcadedb.query.sql.executor.Result;
 import com.arcadedb.query.sql.executor.ResultSet;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Schema;
+import com.arcadedb.schema.Type;
+import com.arcadedb.schema.VertexType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -698,8 +700,8 @@ public class TypeLSMTreeIndexTest extends TestHelper {
 
                   if (threadInserted % 1000 == 0)
                     LogManager.instance()
-                        .log(this, Level.FINE, "%s Thread %d inserted %d records with key %d (total=%d)", null, getClass(), Thread.currentThread().getId(), i,
-                            threadInserted, crossThreadsInserted.get());
+                        .log(this, Level.FINE, "%s Thread %d inserted %d records with key %d (total=%d)", null, getClass(),
+                            Thread.currentThread().getId(), i, threadInserted, crossThreadsInserted.get());
 
                   keyPresent = true;
 
@@ -712,20 +714,23 @@ public class TypeLSMTreeIndexTest extends TestHelper {
                   keyPresent = true;
                   Assertions.assertFalse(database.isTransactionActive());
                 } catch (final Exception e) {
-                  LogManager.instance().log(this, Level.SEVERE, "%s Thread %d Generic Exception", e, getClass(), Thread.currentThread().getId());
+                  LogManager.instance()
+                      .log(this, Level.SEVERE, "%s Thread %d Generic Exception", e, getClass(), Thread.currentThread().getId());
                   Assertions.assertFalse(database.isTransactionActive());
                   return;
                 }
               }
 
               if (!keyPresent)
-                LogManager.instance().log(this, Level.WARNING, "%s Thread %d Cannot create key %d after %d retries! (total=%d)", null, getClass(),
-                    Thread.currentThread().getId(), i, maxRetries, crossThreadsInserted.get());
+                LogManager.instance()
+                    .log(this, Level.WARNING, "%s Thread %d Cannot create key %d after %d retries! (total=%d)", null, getClass(),
+                        Thread.currentThread().getId(), i, maxRetries, crossThreadsInserted.get());
 
             }
 
             LogManager.instance()
-                .log(this, Level.FINE, "%s Thread %d completed (inserted=%d)", null, getClass(), Thread.currentThread().getId(), threadInserted);
+                .log(this, Level.FINE, "%s Thread %d completed (inserted=%d)", null, getClass(), Thread.currentThread().getId(),
+                    threadInserted);
 
           } catch (final Exception e) {
             LogManager.instance().log(this, Level.SEVERE, "%s Thread %d Error", e, getClass(), Thread.currentThread().getId());
@@ -747,8 +752,8 @@ public class TypeLSMTreeIndexTest extends TestHelper {
     }
 
     LogManager.instance()
-        .log(this, Level.FINE, "%s Completed (inserted=%d needRetryExceptions=%d duplicatedExceptions=%d)", null, getClass(), crossThreadsInserted.get(),
-            needRetryExceptions.get(), duplicatedExceptions.get());
+        .log(this, Level.FINE, "%s Completed (inserted=%d needRetryExceptions=%d duplicatedExceptions=%d)", null, getClass(),
+            crossThreadsInserted.get(), needRetryExceptions.get(), duplicatedExceptions.get());
 
     if (total != crossThreadsInserted.get()) {
       LogManager.instance().log(this, Level.FINE, "DUMP OF INSERTED RECORDS (ORDERED BY ID)");
@@ -805,6 +810,51 @@ public class TypeLSMTreeIndexTest extends TestHelper {
   }
 
   @Test
+  public void testIndexNameSpecialCharacters() throws InterruptedException {
+    VertexType type = database.getSchema().createVertexType("This.is:special");
+    type.createProperty("other.special:property", Type.STRING);
+
+    while (true) {
+      database.async().waitCompletion();
+      try {
+        final TypeIndex idx = type.createTypeIndex(Schema.INDEX_TYPE.LSM_TREE, true, "other.special:property");
+        database.command("sql", "rebuild index `" + idx.getName() + "`");
+        break;
+      } catch (NeedRetryException e) {
+        // RETRY
+        Thread.sleep(1000);
+      }
+    }
+  }
+
+  @Test
+  public void testIndexNameSpecialCharactersUsingSQL() throws InterruptedException {
+    database.command("sql", "create vertex type `This.is:special`");
+    database.command("sql", "create property `This.is:special`.`other.special:property` string");
+    database.transaction(() -> {
+      database.newVertex("This.is:special").set("other.special:property", "testEncoding").save();
+    });
+
+    database.async().waitCompletion();
+
+    // THIS IS NECESSARY TO THE CI TO COMPLETE THE TEST
+    Thread.sleep(1000);
+    database.async().waitCompletion();
+
+    database.command("sql", "create index on `This.is:special`(`other.special:property`) unique");
+    database.command("sql", "rebuild index `This.is:special[other.special:property]`");
+
+    database.close();
+
+    database = factory.exists() ? factory.open() : factory.create();
+    database.command("sql", "rebuild index `This.is:special[other.special:property]`");
+
+    Assertions.assertEquals("testEncoding",
+        database.query("sql", "select from `This.is:special` where `other.special:property` = 'testEncoding'").nextIfAvailable()
+            .getProperty("other.special:property"));
+  }
+
+  @Test
   public void testSQL() {
     final Index typeIndexBefore = database.getSchema().getIndexByName(TYPE_NAME + "[id]");
     Assertions.assertNotNull(typeIndexBefore);
@@ -817,7 +867,8 @@ public class TypeLSMTreeIndexTest extends TestHelper {
 
       final DocumentType type = database.getSchema().buildDocumentType().withName(TYPE_NAME).withTotalBuckets(3).create();
       type.createProperty("id", Integer.class);
-      final Index typeIndex = database.getSchema().createTypeIndex(Schema.INDEX_TYPE.LSM_TREE, true, TYPE_NAME, new String[] { "id" }, PAGE_SIZE);
+      final Index typeIndex = database.getSchema()
+          .createTypeIndex(Schema.INDEX_TYPE.LSM_TREE, true, TYPE_NAME, new String[] { "id" }, PAGE_SIZE);
 
       for (int i = 0; i < TOT; ++i) {
         final MutableDocument v = database.newDocument(TYPE_NAME);

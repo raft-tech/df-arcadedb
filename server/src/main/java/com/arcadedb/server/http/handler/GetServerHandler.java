@@ -37,14 +37,9 @@ import java.net.*;
 import java.util.*;
 import java.util.logging.*;
 
-public class GetServerHandler extends AbstractHandler {
+public class GetServerHandler extends AbstractServerHttpHandler {
   public GetServerHandler(final HttpServer httpServer) {
     super(httpServer);
-  }
-
-  @Override
-  protected boolean mustExecuteOnWorkerThread() {
-    return true;
   }
 
   @Override
@@ -80,33 +75,38 @@ public class GetServerHandler extends AbstractHandler {
 
       if (!ha.isLeader()) {
         // ASK TO THE LEADER THE NETWORK COMPOSITION
+        HttpURLConnection connection;
         try {
-          HttpURLConnection connection = (HttpURLConnection) new URL(
+          connection = (HttpURLConnection) new URL(
               "http://" + ha.getLeader().getRemoteHTTPAddress() + "/api/v1/server?mode=cluster").openConnection();
-
-          try {
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Authorization", exchange.getRequestHeaders().get("Authorization").getFirst());
-            connection.connect();
-
-            JSONObject leaderResponse = new JSONObject(readResponse(connection));
-            final JSONObject network = leaderResponse.getJSONObject("ha").getJSONObject("network");
-            haJSON.getJSONObject("network").put("replicas", network.getJSONArray("replicas"));
-
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          } finally {
-            connection.disconnect();
-          }
+        } catch (RuntimeException e) {
+          throw e;
         } catch (Exception e) {
           throw new RuntimeException(e);
+        }
+
+        try {
+          connection.setRequestMethod("GET");
+          connection.setRequestProperty("Authorization", exchange.getRequestHeaders().get("Authorization").getFirst());
+          connection.connect();
+
+          JSONObject leaderResponse = new JSONObject(readResponse(connection));
+          final JSONObject network = leaderResponse.getJSONObject("ha").getJSONObject("network");
+          haJSON.getJSONObject("network").put("replicas", network.getJSONArray("replicas"));
+
+        } catch (RuntimeException e) {
+          throw e;
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        } finally {
+          connection.disconnect();
         }
       }
 
       final JSONArray databases = new JSONArray();
 
       for (String dbName : httpServer.getServer().getDatabaseNames()) {
-        final ServerDatabase db = (ServerDatabase) httpServer.getServer().getDatabase(dbName);
+        final ServerDatabase db = httpServer.getServer().getDatabase(dbName);
         final ReplicatedDatabase rdb = ((ReplicatedDatabase) db.getWrappedDatabaseInstance());
 
         final JSONObject databaseJSON = new JSONObject();
@@ -117,13 +117,16 @@ public class GetServerHandler extends AbstractHandler {
 
       haJSON.put("databases", databases);
 
-      final String leaderServer = ha.isLeader() ? ha.getServer().getHttpServer().getListeningAddress() : ha.getLeader().getRemoteHTTPAddress();
+      final String leaderServer = ha.isLeader() ?
+          ha.getServer().getHttpServer().getListeningAddress() :
+          ha.getLeader().getRemoteHTTPAddress();
       final String replicaServers = ha.getReplicaServersHTTPAddressesList();
 
       haJSON.put("leaderAddress", leaderServer);
       haJSON.put("replicaAddresses", replicaServers);
 
-      LogManager.instance().log(this, Level.FINE, "Returning configuration leaderServer=%s replicaServers=[%s]", leaderServer, replicaServers);
+      LogManager.instance()
+          .log(this, Level.FINE, "Returning configuration leaderServer=%s replicaServers=[%s]", leaderServer, replicaServers);
     }
   }
 

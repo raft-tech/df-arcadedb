@@ -25,7 +25,7 @@
     <parent>
         <groupId>com.arcadedb</groupId>
         <artifactId>arcadedb-parent</artifactId>
-        <version>23.6.1-SNAPSHOT</version>
+        <version>23.10.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -38,7 +38,10 @@
         <gson.version>2.10.1</gson.version>
         <lz4-java.version>1.8.0</lz4-java.version>
         <lucene.version>8.11.2</lucene.version>
-        <graalvm.version>22.3.2</graalvm.version>
+        <graalvm.version>22.3.3</graalvm.version>
+        <hnswlib.version>1.1.0</hnswlib.version>
+        <spatial4j.version>0.8</spatial4j.version>
+        <jts-core.version>1.19.0</jts-core.version>
     </properties>
 
     <build>
@@ -114,12 +117,12 @@
         <dependency>
             <groupId>org.locationtech.spatial4j</groupId>
             <artifactId>spatial4j</artifactId>
-            <version>0.8</version>
+            <version>${spatial4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
-            <version>1.19.0</version>
+            <version>${jts-core.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>xerces</groupId>
@@ -131,7 +134,11 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
-            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.jelmerk</groupId>
+            <artifactId>hnswlib-core</artifactId>
+            <version>${hnswlib.version}</version>
         </dependency>
         <dependency>
             <groupId>org.graalvm.sdk</groupId>
@@ -158,5 +165,4 @@
         </dependency>
         
     </dependencies>
-
 </project>

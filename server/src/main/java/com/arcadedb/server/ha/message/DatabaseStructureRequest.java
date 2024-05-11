@@ -20,7 +20,7 @@ package com.arcadedb.server.ha.message;
 
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.network.binary.NetworkProtocolException;
 import com.arcadedb.schema.EmbeddedSchema;
 import com.arcadedb.server.ArcadeDBServer;
@@ -42,7 +42,7 @@ public class DatabaseStructureRequest extends HAAbstractCommand {
 
   @Override
   public HACommand execute(final HAServer server, final String remoteServerName, final long messageNumber) {
-    final DatabaseInternal db = (DatabaseInternal) server.getServer().getOrCreateDatabase(databaseName);
+    final DatabaseInternal db = server.getServer().getOrCreateDatabase(databaseName);
 
     final File file = new File(db.getDatabasePath() + File.separator + EmbeddedSchema.SCHEMA_FILE_NAME);
     try {
@@ -55,11 +55,13 @@ public class DatabaseStructureRequest extends HAAbstractCommand {
         schemaJson = "{}";
 
       final Map<Integer, String> fileNames = new HashMap<>();
-      for (final PaginatedFile f : db.getFileManager().getFiles())
+      for (final ComponentFile f : db.getFileManager().getFiles())
         if (f != null)
           fileNames.put(f.getFileId(), f.getFileName());
 
-      return new DatabaseStructureResponse(schemaJson, fileNames);
+      final long lastLogNumber = server.getReplicationLogFile().getLastMessageNumber();
+
+      return new DatabaseStructureResponse(schemaJson, fileNames, lastLogNumber);
 
     } catch (final IOException e) {
       throw new NetworkProtocolException("Error on reading schema json file", e);

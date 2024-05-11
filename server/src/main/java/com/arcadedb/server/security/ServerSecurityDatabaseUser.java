@@ -19,7 +19,7 @@
 package com.arcadedb.server.security;
 
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.SecurityManager;
@@ -197,7 +197,8 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
     //       files.get(i).getFileName(), files.get(i).getComponentName());
     // }
 
-    fileAccessMap = new boolean[files.size()][];
+    // WORK ON A COPY AND SWAP IT AT THE END
+    final boolean[][] newFileAccessMap = new boolean[files.size()][];
 
     // below commented out for future debugging
     // final JSONObject defaultGroup = configuredGroups.has(SecurityManager.ANY)
@@ -209,7 +210,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
     //  database.getSchema().getTypes().stream().forEach(t -> log.info("type {}", t.getName()));
 
     for (int i = 0; i < files.size(); ++i) {
-      final DocumentType type = database.getSchema().getTypeByBucketId(i);
+      final DocumentType type = database.getSchema().getInvolvedTypeByBucketId(i);
       if (type == null)
         continue;
 
@@ -245,12 +246,12 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         if (groupType == null)
           continue;
 
-        if (fileAccessMap[i] == null)
+        if (newFileAccessMap[i] == null)
           // FIRST DEFINITION ENCOUNTERED: START FROM ALL REVOKED
-          fileAccessMap[i] = new boolean[] { false, false, false, false };
+          newFileAccessMap[i] = new boolean[] { false, false, false, false };
 
         // APPLY THE FOUND TYPE FROM THE FOUND GROUP
-        updateAccessArray(fileAccessMap[i], groupType.getJSONArray("access"));
+        updateAccessArray(newFileAccessMap[i], groupType.getJSONArray("access"));
       }
     }
 
@@ -293,6 +294,9 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         }
       }
     }
+
+    // SWAP WITH THE NEW MAP (VOLATILE PROPERTY)
+    fileAccessMap = newFileAccessMap;
   }
 
   public static boolean[] updateAccessArray(final boolean[] array, final JSONArray access) {
