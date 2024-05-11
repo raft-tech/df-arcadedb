@@ -309,8 +309,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     final Object old = get(propertyName);
 
     final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
-        embeddedTypeName);
-    if (old instanceof Collection)
+            embeddedTypeName);
+    if (old instanceof Collection) {
       ((Collection<EmbeddedDocument>) old).add(emb);
       dirty = true;
     } else
@@ -326,8 +326,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    * @param embeddedTypeName Embedded type name
    * @param propertyName     Current document's property name where the embedded
    *                         document is stored
-   * @param propertyMapKey   Key to use when storing the embedded document in the
-   *                         map
    *
    * @return MutableEmbeddedDocument instance
    */
