@@ -23,9 +23,18 @@ public class KafkaRecordUtil {
 
     protected static String getEntityName(Record record) {
         if (record != null) {
-            return record.asDocument().getTypeName();
-        } else {
-            return "";
+            switch (record.getRecordType()) {
+                case 0:
+                    return record.asDocument().getTypeName();
+                case 1:
+                    return record.asVertex().getType().getName();
+                case 2:
+                    return record.asEdge().getType().getName();
+                default:
+                    break;
+            }
         }
+
+        return "";
     }
 }

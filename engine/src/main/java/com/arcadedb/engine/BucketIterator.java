@@ -30,7 +30,7 @@ import com.arcadedb.security.SecurityDatabaseUser;
 
 import java.io.*;
 import java.util.*;
-import java.util.logging.*;
+import java.util.logging.Level;
 
 import static com.arcadedb.database.Binary.INT_SERIALIZED_SIZE;
 
@@ -101,10 +101,9 @@ public class BucketIterator implements Iterator<Record> {
                 continue;
               }
 
-              next = rid.getRecord(false);
+              next = rid.getRecord(true);
 
               // TODO strip out properties the user doesn't have access to
-
               return null;
 
             } else if (recordSize[0] == Bucket.RECORD_PLACEHOLDER_POINTER) {
