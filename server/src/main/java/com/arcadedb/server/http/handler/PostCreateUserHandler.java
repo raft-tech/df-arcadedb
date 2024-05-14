@@ -31,7 +31,7 @@ import com.arcadedb.serializer.json.JSONObject;
  * @Deprecated Use the generic @see PostServerCommandHandler
  */
 @Deprecated
-public class PostCreateUserHandler extends AbstractHandler {
+public class PostCreateUserHandler extends AbstractServerHttpHandler {
   public PostCreateUserHandler(final HttpServer httpServer) {
     super(httpServer);
   }

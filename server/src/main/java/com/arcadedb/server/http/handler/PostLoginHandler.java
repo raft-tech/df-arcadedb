@@ -7,6 +7,7 @@ import com.arcadedb.server.security.ServerSecurityUser;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.undertow.server.HttpServerExchange;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,7 +19,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PostLoginHandler extends AbstractHandler {
+@Slf4j
+public class PostLoginHandler extends AbstractServerHttpHandler {
     public PostLoginHandler(final HttpServer httpServer) {
         super(httpServer);
     }
@@ -56,6 +58,8 @@ public class PostLoginHandler extends AbstractHandler {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .build();
 
+        log.info("Keycloak login request '{}'", request.toString());
+
         HttpClient client = HttpClient.newHttpClient();
         try {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -65,8 +69,10 @@ public class PostLoginHandler extends AbstractHandler {
                 return new ExecutionResponse(200, response.body());
             }
         } catch (IOException e) {
+            log.error("Failed to login. Error{}", e.getMessage());
             return new ExecutionResponse(500, e.getMessage());
         } catch (InterruptedException e) {
+            log.error("Failed to login. Error{}", e.getMessage());
             return new ExecutionResponse(500, e.getMessage());
         }
 

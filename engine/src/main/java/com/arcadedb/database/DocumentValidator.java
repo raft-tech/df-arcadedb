@@ -19,6 +19,7 @@
 package com.arcadedb.database;
 
 import com.arcadedb.exception.ValidationException;
+import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 import com.arcadedb.security.AuthorizationUtils;

@@ -20,6 +20,7 @@ package com.arcadedb.server.security;
 
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.ComponentFile;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.SecurityManager;
@@ -190,7 +191,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
     if (configuredGroups == null)
       return;
 
-    final List<PaginatedFile> files = database.getFileManager().getFiles();
+    final List<ComponentFile> files = database.getFileManager().getFiles();
     // below commented out for future debuging
     // for (int i = 0; i < files.size(); ++i) {
     //   log.debug("111 updateFileAccess fileId: {}; fileName: {}; cn: {}", files.get(i).getFileId(),
@@ -272,7 +273,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
           for (int j = 0; j < files.size(); ++j) {
             if (files.get(j).getFileName().split("\\.")[0].equals(fileName)) {
-              fileAccessMap[i] = new boolean[] { true, true, true, true };
+              newFileAccessMap[i] = new boolean[] { true, true, true, true };
               break;
             }
           }
@@ -290,7 +291,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
         String fileName = files.get(i).getFileName();
 
         if (fileName.split("\\.")[0].startsWith(extraType)) {
-          fileAccessMap[i] = new boolean[] { true, true, true, true };
+          newFileAccessMap[i] = new boolean[] { true, true, true, true };
         }
       }
     }

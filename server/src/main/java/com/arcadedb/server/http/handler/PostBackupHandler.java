@@ -63,7 +63,7 @@ public class PostBackupHandler implements HttpHandler {
                 if (authHeader != null && authHeader.toString().contains("Bearer ")) {
 
                     String encodedJwt = authHeader.get(0);
-                    String decodedJwt = AbstractHandler.decodeTokenParts(encodedJwt)[1];
+                    String decodedJwt = AbstractServerHttpHandler.decodeTokenParts(encodedJwt)[1];
                     decodedJwt = decodedJwt.replaceAll(" ", "");
                     JSONObject json = new JSONObject(decodedJwt);
                     String username = json.getString("preferred_username");

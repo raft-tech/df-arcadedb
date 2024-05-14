@@ -23,12 +23,15 @@ import com.arcadedb.database.Binary;
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.ComponentFile;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.serializer.json.JSONArray;
+import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.ServerDatabase;
+import com.arcadedb.server.ServerException;
 import com.arcadedb.server.ha.HAServer;
 import com.arcadedb.server.ha.Leader2ReplicaNetworkExecutor;
 import com.arcadedb.server.ha.Replica2LeaderNetworkExecutor;
@@ -83,27 +86,29 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
 
     final JSONObject payload = new JSONObject(parseRequestPayload(exchange));
 
-      final String command = payload.has("command") ? payload.get("command").getAsString() : null;
-      if (command == null)
-        return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
+    final String command = payload.has("command") ? payload.getString("command") : null;
+    if (command == null)
+      return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
 
-      // List of server commands that will check their own user permissions
-      var excludedTopLevelCheckComamnds = List.of("list databases", "create database", "drop database");
+    // List of server commands that will check their own user permissions
+    var excludedTopLevelCheckComamnds = List.of(LIST_DATABASES, CREATE_DATABASE, DROP_DATABASE);
 
-      var isExcludedCommand = excludedTopLevelCheckComamnds.stream()
-          .anyMatch(excludedCommand -> command.startsWith(excludedCommand));
+    var isExcludedCommand = excludedTopLevelCheckComamnds.stream()
+            .anyMatch(excludedCommand -> command.startsWith(excludedCommand));
 
-      // If not a command that manages its own permissions, check if user has sa role
-      if (!isExcludedCommand
-          && !httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
-        throw new ServerSecurityException(
-            String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
-      }
+    // If not a command that manages its own permissions, check if user has sa role
+    if (!isExcludedCommand
+            && !httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
+      throw new ServerSecurityException(
+              String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
+    }
 
+    final JSONObject response = createResult(user, null).put("result","ok");
+    final String command_lc = command.toLowerCase(Locale.ENGLISH);
     if (command_lc.startsWith(SHUTDOWN))
       shutdownServer(command.substring(SHUTDOWN.length()).trim());
     else if (command_lc.startsWith(CREATE_DATABASE))
-      createDatabase(command.substring(CREATE_DATABASE.length()).trim());
+      createDatabase(payload, user);
     else if (command_lc.startsWith(DROP_DATABASE))
       dropDatabase(command.substring(DROP_DATABASE.length()).trim());
     else if (command_lc.startsWith(CLOSE_DATABASE))
@@ -115,16 +120,15 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
     else if (command_lc.startsWith(DROP_USER))
       dropUser(command.substring(DROP_USER.length()).trim());
     else if (command_lc.startsWith(CONNECT_CLUSTER)) {
-      if (!connectCluster(command.substring(CONNECT_CLUSTER.length()).trim(), exchange))
-        return null;
-    } else if (command_lc.equals(DISCONNECT_CLUSTER))
-      disconnectCluster();
+      if (!connectCluster(command.substring(CONNECT_CLUSTER.length()).trim(), exchange)) return null;
+      else if (command_lc.equals(DISCONNECT_CLUSTER)) disconnectCluster();
+    }
     else if (command_lc.startsWith(SET_DATABASE_SETTING))
       setDatabaseSetting(command.substring(SET_DATABASE_SETTING.length()).trim());
     else if (command_lc.startsWith(SET_SERVER_SETTING))
       setServerSetting(command.substring(SET_SERVER_SETTING.length()).trim());
     else if (command_lc.startsWith(GET_SERVER_EVENTS))
-      response.put("result",getServerEvents(command.substring(GET_SERVER_EVENTS.length()).trim()));
+      return getServerEvents(command);
     else if (command_lc.startsWith(ALIGN_DATABASE))
       alignDatabase(command.substring(ALIGN_DATABASE.length()).trim());
     else {
@@ -133,21 +137,6 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
     }
 
     return new ExecutionResponse(200, response.toString());
-  }
-
-  private ExecutionResponse listDatabases(final ServerSecurityUser user) {
-    final ArcadeDBServer server = httpServer.getServer();
-    server.getServerMetrics().meter("http.list-databases").hit();
-
-    final Set<String> installedDatabases = new HashSet<>(server.getDatabaseNames());
-    final Set<String> allowedDatabases = user.getAuthorizedDatabases();
-
-    if (!allowedDatabases.contains("*"))
-      installedDatabases.retainAll(allowedDatabases);
-
-    final JSONObject response = createResult(user, null).put("result",new JSONArray(installedDatabases));
-
-    return new ExecutionResponse(200,response.toString());
   }
 
   private void shutdownServer(final String serverName) throws IOException {
@@ -168,17 +157,6 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
     }
   }
 
-  private void disconnectCluster() {
-    httpServer.getServer().getServerMetrics().meter("http.server-disconnect").hit();
-    final HAServer ha = getHA();
-
-    final Replica2LeaderNetworkExecutor leader = ha.getLeader();
-    if (leader != null)
-      leader.close();
-    else
-      ha.disconnectAllReplicas();
-  }
-
   private boolean connectCluster(final String command, final HttpServerExchange exchange) {
     final HAServer ha = getHA();
 
@@ -196,7 +174,7 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
     return toCheck != null && !toCheck.isEmpty();
   }
 
-  private void createDatabase(final JsonObject command, final ServerSecurityUser user) {
+  private void createDatabase(final JSONObject command, final ServerSecurityUser user) {
 
     // check if user has create database role, or is root
     var anyRequiredRoles = List.of(ServerAdminRole.CREATE_DATABASE, ServerAdminRole.ALL);
@@ -204,7 +182,7 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
       checkServerIsLeaderIfInHA();
 
       // TODO check if required database info is present in the JSON options payload, including owner, classificaiton, public/private
-      final String databaseName = command.get("command").getAsString().substring("create database ".length()).trim();
+      final String databaseName = command.getString("command").substring("create database".length()).trim();
 
       final String OPTIONS = "options";
       final String CLASSIFICATION = "classification";
@@ -220,20 +198,20 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
       if (!command.has(OPTIONS))
         throw new IllegalArgumentException(String.format("Missing %s object", OPTIONS));
 
-      var options = command.get(OPTIONS).getAsJsonObject();
+      var options = command.getJSONObject(OPTIONS);
 
-      if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.get(CLASSIFICATION).getAsString())) {
+      if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.getString(CLASSIFICATION))) {
         throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, CLASSIFICATION));
       }
-      if (!options.has(OWNER) && !isNotNullOrEmpty(options.get(OWNER).getAsString())) {
+      if (!options.has(OWNER) && !isNotNullOrEmpty(options.getString(OWNER))) {
         throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, OWNER));
       }
-      if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.get(VISIBILITY).getAsString())) {
+      if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.getString(VISIBILITY))) {
         throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, VISIBILITY));
       }
 
       // Handle operational database metadata
-      String classification = options.get(CLASSIFICATION).getAsString();
+      String classification = options.getString(CLASSIFICATION);
 
       // TODO cap acceptable classifications at the deployment level.
       // make static util method for this
@@ -242,16 +220,16 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
         throw new IllegalArgumentException(String.format("Invalid classification %s. Acceptable values are %s", classification));
       }
       
-      String owner = options.has(OWNER) ? options.get(OWNER).getAsString() : null;
-      boolean isPublic = options.has(VISIBILITY) ? options.get(VISIBILITY).getAsString().equalsIgnoreCase("public") : false;
+      String owner = options.has(OWNER) ? options.getString(OWNER) : null;
+      boolean isPublic = options.has(VISIBILITY) ? options.getString(VISIBILITY).equalsIgnoreCase("public") : false;
 
       boolean isClassificationValidationEnabled = options.has(CLASSIFICATION_VALIDATION_ENABLED)
-              ? options.get(CLASSIFICATION_VALIDATION_ENABLED).getAsBoolean() : true;
+              ? options.getBoolean(CLASSIFICATION_VALIDATION_ENABLED) : true;
 
       final ArcadeDBServer server = httpServer.getServer();
       server.getServerMetrics().meter("http.create-database").hit();
 
-      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE, classification, owner, isPublic, isClassificationValidationEnabled);
+      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedComponentFile.MODE.READ_WRITE, classification, owner, isPublic, isClassificationValidationEnabled);
 
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();
@@ -263,7 +241,7 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
       createAndAssignRoleToUser(dataRole, user.getName());
       createAndAssignRoleToUser(schemaRole, user.getName());
 
-      if (options.has("importOntology") && options.get("importOntology").getAsBoolean()) {
+      if (options.has("importOntology") && options.getBoolean("importOntology")) {
         // get the ontology file from project resources
         try {
           InputStream inputStream = PostServerCommandHandler.class.getResourceAsStream("/ontology");
@@ -418,18 +396,6 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
       throw new IllegalArgumentException("User '" + userName + "' not found on server");
   }
 
-  private boolean connectCluster(final String serverAddress, final HttpServerExchange exchange) {
-    final HAServer ha = getHA();
-
-    httpServer.getServer().getServerMetrics().meter("http.connect-cluster").hit();
-
-    return ha.connectToLeader(serverAddress, exception -> {
-      exchange.setStatusCode(StatusCodes.INTERNAL_SERVER_ERROR);
-      exchange.getResponseSender().send("{ \"error\" : \"" + exception.getMessage() + "\"}");
-      return null;
-    });
-  }
-
   private void disconnectCluster() {
     httpServer.getServer().getServerMetrics().meter("http.server-disconnect").hit();
     final HAServer ha = getHA();
@@ -457,16 +423,6 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
       throw new IllegalArgumentException("Expected <key> <value>");
 
     httpServer.getServer().getConfiguration().setValue(keyValue[0], keyValue[1]);
-  }
-
-  private String getServerEvents(final String fileName) {
-    final ArcadeDBServer server = httpServer.getServer();
-    server.getServerMetrics().meter("http.get-server-events").hit();
-
-    final JSONArray events = fileName.isEmpty() ? server.getEventLog().getCurrentEvents() : server.getEventLog().getEvents(fileName);
-    final JSONArray files = server.getEventLog().getFiles();
-
-    return "{ \"events\": " + events + ", \"files\": " + files + " }";
   }
 
   private void alignDatabase(final String databaseName) {

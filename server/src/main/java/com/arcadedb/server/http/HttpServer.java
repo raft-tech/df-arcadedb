@@ -118,12 +118,8 @@ public class HttpServer implements ServerPlugin {
             .post("/begin/{database}", new PostBeginHandler(this))//
             .post("/command/{database}", new PostCommandHandler(this))//
             .post("/commit/{database}", new PostCommitHandler(this))//
-            .post("/create/{database}", new PostCreateDatabaseHandler(this))//
             .get("/databases", new GetDatabasesHandler(this))// DEPRECATED
             .get("/databasesInfo", new GetDatabasesInfoHandler(this))
-            .get("/document/{database}/{rid}", new GetDocumentHandler(this))// DEPRECATED
-            .post("/document/{database}", new PostCreateDocumentHandler(this))// DEPRECATED
-            .post("/drop/{database}", new PostDropDatabaseHandler(this))// DEPRECATED
             .get("/exists/{database}", new GetExistsDatabaseHandler(this))//
             .get("/query/{database}/{language}/{command}", new GetQueryHandler(this))//
             .post("/query/{database}", new PostQueryHandler(this))//

@@ -41,6 +41,7 @@ import io.undertow.util.HeaderValues;
 import io.undertow.util.Headers;
 import io.undertow.util.StatusCodes;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.*;
 import java.util.logging.*;
@@ -75,6 +76,20 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
     return result.get();
   }
 
+  public static String[] decodeTokenParts(String token) {
+    String encodedJwt = token.split(" ")[1];
+    String[] parts = encodedJwt.split("\\.", 0);
+    String[] decoded = new String[3];
+
+    for (int i = 0; i < 3; i++) {
+      byte[] bytes = Base64.getUrlDecoder().decode(parts[i]);
+      String decodedString = new String(bytes, StandardCharsets.UTF_8);
+      decoded[i] = decodedString;
+    }
+
+    return decoded;
+  }
+
   @Override
   public void handleRequest(final HttpServerExchange exchange) {
     if (mustExecuteOnWorkerThread() && exchange.isInIoThread()) {
@@ -96,30 +111,43 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
 
       ServerSecurityUser user = null;
       if (authorization != null) {
-        try {
-          final String auth = authorization.getFirst();
-          if (!auth.startsWith(AUTHORIZATION_BASIC)) {
-            sendErrorResponse(exchange, 403, "Authentication not supported", null, null);
-            return;
+        if (GlobalConfiguration.OIDC_AUTH.getValueAsBoolean()) {
+          // TODO only allow root user basic access if JWT auth enabled
+
+          if (exchange.getRequestHeaders().get(Headers.AUTHORIZATION) != null && exchange.getRequestHeaders().get(Headers.AUTHORIZATION).toString().contains("Bearer ")) {
+
+            String encodedJwt = exchange.getRequestHeaders().get(Headers.AUTHORIZATION).get(0);
+
+            String decodedJwt = decodeTokenParts(encodedJwt)[1];
+            decodedJwt = decodedJwt.replaceAll(" ", "");
+            JSONObject json = new JSONObject(decodedJwt);
+            String username = json.getString("preferred_username");
+            user = authenticateWithJwt(username);
+          } else {
+            exchange.setStatusCode(403);
+            sendErrorResponse(exchange, 403, "Invalid authentication was provided", null, null);
           }
-
-          final String authPairCypher = auth.substring(AUTHORIZATION_BASIC.length() + 1);
-
-          final String authPairClear = new String(Base64.getDecoder().decode(authPairCypher), DatabaseFactory.getDefaultCharset());
-
-          final String[] authPair = authPairClear.split(":");
-
-          if (authPair.length != 2) {
-            sendErrorResponse(exchange, 403, "Basic authentication error", null, null);
-            return;
+        } else {
+          try {
+            final String auth = authorization.getFirst();
+            if (!auth.startsWith(AUTHORIZATION_BASIC)) {
+              sendErrorResponse(exchange, 403, "Authentication not supported", null, null);
+              return;
+            }
+            final String authPairCypher = auth.substring(AUTHORIZATION_BASIC.length() + 1);
+            final String authPairClear = new String(Base64.getDecoder().decode(authPairCypher), DatabaseFactory.getDefaultCharset());
+            final String[] authPair = authPairClear.split(":");
+            if (authPair.length != 2) {
+              sendErrorResponse(exchange, 403, "Basic authentication error", null, null);
+              return;
+            }
+            user = authenticate(authPair[0], authPair[1]);
+          } catch (ServerSecurityException e) {
+            // PASS THROUGH
+            throw e;
+          } catch (Exception e) {
+            throw new ServerSecurityException("Authentication error");
           }
-
-          user = authenticate(authPair[0], authPair[1]);
-        } catch (ServerSecurityException e) {
-          // PASS THROUGH
-          throw e;
-        } catch (Exception e) {
-          throw new ServerSecurityException("Authentication error");
         }
       }
 
@@ -146,7 +174,8 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
     } catch (final IllegalArgumentException e) {
       LogManager.instance().log(this, getUserSevereErrorLogLevel(), "Error on command execution (%s)", e, getClass().getSimpleName());
       sendErrorResponse(exchange, 400, "Cannot execute command", e, null);
-    } catch (final CommandExecutionException | CommandParsingException e) {
+    } catch (final CommandExecutionException | CommandParsingException | IllegalStateException e) {
+      // TODO fix illegal state exception
       Throwable realException = e;
       if (e.getCause() != null)
         realException = e.getCause();
@@ -175,20 +204,28 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
     return true;
   }
 
+  protected ServerSecurityUser authenticateWithJwt(final String userName) {
+    return httpServer.getServer().getSecurity().authenticate(userName, null);
+  }
+
   protected ServerSecurityUser authenticate(final String userName, final String userPassword) {
     return httpServer.getServer().getSecurity().authenticate(userName, userPassword, null);
   }
 
   protected static void checkRootUser(ServerSecurityUser user) {
-    if (!"root".equals(user.getName()))
-      throw new ServerSecurityException("Only root user is authorized to execute server commands");
+    // commented out because we don't want to limit admin activities to just the built in root user.
+    //    if (!"root".equals(user.getName()))
+    //        throw new ServerSecurityException("Only root user is authorized to execute server commands");
   }
 
   protected JSONObject createResult(final SecurityUser user, final Database database) {
     final JSONObject json = new JSONObject();
     if (database != null)
       json.setDateFormat(database.getSchema().getDateTimeFormat());
-    json.put("user", user.getName()).put("version", Constants.getVersion()).put("serverName", httpServer.getServer().getServerName());
+
+    json.put("user", user.getName());
+    json.put("version", Constants.getVersion());
+    json.put("serverName", httpServer.getServer().getServerName());
     return json;
   }
 
@@ -213,21 +250,21 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
   /**
    * Returns true if the handler is reading the payload in the request. In this case, the execution is delegated to the worker thread.
    */
+
   protected boolean mustExecuteOnWorkerThread() {
     return false;
   }
 
   protected String encodeError(final String message) {
-    return message.replace("\\\\", " ").replace('\n', ' ');
-  }
-
-  protected String getQueryParameter(final HttpServerExchange exchange, final String name) {
-    return getQueryParameter(exchange, name, null);
+    return message.replaceAll("\\\\", " ").replaceAll("\n", " ");//.replaceAll("\"", "'");
   }
 
   protected String getQueryParameter(final HttpServerExchange exchange, final String name, final String defaultValue) {
     final Deque<String> par = exchange.getQueryParameters().get(name);
     return par == null || par.isEmpty() ? defaultValue : par.getFirst();
+  }
+  protected String getQueryParameter(final HttpServerExchange exchange, final String name) {
+    return getQueryParameter(exchange, name, null);
   }
 
   private Level getErrorLogLevel() {

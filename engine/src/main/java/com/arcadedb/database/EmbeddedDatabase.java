@@ -25,16 +25,8 @@ import com.arcadedb.database.async.DatabaseAsyncExecutor;
 import com.arcadedb.database.async.DatabaseAsyncExecutorImpl;
 import com.arcadedb.database.async.ErrorCallback;
 import com.arcadedb.database.async.OkCallback;
-import com.arcadedb.engine.Bucket;
-import com.arcadedb.engine.ComponentFile;
+import com.arcadedb.engine.*;
 import com.arcadedb.engine.Dictionary;
-import com.arcadedb.engine.ErrorRecordCallback;
-import com.arcadedb.engine.FileManager;
-import com.arcadedb.engine.PageManager;
-import com.arcadedb.engine.TransactionManager;
-import com.arcadedb.engine.WALFile;
-import com.arcadedb.engine.WALFileFactory;
-import com.arcadedb.engine.WALFileFactoryEmbedded;
 import com.arcadedb.exception.ArcadeDBException;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.exception.DatabaseIsClosedException;
@@ -75,7 +67,6 @@ import com.arcadedb.utility.FileUtils;
 import com.arcadedb.utility.LockException;
 import com.arcadedb.utility.MultiIterator;
 import com.arcadedb.utility.RWLockContext;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.nio.channels.*;
@@ -132,8 +123,8 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
   private final        ConcurrentHashMap<String, QueryEngine>    reusableQueryEngines                 = new ConcurrentHashMap<>();
   private              TRANSACTION_ISOLATION_LEVEL               transactionIsolationLevel            = TRANSACTION_ISOLATION_LEVEL.READ_COMMITTED;
 
-  protected EmbeddedDatabase(final String path, final PaginatedFile.MODE mode, final ContextConfiguration configuration, final SecurityManager security,
-      final Map<CALLBACK_EVENT, List<Callable<Void>>> callbacks) {
+  protected EmbeddedDatabase(final String path, final PaginatedComponentFile.MODE mode, final ContextConfiguration configuration, final SecurityManager security,
+                             final Map<CALLBACK_EVENT, List<Callable<Void>>> callbacks) {
 
     try {
       this.mode = mode;

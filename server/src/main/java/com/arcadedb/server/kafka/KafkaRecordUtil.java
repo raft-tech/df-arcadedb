@@ -1,14 +1,16 @@
 package com.arcadedb.server.kafka;
 
+import com.arcadedb.database.Document;
 import com.arcadedb.database.Record;
+import com.arcadedb.graph.Edge;
+import com.arcadedb.graph.EdgeSegment;
+import com.arcadedb.graph.Vertex;
 import com.raft.arcadedb.cdc.Message;
-import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 import java.util.UUID;
 
 public class KafkaRecordUtil {
-    @NotNull
     protected static Message createMessage(KafkaEventListener.RecordEvents afterRecordEvent, Record record) {
         return Message.newBuilder()
                 .setEventId(UUID.randomUUID().toString())
@@ -22,8 +24,12 @@ public class KafkaRecordUtil {
     }
 
     protected static String getEntityName(Record record) {
-        if (record != null) {
+        if (record instanceof Document) {
             return record.asDocument().getTypeName();
+        } else if (record instanceof Edge) {
+            return record.asEdge().getTypeName();
+        } else if (record instanceof Vertex) {
+            return record.asVertex().getTypeName();
         } else {
             return "";
         }

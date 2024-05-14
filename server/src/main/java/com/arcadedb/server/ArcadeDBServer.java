@@ -26,6 +26,7 @@ import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.database.EmbeddedDatabase;
 import com.arcadedb.engine.ComponentFile;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.exception.ConfigurationException;
 import com.arcadedb.exception.DatabaseOperationException;
@@ -79,7 +80,7 @@ public class ArcadeDBServer {
   private volatile    STATUS                                status                               = STATUS.OFFLINE;
   private             ServerMetrics                         serverMetrics                        = new DefaultServerMetrics();
   private             ServerMonitor                         serverMonitor;
-
+  private             StreamDBSubscriptionService             streamDBSubscriptionService;
   static {
     // must be called before any Logger method is used.
     System.setProperty("java.util.logging.manager", ServerLogManager.class.getName());
@@ -390,7 +391,12 @@ public class ArcadeDBServer {
     return databases.containsKey(databaseName);
   }
 
-  public ServerDatabase createDatabase(final String databaseName, final ComponentFile.MODE mode) {
+
+  public synchronized DatabaseInternal createDatabase(final String databaseName, final PaginatedComponentFile.MODE mode) {
+    return createDatabase(databaseName, mode, databaseName, null, false, true);
+  }
+
+  public ServerDatabase createDatabase(final String databaseName, final ComponentFile.MODE mode, String classification, String owner, boolean isPublic, boolean isClassificationValidationEnabled) {
     ServerDatabase serverDatabase;
     synchronized (databases) {
       serverDatabase = databases.get(databaseName);
