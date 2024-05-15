@@ -110,7 +110,7 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
     else if (command_lc.startsWith(CREATE_DATABASE))
       createDatabase(payload, user);
     else if (command_lc.startsWith(DROP_DATABASE))
-      dropDatabase(command.substring(DROP_DATABASE.length()).trim());
+      dropDatabase(command.substring(DROP_DATABASE.length()).trim(), user);
     else if (command_lc.startsWith(CLOSE_DATABASE))
       closeDatabase(command.substring(CLOSE_DATABASE.length()).trim());
     else if (command_lc.startsWith(OPEN_DATABASE))
@@ -309,19 +309,7 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
     return new ExecutionResponse(200, "{ \"result\" : " + new JSONArray(installedDatabases) + "}");
   }
 
-  private void dropDatabase(final String databaseName) {
-    if (databaseName.isEmpty())
-      throw new IllegalArgumentException("Database name empty");
-
-    final Database database = httpServer.getServer().getDatabase(databaseName);
-
-    httpServer.getServer().getServerMetrics().meter("http.align-database").hit();
-
-    database.command("sql", "align database");
-  }
-
-  private void dropDatabase(final String command, final ServerSecurityUser user) {
-    final String databaseName = command.substring("drop database ".length()).trim();
+  private void dropDatabase(final String databaseName, final ServerSecurityUser user) {
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 

@@ -61,6 +61,7 @@ import static io.undertow.UndertowOptions.SHUTDOWN_TIMEOUT;
 
 public class HttpServer implements ServerPlugin {
   private final ArcadeDBServer     server;
+  private final JsonSerializer jsonSerializer = new JsonSerializer();
   private final HttpSessionManager sessionManager;
   private final WebSocketEventBus  webSocketEventBus;
   private       Undertow           undertow;
@@ -118,6 +119,10 @@ public class HttpServer implements ServerPlugin {
             .post("/begin/{database}", new PostBeginHandler(this))//
             .post("/command/{database}", new PostCommandHandler(this))//
             .post("/commit/{database}", new PostCommitHandler(this))//
+            .post("/create/{database}", new PostCreateDatabaseHandler(this))
+            .get("/document/{database}/{rid}", new GetDocumentHandler(this))// DEPRECATED
+            .post("/document/{database}", new PostCreateDocumentHandler(this))
+            .post("/drop/{database}", new PostDropDatabaseHandler(this))
             .get("/databases", new GetDatabasesHandler(this))// DEPRECATED
             .get("/databasesInfo", new GetDatabasesInfoHandler(this))
             .get("/exists/{database}", new GetExistsDatabaseHandler(this))//
@@ -197,6 +202,10 @@ public class HttpServer implements ServerPlugin {
     throw new
 
         ServerException("Error on starting HTTP Server: " + msg);
+  }
+
+  public JsonSerializer getJsonSerializer() {
+    return jsonSerializer;
   }
 
   private int[] extractPortRange(final Object configuredPort) {
