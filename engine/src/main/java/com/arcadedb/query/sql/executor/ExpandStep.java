@@ -100,6 +100,8 @@ public class ExpandStep extends AbstractExecutionStep {
               continue;
             }
 
+            // TODO strip out props on edge?
+
             nextElement = new ResultInternal();
             ((ResultInternal) nextElement).setElement((Document) record);
           } else if (nextElementObj instanceof Map) {

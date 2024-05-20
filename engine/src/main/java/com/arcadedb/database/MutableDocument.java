@@ -41,13 +41,15 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   protected Map<String, Object> map;
   protected boolean dirty = false;
 
-  public static final String CLASSIFICATION_TYPE = "Classification";
   public static final String CLASSIFICATION_PROPERTY = "classification";
   public static final String CLASSIFICATION_GENERAL_PROPERTY = "general";
   public static final String CLASSIFICATION_ATTRIBUTES_PROPERTY = "attributes";
   public static final String CLASSIFICATION_MARKED = "classificationMarked";
 
-  public static final String SOURCES = "sources";
+  public static final String SOURCES_ARRAY_ATTRIBUTE = "sources";
+
+  public static final List<String> CUSTOM_SYSTEM_PROPERTIES = Arrays.asList(CLASSIFICATION_PROPERTY, CLASSIFICATION_MARKED, SOURCES_ARRAY_ATTRIBUTE, 
+          Utils.CREATED_BY, Utils.CREATED_DATE, Utils.LAST_MODIFIED_BY, Utils.LAST_MODIFIED_DATE);
 
   protected MutableDocument(final Database database, final DocumentType type, final RID rid) {
     super(database, type, rid, null);
@@ -191,8 +193,11 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
      */ 
     try {
       if (this.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
-        DocumentValidator.validateClassificationMarkings(this, securityDatabaseUser);
-        set(CLASSIFICATION_MARKED, true);
+
+        if (toJSON() != null) {
+          DocumentValidator.validateClassificationMarkings(this, securityDatabaseUser);
+          set(CLASSIFICATION_MARKED, true);
+        }
       }
     } catch (ValidationException e) {
       // Only ignore data validation errors on writes for service accounts.
@@ -621,3 +626,22 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     return value;
   }
 }
+
+/**
+ * 
+ * Source:
+ *   df_id
+ *   name
+ *   classification
+ *   location
+ *   attributes
+ *     name
+ *     classification
+ */
+
+
+ // TODO
+ // add props for above
+ // filter out attributes for that source based on user classification
+
+ // check merge writing behavior

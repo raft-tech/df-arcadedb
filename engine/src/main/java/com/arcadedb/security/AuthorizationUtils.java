@@ -2,9 +2,12 @@ package com.arcadedb.security;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
+import com.arcadedb.log.LogManager;
+import com.arcadedb.serializer.json.JSONObject;
 
 public class AuthorizationUtils {
 
@@ -32,7 +35,7 @@ public class AuthorizationUtils {
     if (!classificationOptions.containsKey(c))
       throw new IllegalArgumentException("Classification must be one of " + classificationOptions);
 
-    var deploymentClassification = System.getProperty("deploymentClassifcation", "S");
+    var deploymentClassification = System.getProperty("deploymentClassification", "S");
     return classificationOptions.get(deploymentClassification) >= classificationOptions.get(c);
   }
 
@@ -233,27 +236,21 @@ public class AuthorizationUtils {
     var nationality = currentUser.getNationality();
     var tetragraphs = currentUser.getTetragraphs();
 
-    if (document.has(MutableDocument.SOURCES)) {
+    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
       // sources will be a map, in the form of source number : (classification//ACCM) source id
       // check if user has appropriate clearance for any of the sources for the document
-      var isSourceAuthorized = document.toJSON().getJSONObject(MutableDocument.SOURCES).toMap().entrySet().stream().anyMatch(s -> {
-        
-        var source = s.getValue().toString();
-        if (source == null || source.isEmpty()) {
-          return false;
+      
+      var array = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+      
+      for (int i = 0; i < array.length(); i++) {
+        JSONObject jo = array.getJSONObject(i);
+
+        // TODO update
+        if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
+            AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
+              jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
+          return true;
         }
-
-        // if the source is not in the form of (classification/[/ACCM[]) [source id], then it is not a valid source
-        if (!source.contains("(") || !source.contains(")")) {
-          return false;
-        }
-
-        var sourceClassification = source.substring(source.indexOf("(") + 1, source.indexOf(")"));
-        return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, sourceClassification);
-      });
-
-      if (isSourceAuthorized) {
-        return true;
       }
     }
 
@@ -270,5 +267,16 @@ public class AuthorizationUtils {
     }
 
     return false;
+  }
+
+  public static boolean checkPermissionsOnClassificationMarking(String classificationMarking, final SecurityDatabaseUser currentUser) {
+
+    // TODO detect and provide org for clearance
+    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
+    var nationality = currentUser.getNationality();
+    var tetragraphs = currentUser.getTetragraphs();
+   
+    return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
+                 classificationMarking);
   }
 }

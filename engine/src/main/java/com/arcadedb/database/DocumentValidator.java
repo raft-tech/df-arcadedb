@@ -24,6 +24,7 @@ import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.security.SecurityDatabaseUser;
+import com.arcadedb.serializer.json.JSONObject;
 
 import java.math.*;
 import java.util.*;
@@ -48,7 +49,7 @@ public class DocumentValidator {
     if (!classificationOptions.containsKey(toCheck))
       throw new ValidationException("Classification must be one of " + classificationOptions);
 
-    var deploymentClassification = System.getProperty("deploymentClassifcation", "S");
+    var deploymentClassification = System.getProperty("deploymentClassification", "S");
     if (classificationOptions.get(deploymentClassification) < classificationOptions.get(toCheck))
       throw new ValidationException("Classification " + toCheck + " is not allowed in this deployment");
 
@@ -60,6 +61,18 @@ public class DocumentValidator {
   public static void validateClassificationMarkings(final MutableDocument document, 
           SecurityDatabaseUser securityDatabaseUser) {
 
+    if (document == null) {
+      throw new ValidationException("Document is null");
+    }
+
+    if (document instanceof MutableEmbeddedDocument) {
+      return;
+    }
+
+    if (document.getRecordType() == EmbeddedDocument.RECORD_TYPE) {
+      return;
+    }
+
     // Skip validation checks if classification validation is disabled for the database
     if (!document.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
       return;
@@ -68,7 +81,7 @@ public class DocumentValidator {
     boolean validSources = false;
 
     // validate sources, if present
-    if (document.has(MutableDocument.SOURCES) && !document.toJSON().getJSONObject(MutableDocument.SOURCES).isEmpty()) {
+    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE) && !document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).isEmpty()) {
       validateSources(document, securityDatabaseUser);
       validSources = true;
     }
@@ -99,8 +112,61 @@ public class DocumentValidator {
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification: " + classification);
       }
+
+      var classificationObj = new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
+
+      var nonSystemPropsCount = document.getPropertyNames().stream()
+          .filter(prop -> !prop.startsWith("@"))
+          .filter(prop -> !MutableDocument.CUSTOM_SYSTEM_PROPERTIES.contains(prop))
+          .count();
+
+      // TODO this check only matters if there are non system attributes on the object.
+      if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
+        throw new ValidationException("Missing classification attributes on document");
+      }
+
+      validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
     } else if (!validSources){
-      throw new ValidationException("Missing classification data on document");
+      throw new ValidationException("Missing overall classification data on document");
+    }
+  }
+
+  private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser) {
+
+    // confirm each json key in document has a matching key in attributes
+    // have counter for each key in document, and decrement when found in attributes
+    var propNames = new HashSet<>(document.getPropertyNames());
+    propNames.remove(MutableDocument.CLASSIFICATION_PROPERTY);
+    propNames.remove(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+    propNames.remove(MutableDocument.CLASSIFICATION_MARKED);
+    propNames.remove(Utils.CREATED_BY);
+    propNames.remove(Utils.CREATED_DATE);
+    propNames.remove(Utils.LAST_MODIFIED_BY);
+    propNames.remove(Utils.LAST_MODIFIED_DATE);
+
+    var numProps = propNames.size();
+
+    attributes.toMap().entrySet().forEach(entry -> {
+      var key = entry.getKey();
+
+      // validate valid key
+      if (!document.has(key)) {
+        throw new ValidationException("Invalid attribute key: " + key);
+      }
+
+      var value = entry.getValue().toString();
+
+      if (value != null && value.trim() != "") {
+        if (!AuthorizationUtils.checkPermissionsOnClassificationMarking(value, securityDatabaseUser)){
+          throw new ValidationException("User cannot set attribute classification markings on documents higher than or outside their current access.");
+        }
+      } else {
+        throw new ValidationException("Invalid attribute classification marking for: " + key);
+      }
+    });
+
+    if (attributes.length() < numProps) {
+      throw new ValidationException("Missing attribute classification data on document: " + attributes.length() + "/" + numProps);
     }
   }
 
@@ -110,33 +176,33 @@ public class DocumentValidator {
    * @param document
    */
   private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser) {
-    var sources = document.toJSON().getJSONObject(MutableDocument.SOURCES);
-    sources.toMap().entrySet().forEach(entry -> {
-      var source = entry.getValue().toString().trim();
+    var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+    sources.forEach(obj -> {
 
-      // Check for portion marked classification information. Should be in parantheses, and not empty
-      if (source.contains("(") && source.contains(")") && source.substring(0, 1).equals("(")) {
-        var markings = source.substring(1, source.indexOf(")"));
-        if (markings.trim().isEmpty()) {
-          throw new ValidationException("Source " + source + " is not valid");
-        }
+      var jo = (JSONObject) obj;
 
-        if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
-          throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
-        }
-
-        // Classification will end with a double separator if there are any additional ACCM markings.
-        if (markings.contains("//")) {
-          markings = markings.substring(0, markings.indexOf("//"));
-        }
-        try {
-          verifyDocumentClassificationValidForDeployment(markings, document);
-        } catch (IllegalArgumentException e) {
-          throw new ValidationException("Invalid classification for source: " + markings);
-        }
-      } else {
-        throw new ValidationException("Source " + source + " is not valid");
+      if (!jo.has(MutableDocument.CLASSIFICATION_PROPERTY)) {
+        throw new ValidationException("Source " + jo + " is missing classification property");
       }
+
+      var classification = jo.getString(MutableDocument.CLASSIFICATION_PROPERTY);
+
+      if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
+        throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
+      }
+
+      // Classification will end with a double separator if there are any additional ACCM markings.
+      if (classification.contains("//")) {
+        classification = classification.substring(0, classification.indexOf("//"));
+      }
+
+      try {
+        verifyDocumentClassificationValidForDeployment(classification, document);
+      } catch (IllegalArgumentException e) {
+        throw new ValidationException("Invalid classification for source: " + classification);
+      }
+
+      validateAttributeClassificationTagging(document, jo.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
     });
   }
 
@@ -147,6 +213,7 @@ public class DocumentValidator {
   }
 
   public static void validateField(final MutableDocument document, final Property p) throws ValidationException {
+
     if (p.isMandatory() && !document.has(p.getName()))
       throwValidationException(p, "is mandatory, but not found on record: " + document);
 
