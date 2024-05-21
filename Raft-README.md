@@ -1,3 +1,10 @@
+### Remote debug using IDE 
+
+```yaml
+- name: JAVA_OPTS
+  value: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=0.0.0.0:8000 -Darcadedb.server.rootPassword=playwithdata
+```
+
 ### Info on Raft's modifications to ArcadeDb for the the SOCOM DF usecase.
 - Keycloak authentication
 - Basic classification/ACCM handling
