@@ -49,9 +49,6 @@ import com.google.gson.Gson;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.arcadedb.serializer.json.JSONException;
-import com.arcadedb.serializer.json.JSONObject;
-
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -73,6 +70,77 @@ import static com.arcadedb.GlobalConfiguration.SERVER_SECURITY_SALT_ITERATIONS;
 @Slf4j
 public class ServerSecurity implements ServerPlugin, com.arcadedb.security.SecurityManager {
 
+  static class UserCache {
+    private final ConcurrentHashMap<String, ServerSecurityUser> users = new ConcurrentHashMap<>();
+    private final PriorityQueue<ServerSecurityUser> userHeap = new PriorityQueue<>(Comparator.comparingLong(ServerSecurityUser::getCreateTime));
+
+    synchronized private void prune() {
+      if (users.isEmpty() && userHeap.isEmpty()) return;
+
+      long duration = System.currentTimeMillis() - userHeap.peek().getCreateTime();
+
+      // Pruning users which have been on heap for longer or equal to the configured expire time.
+      while(!userHeap.isEmpty() && GlobalConfiguration.KEYCLOAK_USER_CACHE_EXPIRE.getValueAsLong() <= duration) {
+        ServerSecurityUser currentUser = userHeap.poll();
+        users.remove(currentUser.getName());
+        if (!userHeap.isEmpty()) duration = userHeap.peek().getCreateTime();
+      }
+    }
+
+    synchronized void put(ServerSecurityUser user) {
+      if (!users.containsKey(user.getName())) {
+        users.put(user.getName(), user);
+        userHeap.offer(user);
+      }
+      this.prune();
+    }
+
+    ServerSecurityUser get(String username) {
+      // Pruning and updating cache before we return user to make sure to honor cache TTL
+      this.prune();
+      return this.users.get(username);
+    }
+
+    void clear() {
+      this.users.clear();
+      this.userHeap.clear();
+    }
+
+    boolean contains(String username) {
+      this.prune();
+      return this.users.containsKey(username);
+    }
+
+    boolean contains(ServerSecurityUser user) {
+      this.prune();
+      return this.users.contains(user);
+    }
+
+    boolean isEmpty() {
+      this.prune();
+      return this.users.isEmpty();
+    }
+
+    ServerSecurityUser remove(String username) {
+      ServerSecurityUser userToRemove = this.users.remove(username);
+      this.userHeap.remove(userToRemove);
+
+      this.prune();
+
+      return userToRemove;
+    }
+
+    Collection<ServerSecurityUser> values() {
+      this.prune();
+      return this.users.values();
+    }
+
+    int size() {
+      this.prune();
+      return this.users.size();
+    }
+  }
+
   public static final int LATEST_VERSION = 1;
   private static final int CHECK_USER_RELOAD_EVERY_MS = 5_000;
   private final ArcadeDBServer server;
@@ -82,8 +150,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   private final SecretKeyFactory secretKeyFactory;
   private final Map<String, String> saltCache;
   private final int saltIteration;
-  private final ConcurrentHashMap<String, ServerSecurityUser> users = new ConcurrentHashMap<>();
   private CredentialsValidator credentialsValidator = new DefaultCredentialsValidator();
+  private final UserCache users = new UserCache();
   private static final Random RANDOM = new SecureRandom();
   public static final int SALT_SIZE = 32;
   private Timer reloadConfigurationTimer;
@@ -165,20 +233,20 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       try {
         for (final JSONObject userJson : usersRepository.getUsers()) {
           final ServerSecurityUser user = new ServerSecurityUser(server, userJson);
-          users.put(user.getName(), user);
+          users.put(user);
         }
       } catch (final JSONException e) {
         groupRepository.saveInError(e);
         for (final JSONObject userJson : SecurityUserFileRepository.createDefault()) {
           final ServerSecurityUser user = new ServerSecurityUser(server, userJson);
-          users.put(user.getName(), user);
+          users.put(user);
         }
       }
 
       // TODO eagerly load users from keycloak?
       // add to cache
 
-      if (users.isEmpty() || (users.containsKey("root") && users.get("root").getPassword() == null))
+      if (users.isEmpty() || (users.contains("root") && users.get("root").getPassword() == null))
         askForRootPassword();
 
       final long fileLastModified = usersRepository.getFileLastModified();
@@ -301,7 +369,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     log.debug("getOrCreateUser {}", username);
     // Return user from local cache if found. If not, continue
     // TOOD update this to check for all users in cache, not just root
-    if (users.containsKey(username) && username.equals("root")) {
+    if (users.contains(username)) {
       return users.get(username);
     }
 
@@ -380,8 +448,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     // 7. get user attribtues for ACCM
     Map<String, Object> attributes = KeycloakClient.getUserAttributes(username);
 
-    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes);
-    users.put(username, serverSecurityUser);
+    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis());
+    users.put(serverSecurityUser);
 
     return serverSecurityUser;
 
@@ -427,7 +495,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       throw new ServerSecurityException("User/Password not valid");
     }
 
-    users.put(su.getName(), su);
+    users.put(su);
 
     return su;
   }
@@ -441,7 +509,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public boolean existsUser(final String userName) {
-    return users.containsKey(userName);
+    return users.contains(userName);
   }
 
   // TODO update this to pull from cache first, and only hit keycloak on a cache
@@ -454,12 +522,13 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   public ServerSecurityUser createUser(final JSONObject userConfiguration) {
     log.debug("create user {}", userConfiguration.toString());
     final String name = userConfiguration.getString("name");
-    if (users.containsKey(name))
+    if (users.contains(name))
       throw new SecurityException("User '" + name + "' already exists");
 
     final ServerSecurityUser user = new ServerSecurityUser(server, userConfiguration);
-    users.put(name, user);
+    users.put(user);
     saveUsers();
+
     return user;
   }
 

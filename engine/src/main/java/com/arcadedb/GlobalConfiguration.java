@@ -183,6 +183,7 @@ public enum GlobalConfiguration {
   KEYCLOAK_ADMIN_PASSWORD("arcadedb.keycloakAdminPassword", SCOPE.SERVER, "Keycloak admin password", String.class, ""),
   KEYCLOAK_CLIENT_ID("arcadedb.keycloakClientId", SCOPE.SERVER, "Keycloak client ID", String.class, "df-backend"),
   KEYCLOAK_REALM("arcadedb.keycloakRealm", SCOPE.SERVER, "Keycloak realm", String.class, "data-fabric"),
+  KEYCLOAK_USER_CACHE_EXPIRE("arcadedb.keycloakUserCacheExpire", SCOPE.SERVER, "User cache expire ttl in ms", Long.class, 60000),
 
   DATE_TIME_FORMAT("arcadedb.dateTimeFormat", SCOPE.DATABASE, "Default date time format using Java SimpleDateFormat syntax", String.class,
       "yyyy-MM-dd HH:mm:ss"),

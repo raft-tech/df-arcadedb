@@ -31,6 +31,7 @@ import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.ArcadeDBServer;
 
+import java.sql.Time;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -42,15 +43,16 @@ public class ServerSecurityUser implements SecurityUser {
   private final String                                                name;
   private       Set<String>                                           databasesNames;
   private       String                                                password;
-  private final ConcurrentHashMap<String, ServerSecurityDatabaseUser> databaseCache = new ConcurrentHashMap();
-  private List<ArcadeRole> arcadeRoles = new ArrayList<>();
-  private Map<String,Object> attributes;
+  private final ConcurrentHashMap<String, ServerSecurityDatabaseUser> databaseCache = new ConcurrentHashMap<>();
+  private final List<ArcadeRole> arcadeRoles;
+  private final Map<String,Object> attributes;
+  private final long createTime;
 
   public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration) {
-    this(server, userConfiguration, new ArrayList<>(), null);
+    this(server, userConfiguration, new ArrayList<>(), null, System.currentTimeMillis());
   }
 
-  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles, Map<String, Object> attributes) {
+  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles, Map<String, Object> attributes, long createTime) {
     this.server = server;
     this.userConfiguration = userConfiguration;
 
@@ -71,8 +73,8 @@ public class ServerSecurityUser implements SecurityUser {
     }
 
     this.arcadeRoles = arcadeRoles;
-
     this.attributes = attributes;
+    this.createTime = createTime;
   }
 
   @Override
@@ -216,5 +218,9 @@ public class ServerSecurityUser implements SecurityUser {
     }
 
     return dbu;
+  }
+
+  public long getCreateTime() {
+    return createTime;
   }
 }

@@ -3,7 +3,6 @@ package com.arcadedb.server.kafka;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.Record;
 import com.arcadedb.graph.Edge;
-import com.arcadedb.graph.EdgeSegment;
 import com.arcadedb.graph.Vertex;
 import com.raft.arcadedb.cdc.Message;
 
