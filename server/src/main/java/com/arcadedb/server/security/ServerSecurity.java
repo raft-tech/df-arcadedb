@@ -88,11 +88,11 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     }
 
     synchronized void put(ServerSecurityUser user) {
+      this.prune();
       if (!users.containsKey(user.getName())) {
         users.put(user.getName(), user);
         userHeap.offer(user);
       }
-      this.prune();
     }
 
     ServerSecurityUser get(String username) {
@@ -101,7 +101,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       return this.users.get(username);
     }
 
-    void clear() {
+    synchronized void clear() {
       this.users.clear();
       this.userHeap.clear();
     }
