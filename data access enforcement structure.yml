@@ -1,0 +1,123 @@
+Title: Dynamic Data Driven Access Control
+
+Summary: 
+Raft has requirements to limit data access to users based on their roles, and need to know (NTK), represented by several metadata attributes tied to the user.
+
+To achieve this, Raft is interested in appending query predicates and limiting returned columns on user queries that limit the data accessed to just that which the user is allowed to see. 
+
+IE: 
+SELECT * FROM People -> 
+
+SELECT firstName, lastName, dob FROM People WHERE classification in ["U", "S"] AND releasableTo CONTAINS ["USA"]
+
+The second query has appended predicates that filter out data based on predefined metadata on the record. Additionally the final query on behalf of the user limits the columns that are returned.
+
+We will be use OPA, an open source authorization rules engine, to generate data access restrictions for a user. We will present the data access restrictions for the user in a json form, that can be consumed by the data store to add the current query context and filter data as needed.
+
+The query predicates are defined in a tree structure where the root node is an AND node and the children nodes can be either AND or OR nodes. The leaf nodes are the actual rules that are used to enforce access control. The rules are defined using the `Argument` structure.
+
+
+The below structure is used to define the data access enforcement rules for a given query. The rules are used to enforce access control on the data source. The rules are defined using a tree structure where the root node is an AND node and the children nodes can be either AND or OR nodes. The leaf nodes are the actual rules that are used to enforce access control. The rules are defined using the `Argument` structure.
+
+result
+  create // restrictions on creating new objects
+    - expression
+      ...
+  read // restrictions on reading objects
+    - expression
+    ...
+  update // restrictions on updating objects
+    - expression
+    ...
+  delete // restrictions on deleting objects
+    - expression
+    ...
+
+Below are the json structures we'll use to to define the data access enforcement rules for a given query. 
+
+Base structure. Defines the data access enforcement rules for a given type. The rules are split out by CRUD type. A user can have multiple entries for each CRUD action, to support a real world usecase where a user will have varying access to different combinations of data.
+
+TypeRestriction:
+  id: uuid
+  name: string
+  type: vertex|edge
+  create: Expression[] (nullable)
+  read: Expression[] (nullable)
+  update: Expression[] (nullable)
+  delete: Expression[] (nullable)
+
+// Expression- a nestable structure that can be used to define complex rules. The expression can be a leaf node or a parent node. The parent node can have multiple children nodes. The children nodes can be either AND or OR nodes. The leaf nodes are the actual rules that are used to enforce access control. The rules are defined using the `Argument` structure.
+
+Expression:
+  id: uuid
+  type: AND|OR
+  expression!: Expression[] (nullable)
+  arguments!: Argument[] (nullable)
+
+// A single evaluatable rule that can be used to enforce access control. This can be combined with multiple other arguments to form a complex rule. The argument is defined using the field, operator and value.
+
+Argument:
+  field: string
+  operator: see list below
+  value: string|number|array|boolean
+  
+Argument operator options:
+   Value comparison:
+   EQ
+   ANY_OF (target field is any of the provided values)
+
+   Numeric:
+   GT
+   GT_EQ
+   LT
+   LT_EQ
+
+   Array operators (target field is an array)
+   ANY_IN (any of the provided values is present in the target field)
+   ALL_IN (all of the provided values are present in the target field)
+   NONE_IN (none of the provided values are present in the target field)
+
+
+Example Expression:
+
+1. WHERE classification in ["U", "S"] AND releasableTo CONTAINS ["USA"]
+
+  id: 12345-asdf-1342453456
+  type: AND
+  arguments
+  - field: classification
+    operator: ANY_OF
+    value: ["U", "S"]
+  - field: releaseableTo
+    operator: ANY_IN
+    value: ["USA"]
+
+
+2. WHERE classification in ["U", "S"] AND (releasableTo CONTAINS ["USA"] OR noforn = true)
+
+  id: 12345-asdf-1342453456
+  type: AND
+  expression:
+  - id: 13245-43jkafasdf-23423fas
+    type: OR
+    arguments:
+    - field: releaseableTo
+      operator: ANY_IN
+      value: ["USA"]
+    - field: noforn
+      operator: EQ
+      value: true
+  arguments:
+  - field: classification
+    operator: ANY_OF
+    value: ["U", "S"]
+
+
+
+
+
+
+
+
+
+

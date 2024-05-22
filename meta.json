@@ -1,0 +1,119 @@
+{
+    "dfid": "adsfasdf-adsfa-324243-asdfaf",
+
+    // concurrency control
+    "version": 5,
+    "lastUpdateBy": "trestle",
+    "lastUpdateDTG": "2020-02-18T15:00:00Z",
+
+    "validClassificationMarkings": true,
+    "classification": "S",
+    "ownerProducer": [],
+    "disseminationControls": [],
+    "noforn": true,
+    "joint": false,
+    "releaseableTo": [],
+    "displayableTo": [],
+    "fgi": [],
+    "sci": [
+        {
+            "controlSystem": "",
+            "compartments": []
+        }
+    ],
+    "sap": [],
+
+    "PII": false,
+    "PHI": false,
+    "CUI": false,
+
+    "references": [
+      { 
+        "dfid": "sgsdhyafsddf-adsfa-324243-asdfaf",
+
+        "type": "source",  // source, derived, or reference
+        "validClassificationMarkings": true,
+
+        "location": "https://datafabric/inbox/....",
+        "name": "IIR asdf",
+
+        "classification": "S",
+        "ownerProducer": [],
+        "disseminationControls": [],
+        "noforn": true,
+        "joint": false,
+        "releaseableTo": [],
+        "displayableTo": [],
+        "fgi": [],
+        "sci": [
+            {
+                "controlSystem": "",
+                "compartments": []
+            }
+        ],
+        "sap": [],
+
+        "PII": false,
+        "PHI": false,
+        "CUI": false,
+
+        "attributes": [
+          {
+            "attributes": ["field1", "field2", "field3"],
+
+            "classification": "U",
+            "ownerProducer": [],
+            "disseminationControls": [],
+            "noforn": true,
+            "joint": false,
+            "releaseableTo": [],
+            "displayableTo": [],
+            "fgi": [],
+            "sci": [
+                {
+                    "controlSystem": "",
+                    "compartments": []
+                }
+            ],
+            "sap": [],
+            "PII": false,
+            "PHI": false,
+            "CUI": false
+          },
+          {
+            "attributes": ["field4"],
+
+            "classification": "S",
+            "ownerProducer": [],
+            "disseminationControls": [],
+            "noforn": true,
+            "joint": false,
+            "releaseableTo": [],
+            "displayableTo": [],
+            "fgi": [],
+            "sci": [
+                {
+                    "controlSystem": "",
+                    "compartments": []
+                }
+            ],
+            "sap": [],
+            "PII": false,
+            "PHI": false,
+            "CUI": false
+          }
+        ]
+      }
+   ]
+}
+
+
+"classDeclass": {
+    "derivativelyClassifiedBy": "MXS Developer mxs@dod.gov",
+    "derivedFrom": "Pursuant to SCG ABC version 1.2 dtd 01/01/2020",
+    "declassDate": "2070-02-18",
+    "declassEvent": null,
+    "declassException": ["AEA"],
+    "classifiedBy": null,
+    "classificationReason": null
+  },

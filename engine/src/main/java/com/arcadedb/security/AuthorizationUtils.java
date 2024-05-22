@@ -202,7 +202,14 @@ public class AuthorizationUtils {
   }
 
   public static boolean checkPermissionsOnDocumentToRead(final Document document, final SecurityDatabaseUser currentUser) {
-    return checkPermissionsOnDocument(document, currentUser, false);
+    // log duration in ns
+    long startTime = System.nanoTime();
+    boolean result = checkPermissionsOnDocument(document, currentUser, false);
+    long endTime = System.nanoTime();
+    long duration = (endTime - startTime);
+    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "checkPermissionsOnDocumentToRead took " + duration + " ns");
+
+    return result;
   }
 
   public static boolean checkPermissionsOnDocumentToWrite(final Document document, final SecurityDatabaseUser currentUser) {

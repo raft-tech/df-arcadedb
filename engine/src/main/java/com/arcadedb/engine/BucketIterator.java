@@ -101,7 +101,7 @@ public class BucketIterator implements Iterator<Record> {
                 continue;
               }
 
-              next = rid.getRecord(true);
+              next = rid.getRecord(false);
 
               // TODO strip out properties the user doesn't have access to
               return null;
