@@ -25,7 +25,7 @@
     <parent>
         <groupId>com.arcadedb</groupId>
         <artifactId>arcadedb-parent</artifactId>
-        <version>23.6.1-SNAPSHOT</version>
+        <version>23.10.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -33,8 +33,9 @@
     <packaging>jar</packaging>
 
     <properties>
-        <gremlin.version>3.6.4</gremlin.version>
+        <gremlin.version>3.7.0</gremlin.version>
         <translation.version>1.0.4</translation.version>
+        <snakeyaml.version>2.2</snakeyaml.version>
     </properties>
 
     <dependencies>
@@ -64,6 +65,16 @@
         </dependency>
         <dependency>
             <groupId>org.apache.tinkerpop</groupId>
+            <artifactId>gremlin-driver</artifactId>
+            <version>${gremlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tinkerpop</groupId>
+            <artifactId>gremlin-util</artifactId>
+            <version>${gremlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tinkerpop</groupId>
             <artifactId>gremlin-groovy</artifactId>
             <version>${gremlin.version}</version>
         </dependency>
@@ -79,7 +90,7 @@
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-            <version>2.0</version>
+            <version>${snakeyaml.version}</version>
         </dependency>
 
         <dependency>

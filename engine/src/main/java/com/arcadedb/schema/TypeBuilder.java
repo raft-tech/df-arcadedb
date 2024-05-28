@@ -37,11 +37,12 @@ import java.util.logging.*;
 public class TypeBuilder<T> {
   final DatabaseInternal database;
   final Class<T>         type;
-  boolean      ignoreIfExists  = false;
-  String       typeName;
-  List<Bucket> bucketInstances = Collections.emptyList();
-  int          buckets;
-  int          pageSize;
+  boolean            ignoreIfExists  = false;
+  String             typeName;
+  List<DocumentType> superTypes;
+  List<Bucket>       bucketInstances = Collections.emptyList();
+  int                buckets;
+  int                pageSize;
 
   protected TypeBuilder(final DatabaseInternal database, final Class<T> type) {
     this.database = database;
@@ -63,12 +64,11 @@ public class TypeBuilder<T> {
       if (t.getClass().equals(type))
         return (T) t;
 
-      throw new SchemaException("Type '" + typeName + "' is not a vertex type");
+      final String expectedType = type.isAssignableFrom(VertexType.class) ?
+          "vertex" :
+          type.isAssignableFrom(EdgeType.class) ? "edge" : "document";
+      throw new SchemaException("Type '" + typeName + "' is not a " + expectedType + " type");
     }
-
-    if (!type.equals(DocumentType.class) &&//
-        buckets < 1 && bucketInstances.isEmpty())
-      throw new IllegalArgumentException("Invalid number of buckets (" + buckets + "). At least 1 bucket is necessary to create a type");
 
     if (buckets > 32)
       throw new IllegalArgumentException("Cannot create " + buckets + " buckets: maximum is 32");
@@ -109,6 +109,10 @@ public class TypeBuilder<T> {
           c.addBucket(bucket);
       }
 
+      if (superTypes != null)
+        for (DocumentType sup : superTypes)
+          c.addSuperType(sup);
+
       schema.saveConfiguration();
       schema.updateSecurity();
 
@@ -121,11 +125,23 @@ public class TypeBuilder<T> {
     return this;
   }
 
+  public TypeBuilder<T> withSuperType(final String superType) {
+    if (superTypes == null)
+      superTypes = new ArrayList<>();
+    superTypes.add(database.getSchema().getType(superType));
+    return this;
+  }
+
   public TypeBuilder<T> withIgnoreIfExists(final boolean ignoreIfExists) {
     this.ignoreIfExists = ignoreIfExists;
     return this;
   }
 
+  /**
+   * Sets to zero to have a type that can only be embedded or abstract (no records of this direct type, but subtypes can)
+   *
+   * @param buckets Number of buckets to use. By default the {@link GlobalConfiguration:TYPE_DEFAULT_BUCKETS} configuration is used.
+   */
   public TypeBuilder<T> withTotalBuckets(final int buckets) {
     this.buckets = buckets;
     return this;

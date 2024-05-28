@@ -12,7 +12,7 @@ import io.undertow.server.HttpServerExchange;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class GetHistoryHandler extends AbstractHandler {
+public class GetHistoryHandler extends AbstractServerHttpHandler {
     public GetHistoryHandler(final HttpServer httpServer) {
         super(httpServer);
     }

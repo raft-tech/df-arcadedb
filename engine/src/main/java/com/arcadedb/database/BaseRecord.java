@@ -55,6 +55,15 @@ public abstract class BaseRecord implements Record {
     if (rid != null && buffer == null && database.isOpen()) {
       try {
         buffer = database.getSchema().getBucketById(rid.getBucketId()).getRecord(rid);
+
+        final Record loaded = database.invokeAfterReadEvents(this);
+        if (loaded == null) {
+          buffer = null;
+        } else if (loaded != this) {
+          // CREATE A BUFFER FROM THE MODIFIED RECORD
+          buffer = ((RecordInternal) loaded).getBuffer().copy();
+        }
+
       } catch (final RecordNotFoundException e) {
         // IGNORE IT
       }

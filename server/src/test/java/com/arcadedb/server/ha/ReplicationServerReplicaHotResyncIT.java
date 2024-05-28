@@ -21,7 +21,7 @@ package com.arcadedb.server.ha;
 import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.server.ArcadeDBServer;
-import com.arcadedb.server.TestCallback;
+import com.arcadedb.server.ReplicationCallback;
 import org.junit.jupiter.api.Assertions;
 
 import java.util.concurrent.atomic.*;
@@ -36,7 +36,6 @@ public class ReplicationServerReplicaHotResyncIT extends ReplicationServerIT {
   @Override
   public void setTestConfiguration() {
     super.setTestConfiguration();
-    GlobalConfiguration.HA_QUORUM.setValue("MAJORITY");
     GlobalConfiguration.HA_REPLICATION_QUEUE_SIZE.setValue(10);
   }
 
@@ -49,9 +48,12 @@ public class ReplicationServerReplicaHotResyncIT extends ReplicationServerIT {
   @Override
   protected void onBeforeStarting(final ArcadeDBServer server) {
     if (server.getServerName().equals("ArcadeDB_2"))
-      server.registerTestEventListener(new TestCallback() {
+      server.registerTestEventListener(new ReplicationCallback() {
         @Override
         public void onEvent(final TYPE type, final Object object, final ArcadeDBServer server) {
+          if( !serversSynchronized)
+            return;
+
           if (slowDown) {
             // SLOW DOWN A SERVER AFTER 5TH MESSAGE
             if (totalMessages.incrementAndGet() > 5) {
@@ -76,10 +78,13 @@ public class ReplicationServerReplicaHotResyncIT extends ReplicationServerIT {
       });
 
     if (server.getServerName().equals("ArcadeDB_0"))
-      server.registerTestEventListener(new TestCallback() {
+      server.registerTestEventListener(new ReplicationCallback() {
         @Override
         public void onEvent(final TYPE type, final Object object, final ArcadeDBServer server) {
           // SLOW DOWN A SERVER
+          if( !serversSynchronized)
+            return;
+
           if ("ArcadeDB_2".equals(object) && type == TYPE.REPLICA_OFFLINE) {
             LogManager.instance().log(this, Level.FINE, "TEST: Replica 2 is offline removing latency...");
             slowDown = false;

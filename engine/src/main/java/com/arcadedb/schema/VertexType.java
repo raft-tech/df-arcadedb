@@ -19,21 +19,38 @@
 package com.arcadedb.schema;
 
 import com.arcadedb.database.DatabaseInternal;
+import com.arcadedb.database.MutableDocument;
 import com.arcadedb.engine.Bucket;
+import com.arcadedb.graph.MutableVertex;
 import com.arcadedb.graph.Vertex;
 
+import java.util.*;
+
 public class VertexType extends DocumentType {
+  private List<Bucket> additionalBuckets = new ArrayList<>();
 
   public VertexType(final EmbeddedSchema schema, final String name) {
     super(schema, name);
+  }
+
+  @Override
+  public MutableVertex newRecord() {
+    return schema.getDatabase().newVertex(name);
   }
 
   public byte getType() {
     return Vertex.RECORD_TYPE;
   }
 
+  @Override
+  public List<Bucket> getInvolvedBuckets() {
+    final ArrayList<Bucket> result = new ArrayList<>(super.getInvolvedBuckets());
+    result.addAll(additionalBuckets);
+    return result;
+  }
+
   protected void addBucketInternal(final Bucket bucket) {
     super.addBucketInternal(bucket);
-    ((DatabaseInternal) schema.getDatabase()).getGraphEngine().createVertexType(this);
+    additionalBuckets.addAll(((DatabaseInternal) schema.getDatabase()).getGraphEngine().createVertexAdditionalBuckets(bucket));
   }
 }

@@ -37,7 +37,7 @@ import java.io.*;
 import java.util.*;
 
 public class ReplicationChangeSchemaIT extends ReplicationServerIT {
-  private final Database[]            databases = new Database[getServerCount()];
+  private final Database[]          databases   = new Database[getServerCount()];
   private final Map<String, String> schemaFiles = new LinkedHashMap<>(getServerCount());
 
   @Test
@@ -156,7 +156,7 @@ public class ReplicationChangeSchemaIT extends ReplicationServerIT {
 
   private String isInSchemaFile(final Database database, final String match) {
     try {
-      final String content = FileUtils.readFileAsString(database.getSchema().getEmbedded().getConfigurationFile(), "UTF8");
+      final String content = FileUtils.readFileAsString(database.getSchema().getEmbedded().getConfigurationFile());
       Assertions.assertTrue(content.contains(match));
       return content;
     } catch (final IOException e) {
@@ -167,7 +167,7 @@ public class ReplicationChangeSchemaIT extends ReplicationServerIT {
 
   private String isNotInSchemaFile(final Database database, final String match) {
     try {
-      final String content = FileUtils.readFileAsString(database.getSchema().getEmbedded().getConfigurationFile(), "UTF8");
+      final String content = FileUtils.readFileAsString(database.getSchema().getEmbedded().getConfigurationFile());
       Assertions.assertFalse(content.contains(match));
       return content;
     } catch (final IOException e) {
@@ -184,12 +184,9 @@ public class ReplicationChangeSchemaIT extends ReplicationServerIT {
         first = entry.getValue();
       else
         Assertions.assertEquals(first, entry.getValue(),
-            "Server " + entry.getKey() + " has different schema saved:\nFIRST SERVER:\n" + first + "\n" + entry.getKey() + " SERVER:\n" + entry.getValue());
+            "Server " + entry.getKey() + " has different schema saved:\nFIRST SERVER:\n" + first + "\n" + entry.getKey()
+                + " SERVER:\n" + entry.getValue());
     }
-  }
-
-  protected int getServerCount() {
-    return 3;
   }
 
   @Override

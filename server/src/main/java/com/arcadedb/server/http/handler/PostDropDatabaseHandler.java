@@ -18,11 +18,11 @@
  */
 package com.arcadedb.server.http.handler;
 
-import com.arcadedb.database.Database;
-import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.server.http.HttpServer;
-import com.arcadedb.server.security.ServerSecurityUser;
-import io.undertow.server.HttpServerExchange;
+        import com.arcadedb.database.Database;
+        import com.arcadedb.database.DatabaseInternal;
+        import com.arcadedb.server.http.HttpServer;
+        import com.arcadedb.server.security.ServerSecurityUser;
+        import io.undertow.server.HttpServerExchange;
 
 /**
  * Drops a database.
@@ -30,27 +30,26 @@ import io.undertow.server.HttpServerExchange;
  * @author Luca Garulli (l.garulli@arcadedata.com)
  * @Deprecated Use the generic @see PostServerCommandHandler
  */
-@Deprecated
 public class PostDropDatabaseHandler extends DatabaseAbstractHandler {
-  public PostDropDatabaseHandler(final HttpServer httpServer) {
-    super(httpServer);
-  }
+    public PostDropDatabaseHandler(final HttpServer httpServer) {
+        super(httpServer);
+    }
 
-  @Override
-  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user, final Database database) {
-    checkRootUser(user);
+    @Override
+    public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user, final Database database) {
+        checkRootUser(user);
 
-    ((DatabaseInternal) database).getEmbedded().drop();
+        ((DatabaseInternal) database).getEmbedded().drop();
 
-    httpServer.getServer().getServerMetrics().meter("http.drop-database").hit();
+        httpServer.getServer().getServerMetrics().meter("http.drop-database").hit();
 
-    httpServer.getServer().removeDatabase(database.getName());
+        httpServer.getServer().removeDatabase(database.getName());
 
-    return new ExecutionResponse(200, "{ \"result\" : \"ok\"}");
-  }
+        return new ExecutionResponse(200, "{ \"result\" : \"ok\"}");
+    }
 
-  @Override
-  protected boolean requiresTransaction() {
-    return false;
-  }
+    @Override
+    protected boolean requiresTransaction() {
+        return false;
+    }
 }

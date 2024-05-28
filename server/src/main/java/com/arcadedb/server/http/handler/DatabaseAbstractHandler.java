@@ -32,12 +32,13 @@ import com.arcadedb.server.security.ServerSecurityUser;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.util.HeaderValues;
 import io.undertow.util.HttpString;
+import io.undertow.util.StatusCodes;
 
 import java.util.*;
 import java.util.concurrent.atomic.*;
 import java.util.logging.*;
 
-public abstract class DatabaseAbstractHandler extends AbstractHandler {
+public abstract class DatabaseAbstractHandler extends AbstractServerHttpHandler {
   private static final HttpString SESSION_ID_HEADER = new HttpString(HttpSessionManager.ARCADEDB_SESSION_ID);
 
   protected DatabaseAbstractHandler(final HttpServer httpServer) {
@@ -61,7 +62,7 @@ public abstract class DatabaseAbstractHandler extends AbstractHandler {
 
       database = httpServer.getServer().getDatabase(databaseName.getFirst(), false, false);
 
-      current = DatabaseContext.INSTANCE.getContext(database.getDatabasePath());
+      current = DatabaseContext.INSTANCE.getContextIfExists(database.getDatabasePath());
       if (current != null && !current.transactions.isEmpty() && current.transactions.get(0).isActive()) {
         LogManager.instance().log(this, Level.WARNING, "Found a pending transaction from a previous operation. Rolling it back...");
         cleanTL(database, current);
@@ -69,7 +70,7 @@ public abstract class DatabaseAbstractHandler extends AbstractHandler {
 
       activeSession = setTransactionInThreadLocal(exchange, database, user);
 
-      current = DatabaseContext.INSTANCE.getContext(database.getDatabasePath());
+      current = DatabaseContext.INSTANCE.getContextIfExists(database.getDatabasePath());
       if (current == null)
         // INITIALIZE THE DATABASE CONTEXT
         current = DatabaseContext.INSTANCE.init((DatabaseInternal) database);
@@ -123,7 +124,7 @@ public abstract class DatabaseAbstractHandler extends AbstractHandler {
 
   private void cleanTL(final Database database, DatabaseContext.DatabaseContextTL current) {
     if (current == null)
-      current = DatabaseContext.INSTANCE.getContext(database.getDatabasePath());
+      current = DatabaseContext.INSTANCE.getContextIfExists(database.getDatabasePath());
 
     if (current != null) {
       TransactionContext tx;
@@ -152,7 +153,7 @@ public abstract class DatabaseAbstractHandler extends AbstractHandler {
       // LOOK UP FOR THE SESSION ID
       final HttpSession session = httpServer.getSessionManager().getSessionById(user, sessionId.getFirst());
       if (session == null) {
-        exchange.setStatusCode(401);
+        exchange.setStatusCode(StatusCodes.UNAUTHORIZED);
         throw new TransactionException("Remote transaction not found or expired");
       }
 

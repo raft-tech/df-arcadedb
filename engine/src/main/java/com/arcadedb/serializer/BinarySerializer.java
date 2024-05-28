@@ -197,8 +197,8 @@ public class BinarySerializer {
     return result;
   }
 
-  public Map<String, Object> deserializeProperties(final Database database, final Binary buffer, final EmbeddedModifier embeddedModifier,
-      final DocumentType documentType, final String... fieldNames) {
+  public Map<String, Object> deserializeProperties(final Database database, final Binary buffer,
+      final EmbeddedModifier embeddedModifier, final DocumentType documentType, final String... fieldNames) {
     final int headerEndOffset = buffer.getInt();
     final int properties = (int) buffer.getUnsignedNumber();
 
@@ -246,10 +246,7 @@ public class BinarySerializer {
       final EmbeddedModifierProperty propertyModifier =
           embeddedModifier != null ? new EmbeddedModifierProperty(embeddedModifier.getOwner(), propertyName) : null;
 
-      Object propertyValue = deserializeValue(database, buffer, type, propertyModifier);
-
-      if (type == BinaryTypes.TYPE_COMPRESSED_STRING)
-        propertyValue = dictionary.getNameById(((Long) propertyValue).intValue());
+      final Object propertyValue = deserializeValue(database, buffer, type, propertyModifier);
 
       values.put(propertyName, propertyValue);
 
@@ -283,8 +280,8 @@ public class BinarySerializer {
     return false;
   }
 
-  public Object deserializeProperty(final Database database, final Binary buffer, final EmbeddedModifier embeddedModifier, final String fieldName,
-      final DocumentType documentType) {
+  public Object deserializeProperty(final Database database, final Binary buffer, final EmbeddedModifier embeddedModifier,
+      final String fieldName, final DocumentType documentType) {
     final int headerEndOffset = buffer.getInt();
     final int properties = (int) buffer.getUnsignedNumber();
 
@@ -308,14 +305,10 @@ public class BinarySerializer {
 
       final byte type = buffer.getByte();
 
-      final EmbeddedModifierProperty propertyModifier = embeddedModifier != null ? new EmbeddedModifierProperty(embeddedModifier.getOwner(), fieldName) : null;
+      final EmbeddedModifierProperty propertyModifier =
+          embeddedModifier != null ? new EmbeddedModifierProperty(embeddedModifier.getOwner(), fieldName) : null;
 
-      Object propertyValue = deserializeValue(database, buffer, type, propertyModifier);
-
-      if (type == BinaryTypes.TYPE_COMPRESSED_STRING)
-        propertyValue = dictionary.getNameById(((Long) propertyValue).intValue());
-
-      return propertyValue;
+      return deserializeValue(database, buffer, type, propertyModifier);
     }
 
     return null;
@@ -359,12 +352,10 @@ public class BinarySerializer {
       content.putNumber(((Number) value).longValue());
       break;
     case BinaryTypes.TYPE_FLOAT:
-      final int fg = Float.floatToIntBits(((Number) value).floatValue());
-      content.putNumber(fg);
+      content.putNumber(Float.floatToIntBits(((Number) value).floatValue()));
       break;
     case BinaryTypes.TYPE_DOUBLE:
-      final long dg = Double.doubleToLongBits(((Number) value).doubleValue());
-      content.putNumber(dg);
+      content.putNumber(Double.doubleToLongBits(((Number) value).doubleValue()));
       break;
     case BinaryTypes.TYPE_DATE:
       if (value instanceof Date)
@@ -451,12 +442,24 @@ public class BinarySerializer {
       break;
     }
     case BinaryTypes.TYPE_MAP: {
+      final Dictionary dictionary = database.getSchema().getDictionary();
+
       final Map<Object, Object> map = (Map<Object, Object>) value;
       content.putUnsignedNumber(map.size());
       for (final Map.Entry<Object, Object> entry : map.entrySet()) {
         // WRITE THE KEY
-        final Object entryKey = entry.getKey();
-        final byte entryKeyType = BinaryTypes.getTypeFromValue(entryKey);
+        Object entryKey = entry.getKey();
+        byte entryKeyType = BinaryTypes.getTypeFromValue(entryKey);
+
+        if (entryKey != null && entryKeyType == BinaryTypes.TYPE_STRING) {
+          final int id = dictionary.getIdByName((String) entryKey, false);
+          if (id > -1) {
+            // WRITE THE COMPRESSED STRING AS MAP KEY
+            entryKeyType = BinaryTypes.TYPE_COMPRESSED_STRING;
+            entryKey = id;
+          }
+        }
+
         content.putByte(entryKeyType);
         serializeValue(database, content, entryKeyType, entryKey);
 
@@ -487,13 +490,48 @@ public class BinarySerializer {
       content.append(header);
       break;
     }
-
+    case BinaryTypes.TYPE_ARRAY_OF_SHORTS: {
+      final int length = Array.getLength(value);
+      content.putUnsignedNumber(length);
+      for (int i = 0; i < length; ++i)
+        content.putNumber(Array.getShort(value, i));
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_INTEGERS: {
+      final int length = Array.getLength(value);
+      content.putUnsignedNumber(length);
+      for (int i = 0; i < length; ++i)
+        content.putNumber(Array.getInt(value, i));
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_LONGS: {
+      final int length = Array.getLength(value);
+      content.putUnsignedNumber(length);
+      for (int i = 0; i < length; ++i)
+        content.putNumber(Array.getLong(value, i));
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_FLOATS: {
+      final int length = Array.getLength(value);
+      content.putUnsignedNumber(length);
+      for (int i = 0; i < length; ++i)
+        content.putNumber(Float.floatToIntBits(Array.getFloat(value, i)));
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_DOUBLES: {
+      final int length = Array.getLength(value);
+      content.putUnsignedNumber(length);
+      for (int i = 0; i < length; ++i)
+        content.putNumber(Double.doubleToLongBits(Array.getDouble(value, i)));
+      break;
+    }
     default:
       LogManager.instance().log(this, Level.INFO, "Error on serializing value '" + value + "', type not supported");
     }
   }
 
-  public Object deserializeValue(final Database database, final Binary content, final byte type, final EmbeddedModifier embeddedModifier) {
+  public Object deserializeValue(final Database database, final Binary content, final byte type,
+      final EmbeddedModifier embeddedModifier) {
     final Object value;
     switch (type) {
     case BinaryTypes.TYPE_NULL:
@@ -503,7 +541,7 @@ public class BinarySerializer {
       value = content.getString();
       break;
     case BinaryTypes.TYPE_COMPRESSED_STRING:
-      value = content.getUnsignedNumber();
+      value = database.getSchema().getDictionary().getNameById((int) content.getUnsignedNumber());
       break;
     case BinaryTypes.TYPE_BINARY:
       value = content.getBytes();
@@ -533,13 +571,16 @@ public class BinarySerializer {
       value = DateUtils.date(database, content.getUnsignedNumber(), dateImplementation);
       break;
     case BinaryTypes.TYPE_DATETIME_SECOND:
-      value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.SECONDS, dateTimeImplementation, ChronoUnit.SECONDS);
+      value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.SECONDS, dateTimeImplementation,
+          ChronoUnit.SECONDS);
       break;
     case BinaryTypes.TYPE_DATETIME:
-      value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.MILLIS, dateTimeImplementation, ChronoUnit.MILLIS);
+      value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.MILLIS, dateTimeImplementation,
+          ChronoUnit.MILLIS);
       break;
     case BinaryTypes.TYPE_DATETIME_MICROS:
-      value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.MICROS, dateTimeImplementation, ChronoUnit.MICROS);
+      value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.MICROS, dateTimeImplementation,
+          ChronoUnit.MICROS);
       break;
     case BinaryTypes.TYPE_DATETIME_NANOS:
       value = DateUtils.dateTime(database, content.getUnsignedNumber(), ChronoUnit.NANOS, dateTimeImplementation, ChronoUnit.NANOS);
@@ -594,6 +635,46 @@ public class BinarySerializer {
           .newImmutableRecord(database, database.getSchema().getType(typeName), null, embeddedBuffer, embeddedModifier);
 
       content.position(content.position() + embeddedObjectSize);
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_SHORTS: {
+      final int count = (int) content.getUnsignedNumber();
+      final short[] array = new short[count];
+      for (int i = 0; i < count; ++i)
+        array[i] = (short) content.getNumber();
+      value = array;
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_INTEGERS: {
+      final int count = (int) content.getUnsignedNumber();
+      final int[] array = new int[count];
+      for (int i = 0; i < count; ++i)
+        array[i] = (int) content.getNumber();
+      value = array;
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_LONGS: {
+      final int count = (int) content.getUnsignedNumber();
+      final long[] array = new long[count];
+      for (int i = 0; i < count; ++i)
+        array[i] = content.getNumber();
+      value = array;
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_FLOATS: {
+      final int count = (int) content.getUnsignedNumber();
+      final float[] array = new float[count];
+      for (int i = 0; i < count; ++i)
+        array[i] = Float.intBitsToFloat((int) content.getNumber());
+      value = array;
+      break;
+    }
+    case BinaryTypes.TYPE_ARRAY_OF_DOUBLES: {
+      final int count = (int) content.getUnsignedNumber();
+      final double[] array = new double[count];
+      for (int i = 0; i < count; ++i)
+        array[i] = Double.longBitsToDouble(content.getNumber());
+      value = array;
       break;
     }
 
@@ -660,7 +741,9 @@ public class BinarySerializer {
   }
 
   public void setDateImplementation(final Object dateImplementation) throws ClassNotFoundException {
-    this.dateImplementation = dateImplementation instanceof Class ? (Class) dateImplementation : Class.forName(dateImplementation.toString());
+    this.dateImplementation = dateImplementation instanceof Class ?
+        (Class) dateImplementation :
+        Class.forName(dateImplementation.toString());
   }
 
   public Class getDateTimeImplementation() {
@@ -668,7 +751,9 @@ public class BinarySerializer {
   }
 
   public void setDateTimeImplementation(final Object dateTimeImplementation) throws ClassNotFoundException {
-    this.dateTimeImplementation = dateTimeImplementation instanceof Class ? (Class) dateTimeImplementation : Class.forName(dateTimeImplementation.toString());
+    this.dateTimeImplementation = dateTimeImplementation instanceof Class ?
+        (Class) dateTimeImplementation :
+        Class.forName(dateTimeImplementation.toString());
   }
 
   public BinaryComparator getComparator() {

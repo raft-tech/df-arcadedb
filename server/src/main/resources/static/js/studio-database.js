@@ -377,6 +377,45 @@ function dropDatabase(){
   });
 }
 
+function resetDatabase(){
+  let database = escapeHtml( getCurrentDatabase() );
+  if( database == "" ){
+    globalNotify( "Error", "Database not selected", "danger");
+    return;
+  }
+
+  globalConfirm("Reset database", "Are you sure you want to reset the database '"+database+"' (All data will be deleted)?<br>WARNING: The operation cannot be undone.", "warning", function(){
+    jQuery.ajax({
+      type: "POST",
+      url: "/api/v1/server",
+      data: "{ 'command': 'drop database " + database + "' }",
+      beforeSend: function (xhr){
+        xhr.setRequestHeader('Authorization', globalCredentials);
+      }
+    })
+    .done(function(data){
+      jQuery.ajax({
+        type: "POST",
+        url: "/api/v1/server",
+        data: "{ 'command': 'create database " + database + "' }",
+        beforeSend: function (xhr){
+          xhr.setRequestHeader('Authorization', globalCredentials);
+        }
+      })
+      .done(function(data){
+        $("#inputDatabase").val(database);
+        updateDatabases();
+      })
+      .fail(function( jqXHR, textStatus, errorThrown ){
+        globalNotifyError( jqXHR.responseText );
+      });
+    })
+    .fail(function( jqXHR, textStatus, errorThrown ){
+      globalNotifyError( jqXHR.responseText );
+    });
+  });
+}
+
 function backupDatabase(){
   let database = getCurrentDatabase();
   if( database == "" ){
@@ -551,8 +590,11 @@ function executeCommand(language, query){
 
   if( query != null )
     editor.setValue( query );
-  else
-    query = editor.getValue();
+  else {
+    query = editor.getSelection();
+    if( query == null || query == "" )
+      query = editor.getValue();
+  }
 
   let database = getCurrentDatabase();
 
@@ -560,7 +602,7 @@ function executeCommand(language, query){
     return;
   if( escapeHtml( $("#inputLanguage").val() ) == "" )
     return;
-  if( escapeHtml( editor.getValue() ) == "" )
+  if( escapeHtml( query ) == "" )
     return;
 
   globalActivateTab("tab-query");
@@ -597,7 +639,12 @@ function executeCommand(language, query){
 function executeCommandTable(){
   let database = getCurrentDatabase();
   let language = escapeHtml( $("#inputLanguage").val() );
-  let command = escapeHtml( editor.getValue() );
+
+  let command = editor.getSelection();
+  if( command == null || command == "" )
+    command = editor.getValue();
+  command = escapeHtml( command );
+
   let limit = parseInt( $("#inputLimit").val() );
   let profileExecution = $('#profileCommand').prop('checked') ? "detailed" : "basic";
 
@@ -644,7 +691,12 @@ function executeCommandTable(){
 function executeCommandGraph(){
   let database = getCurrentDatabase();
   let language = escapeHtml( $("#inputLanguage").val() );
-  let command = escapeHtml( editor.getValue() );
+
+  let command = editor.getSelection();
+  if( command == null || command == "" )
+    command = editor.getValue();
+  command = escapeHtml( command );
+
   let limit = parseInt( $("#inputLimit").val() );
   let profileExecution = $('#profileCommand').prop('checked') ? "detailed" : "basic";
 
@@ -750,20 +802,23 @@ function displaySchema(){
 
     for( let i in data.result ){
       let row = data.result[i];
+      let tabName = row.name.replaceAll(":", "-");
 
-      let tabHtml = "<li class='nav-item' style='height: 32px'><a data-toggle='tab' href='#tab-" + row.name + "' class='nav-link vertical-tab" + (i == 0 ? " active show" : "");
-      tabHtml += "' id='tab-" + row.name + "-sel'>" + row.name + "</a></li>";
+      let tabHtml = "<li class='nav-item' style='height: 32px; width: 240px'><a data-toggle='tab' href='#tab-" + tabName + "' class='nav-link vertical-tab" + (i == 0 ? " active show" : "");
+      tabHtml += "' id='tab-" + tabName + "-sel'>" + row.name + "</a></li>";
 
-      let panelHtml = "<div class='tab-pane fade"+(i == 0 ? " active show" : "") +"' id='tab-"+row.name+"' role='tabpanel'>";
+      let panelHtml = "<div class='tab-pane fade"+(i == 0 ? " active show" : "") +"' id='tab-"+tabName+"' role='tabpanel'>";
 
-      panelHtml += "<h3>" + row.name + "</h3>";
+      panelHtml += "<h3>" + row.name + " <span style='font-size: 60%'>("+ row.records +" records)</span></h3>";
       if( row.parentTypes != "" ){
         panelHtml += "Super Types: <b>";
         for( ptidx in row.parentTypes ) {
           if( ptidx > 0 )
             panelHtml += ", ";
           let pt = row.parentTypes[ptidx];
-          panelHtml += "<b><a href='#' onclick=\"globalActivateTab('tab-"+pt+"')\">" + pt + "</a></b>";
+          let ptName = pt.replaceAll(":", "-");
+
+          panelHtml += "<b><a href='#' onclick=\"globalActivateTab('tab-"+ptName+"')\">" + pt + "</a></b>";
         }
         panelHtml += "</b>";
       }
@@ -775,21 +830,37 @@ function displaySchema(){
           if( stidx > 0 )
             panelHtml += ", ";
           let st = typeSubTypes[stidx];
-          panelHtml += "<b><a href='#' onclick=\"globalActivateTab('tab-"+st+"')\">" + st + "</a></b>";
+          let stName = st.replaceAll(":", "-");
+
+          panelHtml += "<b><a href='#' onclick=\"globalActivateTab('tab-"+stName+"')\">" + st + "</a></b>";
         }
         panelHtml += "</b>";
       }
 
+      panelHtml += "<br>";
+
       if( row.indexes != "" ){
-        panelHtml += "<br>Indexes: <b>";
-        panelHtml += row.indexes.map(i => " " + i.name );
-        panelHtml += "</b>";
+        panelHtml += "<br><h6>Indexes</h6>";
+        panelHtml += "<div class='table-responsive'>";
+        panelHtml += "<table class='table table-striped table-sm' style='border: 0px; width: 100%'>";
+        panelHtml += "<thead><tr><th scope='col'>Name</th>";
+        panelHtml += "<th scope='col'>Defined In</th>";
+        panelHtml += "<th scope='col'>Properties</th>";
+        panelHtml += "<th scope='col'>Type</th>";
+        panelHtml += "<th scope='col'>Unique</th>";
+        panelHtml += "<th scope='col'>Automatic</th>";
+        panelHtml += "<th scope='col'>Actions</th>";
+        panelHtml += "<tbody>";
+
+        panelHtml += renderIndexes( row, data.result );
+
+        panelHtml += "</tbody></table></div>";
       }
 
-      panelHtml += "<br><br><h6>Properties</h6>";
+      panelHtml += "<br><h6>Properties</h6>";
       //panelHtml += "<button class='btn btn-pill' onclick='createProperty()'><i class='fa fa-plus'></i> Create Property</button>";
       panelHtml += "<div class='table-responsive'>";
-      panelHtml += "<table class='table table-striped table-sm table-responsive' style='border: 0px; width: 100%'>";
+      panelHtml += "<table class='table table-striped table-sm' style='border: 0px; width: 100%'>";
       panelHtml += "<thead><tr><th scope='col'>Name</th>";
       panelHtml += "<th scope='col'>Defined In</th>";
       panelHtml += "<th scope='col'>Type</th>";
@@ -800,7 +871,8 @@ function displaySchema(){
       panelHtml += "<th scope='col'>Min</th>";
       panelHtml += "<th scope='col'>Max</th>";
       panelHtml += "<th scope='col'>Regexp</th>";
-      panelHtml += "<th scope='col'>Indexed</th><th scope='col'>Actions</th>";
+      panelHtml += "<th scope='col'>Indexes</th>";
+      panelHtml += "<th scope='col'>Actions</th>";
       panelHtml += "<tbody>";
 
       panelHtml += renderProperties( row, data.result );
@@ -862,20 +934,21 @@ function renderProperties(row, results ){
     panelHtml += "<td>" + ( property.mandatory ? true : false ) + "</td>";
     panelHtml += "<td>" + ( property.notNull ? true : false ) + "</td>";
     panelHtml += "<td>" + ( property.readOnly ? true : false ) + "</td>";
-    panelHtml += "<td>" + ( property.defaultValue != null ? property.defaultValue : "" ) + "</td>";
+    panelHtml += "<td>" + ( property["default"] != null ? property["default"] : "" ) + "</td>";
     panelHtml += "<td>" + ( property.min != null ? property.min : "" ) + "</td>";
     panelHtml += "<td>" + ( property.max != null ? property.max : "" ) + "</td>";
     panelHtml += "<td>" + ( property.regexp != null ? property.regexp : "" ) + "</td>";
 
-    let actionHtml = "<button class='btn btn-pill' onclick='dropProperty(\""+row.name+"\", \""+property.name+"\")'><i class='fa fa-minus'></i> Drop Property</button>";
-
-    let propIndexes = [];
-    if( row.indexes != null && row.indexes.length > 0 ) {
-      propIndexes.push( row.indexes.filter(i => i.properties.includes( property.name )).map(i => (i.name + " " + i.unique ? "" : "Not ") + "Unique, Type(" + i.type + ")" + ( i.properties.length > 1 ? ", on multi properties " + i.properties : "" )) );
-      actionHtml += row.indexes.filter(i => i.properties.includes( property.name )).map(i => ( "<button class='btn btn-pill' onclick='dropIndex(\"" + i.name + "\")'><i class='fa fa-minus'></i> Drop Index</button>" ) );
+    let totalIndexes = 0;
+    if( row.indexes != null && row.indexes.length > 0 ){
+      for( i in row.indexes ){
+        if( row.indexes[i].properties.includes( property.name ) )
+          ++totalIndexes;
+      }
     }
-    panelHtml += "<td>" + ( propIndexes.length > 0 ? propIndexes : "" ) + "</td>";
-    panelHtml += "<td>" + actionHtml + "</td></tr>";
+
+    panelHtml += "<td>"+(totalIndexes > 0 ? totalIndexes : "None")+"</td>";
+    panelHtml += "<td><button class='btn btn-pill' onclick='dropProperty(\""+row.name+"\", \""+property.name+"\")'><i class='fa fa-minus'></i> Drop Property</button></td></tr>";
 
     if( property.custom != null && Object.keys( property.custom ).length > 0 ) {
       panelHtml += "<td></td>";
@@ -896,6 +969,22 @@ function renderProperties(row, results ){
     }
   }
 
+  return panelHtml;
+}
+
+function renderIndexes(row, results ){
+  let panelHtml = "";
+
+  for( let k in row.indexes ) {
+    let index = row.indexes[k];
+    panelHtml += "<tr><td>"+index.name+"</td><td>" + index.typeName + "</td>";
+    panelHtml += "<td>" + index.properties + "</td>";
+    panelHtml += "<td>" + index.type + "</td>";
+
+    panelHtml += "<td>" + ( index.unique ? true : false ) + "</td>";
+    panelHtml += "<td>" + ( index.automatic ? true : false ) + "</td>";
+    panelHtml += "<td><button class='btn btn-pill' onclick='dropIndex(\"" + index.name + "\")'><i class='fa fa-minus'></i> Drop Index</button></td></tr>";
+  }
   return panelHtml;
 }
 

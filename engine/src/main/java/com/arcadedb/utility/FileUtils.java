@@ -280,16 +280,14 @@ public class FileUtils {
     return dump.toString();
   }
 
-  public static String readFileAsString(final File file) throws IOException {
-    try (final FileInputStream is = new FileInputStream(file)) {
-      return readStreamAsString(is, "UTF8", 0);
-    }
-  }
-
   public static String readFileAsString(final File file, final String iCharset) throws IOException {
     try (final FileInputStream is = new FileInputStream(file)) {
       return readStreamAsString(is, iCharset, 0);
     }
+  }
+
+  public static String readFileAsString(final File file) throws IOException {
+    return readFileAsString(file, "UTF8");
   }
 
   public static Binary readStreamAsBinary(final InputStream iStream) throws IOException {
@@ -302,6 +300,10 @@ public class FileUtils {
       buffer.putByteArray(buf, numRead);
 
     return buffer;
+  }
+
+  public static String readStreamAsString(final InputStream iStream) throws IOException {
+    return readStreamAsString(iStream, "utf8", 0);
   }
 
   public static String readStreamAsString(final InputStream iStream, final String iCharset) throws IOException {
@@ -487,5 +489,25 @@ public class FileUtils {
       decodedLine.append(c);
     }
     return decodedLine.toString();
+  }
+
+  public static byte[] readInputStreamAsBytes(final InputStream fis) throws IOException {
+    return fis.readAllBytes();
+  }
+
+  public static byte[] readFileAsBytes(final File file) throws IOException {
+    final byte[] bytes = new byte[(int) file.length()];
+    try (FileInputStream fis = new FileInputStream(file)) {
+      fis.read(bytes);
+    }
+    return bytes;
+  }
+
+  public static byte[] readFileAsBytes(final File file, final int maxBytes) throws IOException {
+    final byte[] bytes = new byte[maxBytes];
+    try (FileInputStream fis = new FileInputStream(file)) {
+      fis.read(bytes);
+    }
+    return bytes;
   }
 }

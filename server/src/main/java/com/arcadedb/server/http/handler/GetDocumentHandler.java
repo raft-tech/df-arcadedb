@@ -32,31 +32,30 @@ import java.util.*;
  *
  * @Deprecated
  */
-@Deprecated
 public class GetDocumentHandler extends DatabaseAbstractHandler {
-  public GetDocumentHandler(final HttpServer httpServer) {
-    super(httpServer);
-  }
+    public GetDocumentHandler(final HttpServer httpServer) {
+        super(httpServer);
+    }
 
-  @Override
-  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user, final Database database) {
-    final Deque<String> rid = exchange.getQueryParameters().get("rid");
-    if (rid == null || rid.isEmpty())
-      return new ExecutionResponse(400, "{ \"error\" : \"Record id is null\"}");
+    @Override
+    public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user, final Database database) {
+        final Deque<String> rid = exchange.getQueryParameters().get("rid");
+        if (rid == null || rid.isEmpty())
+            return new ExecutionResponse(400, "{ \"error\" : \"Record id is null\"}");
 
-    httpServer.getServer().getServerMetrics().meter("http.get-record").hit();
+        httpServer.getServer().getServerMetrics().meter("http.get-record").hit();
 
-    final String[] ridParts = rid.getFirst().split(":");
+        final String[] ridParts = rid.getFirst().split(":");
 
-    final Document record = (Document) database.lookupByRID(new RID(database, Integer.parseInt(ridParts[0]), Long.parseLong(ridParts[1])), true);
+        final Document record = (Document) database.lookupByRID(new RID(database, Integer.parseInt(ridParts[0]), Long.parseLong(ridParts[1])), true);
 
-    final String response = "{ \"result\" : " + httpServer.getJsonSerializer().serializeDocument(record).toString() + "}";
+        final String response = "{ \"result\" : " + httpServer.getJsonSerializer().serializeDocument(record).toString() + "}";
 
-    return new ExecutionResponse(200, response);
-  }
+        return new ExecutionResponse(200, response);
+    }
 
-  @Override
-  protected boolean requiresTransaction() {
-    return false;
-  }
+    @Override
+    protected boolean requiresTransaction() {
+        return false;
+    }
 }

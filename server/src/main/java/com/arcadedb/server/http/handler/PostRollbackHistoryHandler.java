@@ -18,7 +18,7 @@ import io.undertow.server.HttpServerExchange;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class PostRollbackHistoryHandler extends AbstractHandler {
+public class PostRollbackHistoryHandler extends AbstractServerHttpHandler {
     public PostRollbackHistoryHandler(final HttpServer httpServer) {
         super(httpServer);
     }
@@ -102,36 +102,39 @@ public class PostRollbackHistoryHandler extends AbstractHandler {
                     final ArcadeDBServer server = httpServer.getServer();
                     var activeDatabase = server.getDatabase(database);
                     Record record = server.getDatabase(database).lookupByRID(new RID(activeDatabase, rid), true);
-                    Map<String, Object> classification = null;
-                    if (activeDatabase.getSchema().getEmbedded().isClassificationValidationEnabled()) {
-                        var classificationObj = (JSONObject)content.remove(MutableDocument.CLASSIFICATION_PROPERTY);
-                        classification = classificationObj.toMap();
-                    }
+                    String finalRid = rid;
 
-                    MutableDocument mutable = record.asDocument().modify();
-                    mutable.fromJSON(content);
-                    mutable.set(MutableDocument.CLASSIFICATION_PROPERTY, classification);
-
-                    if (activeDatabase.getSchema().getEmbedded().isClassificationValidationEnabled()) {
+                    activeDatabase.transaction(() -> {
+                        Map<String, Object> classification = null;
+                        if (activeDatabase.getSchema().getEmbedded().isClassificationValidationEnabled()) {
+                            var classificationObj = (JSONObject)content.remove(MutableDocument.CLASSIFICATION_PROPERTY);
+                            classification = classificationObj.toMap();
+                        }
+                        MutableDocument mutable = record.asDocument().modify();
+                        mutable.fromJSON(content);
                         mutable.set(MutableDocument.CLASSIFICATION_PROPERTY, classification);
-                    }
 
-                    LocalDateTime createdDate = null;
-                    if (record.asDocument().get(Utils.CREATED_DATE) instanceof Long) {
-                        createdDate = LocalDateTime.ofInstant(
-                                Instant.ofEpochMilli(record.asDocument().getLong(Utils.CREATED_DATE)),
-                                ZoneId.systemDefault());
-                    } else {
-                        createdDate = record.asDocument().getLocalDateTime(Utils.CREATED_DATE);
-                    }
+                        if (activeDatabase.getSchema().getEmbedded().isClassificationValidationEnabled()) {
+                            mutable.set(MutableDocument.CLASSIFICATION_PROPERTY, classification);
+                        }
 
-                    // Overwrite created by and date with the original record value to keep a user
-                    // from changing it...
-                    mutable.set(Utils.CREATED_DATE, createdDate);
-                    mutable.set(Utils.LAST_MODIFIED_BY, user.getName());
-                    mutable.set(Utils.LAST_MODIFIED_DATE, LocalDateTime.now());
-                    mutable.setIdentity(new RID(activeDatabase, rid));
-                    mutable.save();
+                        LocalDateTime createdDate = null;
+                        if (record.asDocument().get(Utils.CREATED_DATE) instanceof Long) {
+                            createdDate = LocalDateTime.ofInstant(
+                                    Instant.ofEpochMilli(record.asDocument().getLong(Utils.CREATED_DATE)),
+                                    ZoneId.systemDefault());
+                        } else {
+                            createdDate = record.asDocument().getLocalDateTime(Utils.CREATED_DATE);
+                        }
+
+                        // Overwrite created by and date with the original record value to keep a user
+                        // from changing it...
+                        mutable.set(Utils.CREATED_DATE, createdDate);
+                        mutable.set(Utils.LAST_MODIFIED_BY, user.getName());
+                        mutable.set(Utils.LAST_MODIFIED_DATE, LocalDateTime.now());
+                        mutable.setIdentity(new RID(activeDatabase, finalRid));
+                        mutable.save();
+                    });
                 } else if (arr.length() == 0) {
                     return new ExecutionResponse(404, "{ \"error\" : \"NotFound\"}");
                 }

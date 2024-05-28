@@ -99,6 +99,7 @@ public class OrientDBImporter {
 
   private static class OrientDBProperty {
     String              type;
+    String              ofType;
     Boolean             readOnly;
     Boolean             mandatory;
     Boolean             notNull;
@@ -882,7 +883,8 @@ public class OrientDBImporter {
           final OrientDBClass cls = new OrientDBClass();
 
           while (reader.peek() != END_OBJECT) {
-            switch (reader.nextName()) {
+            final String attrName = reader.nextName();
+            switch (attrName) {
             case "name":
               cls.name = reader.nextString();
               break;
@@ -918,6 +920,10 @@ public class OrientDBImporter {
                   case "type":
                     propertyType.type = reader.nextString();
                     break;
+                  case "linkedType":
+                  case "linkedClass":
+                    propertyType.ofType = reader.nextString();
+                    break;
                   case "customFields":
                     propertyType.customFields = parseRecord(reader, false);
                     if (propertyType.customFields.isEmpty())
@@ -926,10 +932,10 @@ public class OrientDBImporter {
                   case "mandatory":
                     propertyType.mandatory = reader.nextBoolean();
                     break;
-                  case "readOnly":
+                  case "readonly":
                     propertyType.readOnly = reader.nextBoolean();
                     break;
-                  case "notNull":
+                  case "not-null":
                     propertyType.notNull = reader.nextBoolean();
                     break;
                   case "min":
@@ -941,7 +947,7 @@ public class OrientDBImporter {
                   case "regexp":
                     propertyType.regexp = reader.nextString();
                     break;
-                  case "defaultValue":
+                  case "default-value":
                     propertyType.defaultValue = parseAttributeValue(reader, propertyName + ".defaultValue", false);
                     break;
                   default:
@@ -1093,7 +1099,7 @@ public class OrientDBImporter {
       }
 
       try {
-        final Property property = t.createProperty(entry.getKey(), Type.valueOf(orientdbType));
+        final Property property = t.createProperty(entry.getKey(), Type.valueOf(orientdbType), orientdbProperty.ofType);
 
         if (orientdbProperty.customFields != null)
           for (Map.Entry<String, Object> customEntry : orientdbProperty.customFields.entrySet())

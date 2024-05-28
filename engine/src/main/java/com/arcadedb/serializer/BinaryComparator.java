@@ -21,6 +21,7 @@ package com.arcadedb.serializer;
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.Identifiable;
+import com.arcadedb.schema.Type;
 import com.arcadedb.utility.CollectionUtils;
 import com.arcadedb.utility.DateUtils;
 
@@ -140,7 +141,8 @@ public class BinaryComparator {
         if (value2 instanceof byte[])
           return UnsignedBytesComparator.BEST_COMPARATOR.compare((byte[]) value1, (byte[]) value2);
         else
-          return UnsignedBytesComparator.BEST_COMPARATOR.compare((byte[]) value1, ((String) value2).getBytes(DatabaseFactory.getDefaultCharset()));
+          return UnsignedBytesComparator.BEST_COMPARATOR.compare((byte[]) value1,
+              ((String) value2).getBytes(DatabaseFactory.getDefaultCharset()));
       }
 
       return ((String) value1).compareTo(value2.toString());
@@ -322,7 +324,7 @@ public class BinaryComparator {
       switch (type2) {
       case BinaryTypes.TYPE_COMPRESSED_RID:
       case BinaryTypes.TYPE_RID:
-        return ((Identifiable) value1).getIdentity().compareTo((Identifiable) value2);
+        return ((Identifiable) value1).getIdentity().compareTo(value2);
       }
     }
 
@@ -334,12 +336,25 @@ public class BinaryComparator {
       break;
     }
 
+    case BinaryTypes.TYPE_MAP: {
+      switch (type2) {
+      case BinaryTypes.TYPE_MAP:
+        return CollectionUtils.compare((Map) value1, (Map) value2);
+      }
+      break;
+    }
+
     }
 
     throw new IllegalArgumentException("Comparison between type " + type1 + " and " + type2 + " not supported");
   }
 
   public int compareBytes(final byte[] buffer1, final Binary buffer2) {
+    if (buffer1 == null)
+      return -1;
+    if (buffer2 == null)
+      return 1;
+
     final long b1Size = buffer1.length;
     final long b2Size = buffer2.getUnsignedNumber();
 
@@ -359,12 +374,21 @@ public class BinaryComparator {
   }
 
   public static boolean equals(final Object a, final Object b) {
-    if (a instanceof String && b instanceof String)
+    if (a == b)
+      return true;
+    else if (a == null || b == null)
+      return false;
+    else if (a instanceof String && b instanceof String)
       return equalsString((String) a, (String) b);
     else if (a instanceof byte[] && b instanceof byte[])
       return equalsBytes((byte[]) a, (byte[]) b);
     else if (a instanceof Binary && b instanceof Binary)
       return equalsBinary((Binary) a, (Binary) b);
+    else if (!a.getClass().equals(b.getClass()) &&//
+        a instanceof Number && b instanceof Number) {
+      final Number[] pair = Type.castComparableNumber((Number) a, (Number) b);
+      return pair[0].equals(pair[1]);
+    }
     return a.equals(b);
   }
 
@@ -372,7 +396,8 @@ public class BinaryComparator {
     if (buffer1 == null || buffer2 == null)
       return false;
 
-    return equalsBytes(buffer1.getBytes(DatabaseFactory.getDefaultCharset()), buffer2.getBytes(DatabaseFactory.getDefaultCharset()));
+    return equalsBytes(buffer1.getBytes(DatabaseFactory.getDefaultCharset()),
+        buffer2.getBytes(DatabaseFactory.getDefaultCharset()));
   }
 
   public static boolean equalsBytes(final byte[] buffer1, final byte[] buffer2) {
@@ -409,10 +434,16 @@ public class BinaryComparator {
   public static int compareTo(final Object a, final Object b) {
     if (a == null && b == null)
       return 0;
-    if (a instanceof String && b instanceof String)
+    else if (a != null && b == null)
+      return 1;
+    else if (a == null && b != null)
+      return -1;
+    else if (a instanceof String && b instanceof String)
       return compareBytes(((String) a).getBytes(), ((String) b).getBytes(DatabaseFactory.getDefaultCharset()));
-    if (a instanceof byte[] && b instanceof byte[])
+    else if (a instanceof byte[] && b instanceof byte[])
       return compareBytes((byte[]) a, (byte[]) b);
+    else if (a instanceof Map && b instanceof Map)
+      return CollectionUtils.compare((Map) a, (Map) b);
     return ((Comparable<Object>) a).compareTo(b);
   }
 
