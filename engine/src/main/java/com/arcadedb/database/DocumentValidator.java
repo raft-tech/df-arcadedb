@@ -18,6 +18,7 @@
  */
 package com.arcadedb.database;
 
+import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.exception.ValidationException;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
@@ -59,7 +60,7 @@ public class DocumentValidator {
   }
 
   public static void validateClassificationMarkings(final MutableDocument document, 
-          SecurityDatabaseUser securityDatabaseUser) {
+          SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
 
     if (document == null) {
       throw new ValidationException("Document is null");
@@ -83,7 +84,7 @@ public class DocumentValidator {
 
     // validate sources, if present
     if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE) && !document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).isEmpty()) {
-      validateSources(document, securityDatabaseUser);
+      validateSources(document, securityDatabaseUser, action);
       validSources = true;
     }
 
@@ -104,7 +105,7 @@ public class DocumentValidator {
       }
 
       // Validate the user can set the classification of the document. Can't create higher than what you can access.
-      if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
+      if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
         throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
       }
 
@@ -126,13 +127,13 @@ public class DocumentValidator {
         throw new ValidationException("Missing classification attributes on document");
       }
 
-      validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
+      validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser, action);
     } else if (!validSources){
       throw new ValidationException("Missing overall classification data on document");
     }
   }
 
-  private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser) {
+  private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
 
     // confirm each json key in document has a matching key in attributes
     // have counter for each key in document, and decrement when found in attributes
@@ -158,7 +159,7 @@ public class DocumentValidator {
       var value = entry.getValue().toString();
 
       if (value != null && value.trim() != "") {
-        if (!AuthorizationUtils.checkPermissionsOnClassificationMarking(value, securityDatabaseUser)){
+        if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
           throw new ValidationException("User cannot set attribute classification markings on documents higher than or outside their current access.");
         }
       } else {
@@ -176,7 +177,7 @@ public class DocumentValidator {
    * Sources are stored in the document as a JSON object, with the key being a numbered list, and the values being the portion marked source id.
    * @param document
    */
-  private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser) {
+  private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
     var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
     sources.forEach(obj -> {
 
@@ -188,7 +189,7 @@ public class DocumentValidator {
 
       var classification = jo.getString(MutableDocument.CLASSIFICATION_PROPERTY);
 
-      if (!AuthorizationUtils.checkPermissionsOnDocumentToWrite(document, securityDatabaseUser)) {
+      if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
         throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
       }
 
@@ -203,7 +204,7 @@ public class DocumentValidator {
         throw new ValidationException("Invalid classification for source: " + classification);
       }
 
-      validateAttributeClassificationTagging(document, jo.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser);
+      validateAttributeClassificationTagging(document, jo.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser, action);
     });
   }
 

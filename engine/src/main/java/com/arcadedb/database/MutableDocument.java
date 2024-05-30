@@ -18,6 +18,7 @@
  */
 package com.arcadedb.database;
 
+import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.exception.ValidationException;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
@@ -171,9 +172,10 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   /**
    * Triggers the native required property valiation of arcade, as well as the one time ACCM validation.
    * ACCM validation follows a different recursive type checking pattern than arcade, so it is done separately.
- * @param securityDatabaseUser
+   * @param securityDatabaseUser
+   * @param update 
    */
-  public void validateAndAccmCheck(SecurityDatabaseUser securityDatabaseUser) {
+  public void validateAndAccmCheck(SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
     
     /**
      * Skip validitng during initial edge creation, as they don't have properties set yet.
@@ -194,7 +196,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     try {
       if (this.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
         if (toJSON() != null) {
-          DocumentValidator.validateClassificationMarkings(this, securityDatabaseUser);
+          DocumentValidator.validateClassificationMarkings(this, securityDatabaseUser, action);
           set(CLASSIFICATION_MARKED, true);
         }
       }

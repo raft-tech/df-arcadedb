@@ -2,6 +2,12 @@ package com.arcadedb.security.ACCM;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Arrays;
+import java.util.logging.Level;
+
+import com.arcadedb.log.LogManager;
+import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 
 @Data
@@ -52,6 +58,7 @@ public class Argument {
 
     // TODO add date comparison
 
+    // TODO add support for crawling through arrays
     /**
      * Crawls the JSON object to get the value of the field, if it exists
      * @param json
@@ -100,51 +107,81 @@ public class Argument {
             return false;
         }
 
-        Object value = getValueForFieldJsonPath(json);
+        Object docFieldValue = getValueForFieldJsonPath(json);
+
+        LogManager.instance().log(this, Level.INFO, "docFieldValue: " + docFieldValue);
 
         // TODO configurably handle null values- could eval to true or false
-        if (value == null) {
+        if (docFieldValue == null) {
             return false;
         }
 
         // evaluate if the value satisfies the argument, and validate the value is valid for the argument type
         switch (operator) {
             case EQ:
-                return this.value.equals(value);
+                return this.value.equals(docFieldValue);
             case NEQ:
-                return !this.value.equals(value);
+                return !this.value.equals(docFieldValue);
             case ANY_OF:
                 for (Object val : (Object[]) this.value) {
-                    if (val.equals(value)) {
+                    LogManager.instance().log(this, Level.INFO, "val: " + val + "; vt: " + val.getClass().getName());
+
+                    if (val.equals(docFieldValue)) {
                         return true;
                     }
                 }
                 return false;
             case GT:
-                return (int) value > (int) this.value;
+                return (int) docFieldValue > (int) this.value;
             case GT_EQ:
-                return (int) value >= (int) this.value;
+                return (int) docFieldValue >= (int) this.value;
             case LT:
-                return (int) value < (int) this.value;
+                return (int) docFieldValue < (int) this.value;
             case LT_EQ:
-                return (int) value <= (int) this.value;
+                return (int) docFieldValue <= (int) this.value;
             case ANY_IN:
-                for (Object val : (Object[]) this.value) {
-                    if (val.equals(value)) {
-                        return true;
+                if (docFieldValue instanceof JSONArray) {
+                    for (Object docVal :  ((JSONArray) docFieldValue).toList()) {
+
+                        String str = valueToString();
+                        str = str.substring(1, str.length() - 1).replace("\"", "");
+                        
+                        // Split the string by commas
+                        String[] stringArray = str.split(", ");
+                        for (String val : stringArray) {
+                            if (val.equals(docVal)) {
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
+                }
+
+                if (docFieldValue instanceof String[]) {
+                    for (String val : (String[]) this.value) {
+                        if (val.equals(docFieldValue)) {
+                            return true;
+                        }
+                    }
+                } else {
+                    for (Object val : (Object[]) this.value) {
+                        if (val.equals(docFieldValue)) {
+                            return true;
+                        }
                     }
                 }
                 return false;
             case ALL_IN:
                 for (Object val : (Object[]) this.value) {
-                    if (!val.equals(value)) {
+                    if (!val.equals(docFieldValue)) {
                         return false;
                     }
                 }
                 return true;
             case NONE_IN:
                 for (Object val : (Object[]) this.value) {
-                    if (val.equals(value)) {
+                    if (val.equals(docFieldValue)) {
                         return false;
                     }
                 }
@@ -152,5 +189,35 @@ public class Argument {
             default:
                 return false;
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Argument [field=" + field + ", operator=" + operator + ", value=" + valueToString() + "]";
+    }
+
+    private String valueToString() {
+        if (this.value.getClass().isArray()) {
+            if (this.value instanceof Object[]) {
+                return Arrays.deepToString((Object[]) this.value);
+            } else if (this.value instanceof int[]) {
+                return Arrays.toString((int[]) this.value);
+            } else if (this.value instanceof long[]) {
+                return Arrays.toString((long[]) this.value);
+            } else if (this.value instanceof byte[]) {
+                return Arrays.toString((byte[]) this.value);
+            } else if (this.value instanceof char[]) {
+                return Arrays.toString((char[]) this.value);
+            } else if (this.value instanceof float[]) {
+                return Arrays.toString((float[]) this.value);
+            } else if (this.value instanceof double[]) {
+                return Arrays.toString((double[]) this.value);
+            } else if (this.value instanceof boolean[]) {
+                return Arrays.toString((boolean[]) this.value);
+            } else {
+                return "Unknown array type";
+            }
+        }
+        return this.value.toString();
     }
 }

@@ -3,18 +3,35 @@ package com.arcadedb.security.ACCM;
 import java.util.ArrayList;
 import java.util.List;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import com.arcadedb.serializer.json.JSONObject;
 
+// user: patrick
+/*
+ * [
+ *   IIR
+ *     create
+ *     read
+ *   People
+ * 
+ * ]
+ * 
+ * 
+ * 
+ */
+
+
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 public class TypeRestriction {
     
-    private String name;
-    private GraphType type;
-    private List<Expression> create = new ArrayList<>();
+    private String name; // IIR
+    private GraphType type; // Vertex
+    private List<Expression> create = new ArrayList<>(); 
     private List<Expression> read = new ArrayList<>();
     private List<Expression> update = new ArrayList<>();
     private List<Expression> delete = new ArrayList<>();
