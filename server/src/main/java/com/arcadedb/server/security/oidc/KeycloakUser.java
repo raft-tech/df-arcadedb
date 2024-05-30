@@ -1,6 +1,5 @@
 package com.arcadedb.server.security.oidc;
 
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.List;
 

@@ -23,6 +23,7 @@ import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.log.LogManager;
+import com.arcadedb.security.ACCM.TypeRestriction;
 import com.arcadedb.security.SecurityManager;
 import com.arcadedb.serializer.json.JSONException;
 import com.arcadedb.serializer.json.JSONObject;
@@ -32,16 +33,11 @@ import com.arcadedb.server.ServerException;
 import com.arcadedb.server.ServerPlugin;
 import com.arcadedb.server.security.credential.CredentialsValidator;
 import com.arcadedb.server.security.credential.DefaultCredentialsValidator;
-import com.arcadedb.server.security.oidc.ArcadeRole;
-import com.arcadedb.server.security.oidc.Group;
-import com.arcadedb.server.security.oidc.GroupMap;
-import com.arcadedb.server.security.oidc.GroupTypeAccess;
-import com.arcadedb.server.security.oidc.KeycloakClient;
-import com.arcadedb.server.security.oidc.KeycloakUser;
-import com.arcadedb.server.security.oidc.User;
+import com.arcadedb.server.security.oidc.*;
 import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
+import com.arcadedb.security.serializers.OpaPolicy;
 import com.arcadedb.utility.AnsiCode;
 import com.arcadedb.utility.LRUCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -282,6 +278,9 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     List<String> roles = KeycloakClient.getUserClientRoles(username);
     return new KeycloakUser(username, roles);
   }
+  private OpaPolicy getPolicy(String username) {
+    return OpaClient.getPolicy(username);
+  }
 
   /**
    * Parse ArcadeRole objects from jwt role name strings
@@ -356,7 +355,10 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     // skip regex support for now
     return group;
   }
+  private List<TypeRestriction> constructTypeRestrictions(String username) {
 
+    return new ArrayList<>();
+  }
   /**
    * Returns a user from local cache if found, or creates a new user from keycloak
    * 
@@ -373,6 +375,9 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       return users.get(username);
     }
 
+    OpaPolicy  policy = getPolicy(username);
+    log.info("policy '{}'", policy);
+
     // 1. get user from keycloak
     KeycloakUser keycloakUser = createKeycloakUser(username);
 
@@ -381,7 +386,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       throw new ServerSecurityException("User not found");
     }
 
-    log.debug("returned user {}", keycloakUser.toString());
+    log.debug("returned user {}", keycloakUser);
 
     // 2. Check if user is authoried to hit arcade
     List<String> arcadeJwtRoles = keycloakUser.getRoles()
@@ -448,7 +453,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     // 7. get user attribtues for ACCM
     Map<String, Object> attributes = KeycloakClient.getUserAttributes(username);
 
-    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis());
+    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis(), policy);
     users.put(serverSecurityUser);
 
     return serverSecurityUser;
