@@ -60,6 +60,7 @@ import com.arcadedb.schema.EmbeddedSchema;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Schema;
 import com.arcadedb.schema.VertexType;
+import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.SecurityManager;
 import com.arcadedb.serializer.BinarySerializer;
@@ -996,7 +997,15 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
   @Override
   public void deleteRecord(final Record record) {
     executeInReadLock(() -> {
-      deleteRecordNoLock(record);
+      if (record instanceof MutableDocument) {
+        var rec = (MutableDocument) record;
+        var context = DatabaseContext.INSTANCE.getContext(rec.database.getDatabasePath());
+        if (context.getCurrentUser() != null)
+          if (AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), context.getCurrentUser(), RecordAction.DELETE)) {
+            deleteRecordNoLock(record);
+          }
+      }
+
       return null;
     });
   }
