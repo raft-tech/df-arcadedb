@@ -4,10 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
-import java.util.logging.Level;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
+import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.security.ACCM.Argument;
 import com.arcadedb.security.ACCM.ArgumentOperator;
@@ -15,8 +15,6 @@ import com.arcadedb.security.ACCM.Expression;
 import com.arcadedb.security.ACCM.ExpressionOperator;
 import com.arcadedb.security.ACCM.GraphType;
 import com.arcadedb.security.ACCM.TypeRestriction;
-import com.arcadedb.log.LogManager;
-import com.arcadedb.serializer.json.JSONObject;
 
 public class AuthorizationUtils {
 
@@ -220,10 +218,14 @@ public class AuthorizationUtils {
     return classification;
   }
 
+  public static boolean checkPermissionsOnDocumentToCreate(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, RecordAction.CREATE);
+  }
+
   public static boolean checkPermissionsOnDocumentToRead(final Document document, final SecurityDatabaseUser currentUser) {
     // log duration in ns
     long startTime = System.nanoTime();
-    boolean result = checkPermissionsOnDocument(document, currentUser, false);
+    boolean result = checkPermissionsOnDocument(document, currentUser, RecordAction.READ);
 
 
 
@@ -234,11 +236,16 @@ public class AuthorizationUtils {
     return result;
   }
 
-  public static boolean checkPermissionsOnDocumentToWrite(final Document document, final SecurityDatabaseUser currentUser) {
-    return checkPermissionsOnDocument(document, currentUser, true);
+  public static boolean checkPermissionsOnDocumentToUpdate(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, RecordAction.UPDATE);
   }
 
-  private static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser, final boolean isWriteAction) {
+  public static boolean checkPermissionsOnDocumentToDelete(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, RecordAction.DELETE);
+  }
+
+  // split out crud actions
+  public static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser, final RecordAction action) {
     // Allow root user to access all documents for HA syncing between nodes
     if (currentUser.getName().equals("root")) {
       return true;
@@ -256,49 +263,23 @@ public class AuthorizationUtils {
     }
 
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
-    if (!isWriteAction && (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
+    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
       // todo throw illegal arg exception, no valid marking
       return false;
     }
 
-    return getTypeRestriction().evaluateCreateRestrictions(document.toJSON());
-
-    // TODO detect and provide org for clearance
-    // var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
-    // var nationality = currentUser.getNationality();
-    // var tetragraphs = currentUser.getTetragraphs();
-
-    // if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
-    //   // sources will be a map, in the form of source number : (classification//ACCM) source id
-    //   // check if user has appropriate clearance for any of the sources for the document
-      
-    //   var array = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
-      
-    //   for (int i = 0; i < array.length(); i++) {
-    //     JSONObject jo = array.getJSONObject(i);
-
-    //     // TODO update
-    //     // if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
-    //     //     AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
-    //     //       jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
-    //     //   return true;
-    //     // }
-    //   }
-    // }
-
-    // if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-    //       && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
-    //   var docClassification = 
-    //       document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
-    //   if (docClassification != null && !docClassification.isEmpty()) {
-    //     // var isAuthorized = isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
-    //     // return isAuthorized;
-    //   } else {
-    //     return false;
-    //   }
-    // }
-
-    // return false;
+    switch (action) {
+      case CREATE:
+        return getTypeRestriction().evaluateCreateRestrictions(document.toJSON());
+      case READ:
+        return getTypeRestriction().evaluateReadRestrictions(document.toJSON());
+      case UPDATE:
+        return getTypeRestriction().evaluateUpdateRestrictions(document.toJSON());
+      case DELETE:
+        return getTypeRestriction().evaluateDeleteRestrictions(document.toJSON());
+      default:
+        LogManager.instance().log(AuthorizationUtils.class, Level.SEVERE, "Invalid action: " + action);
+        return false;
+    }
   }
-
 }

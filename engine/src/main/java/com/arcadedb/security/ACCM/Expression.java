@@ -38,7 +38,6 @@ public class Expression {
         this.operator = operator;
         this.expressions = expressions;
         this.arguments = arguments;
-
     }
 
     public boolean evaluate(JSONObject json) {
@@ -72,4 +71,3 @@ public class Expression {
         return result;
     }
 }
-
