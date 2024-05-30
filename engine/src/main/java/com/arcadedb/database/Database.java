@@ -21,13 +21,14 @@ package com.arcadedb.database;
 import com.arcadedb.ContextConfiguration;
 import com.arcadedb.database.async.DatabaseAsyncExecutor;
 import com.arcadedb.database.async.NewEdgeCallback;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.engine.ErrorRecordCallback;
-import com.arcadedb.engine.PaginatedFile;
 import com.arcadedb.engine.WALFile;
 import com.arcadedb.graph.Edge;
 import com.arcadedb.graph.Vertex;
 import com.arcadedb.index.IndexCursor;
 import com.arcadedb.query.QueryEngine;
+import com.arcadedb.query.select.Select;
 import com.arcadedb.query.sql.executor.ResultSet;
 import com.arcadedb.schema.Schema;
 
@@ -41,7 +42,7 @@ public interface Database extends BasicDatabase {
 
   ContextConfiguration getConfiguration();
 
-  PaginatedFile.MODE getMode();
+  ComponentFile.MODE getMode();
 
   DatabaseAsyncExecutor async();
 
@@ -54,6 +55,8 @@ public interface Database extends BasicDatabase {
    * security, use ArcadeDB server.
    */
   String getCurrentUserName();
+
+  Select select();
 
   /**
    * Executes a command by specifying the language and arguments in a map.
@@ -218,9 +221,9 @@ public interface Database extends BasicDatabase {
    * @see DatabaseAsyncExecutor#newEdgeByKeys(String, String, Object, String, String, Object, boolean, String, boolean, boolean, NewEdgeCallback, Object...)
    * @see #newEdgeByKeys(Vertex, String, String[], Object[], boolean, String, boolean, Object...)
    */
-  Edge newEdgeByKeys(String sourceVertexType, String[] sourceVertexKeyNames, Object[] sourceVertexKeyValues, String destinationVertexType,
-      String[] destinationVertexKeyNames, Object[] destinationVertexKeyValues, boolean createVertexIfNotExist, String edgeType, boolean bidirectional,
-      Object... properties);
+  Edge newEdgeByKeys(String sourceVertexType, String[] sourceVertexKeyNames, Object[] sourceVertexKeyValues,
+      String destinationVertexType, String[] destinationVertexKeyNames, Object[] destinationVertexKeyValues,
+      boolean createVertexIfNotExist, String edgeType, boolean bidirectional, Object... properties);
 
   /**
    * Creates a new edge between two vertices specifying the source vertex instance and the key/value pairs to lookup for the destination vertices. The direction
@@ -242,8 +245,9 @@ public interface Database extends BasicDatabase {
    * @see DatabaseAsyncExecutor#newEdgeByKeys(String, String, Object, String, String, Object, boolean, String, boolean, boolean, NewEdgeCallback, Object...)
    * @see #newEdgeByKeys(String, String[], Object[], String, String[], Object[], boolean, String, boolean, Object...)
    */
-  Edge newEdgeByKeys(Vertex sourceVertex, String destinationVertexType, String[] destinationVertexKeyNames, Object[] destinationVertexKeyValues,
-      boolean createVertexIfNotExist, String edgeType, boolean bidirectional, Object... properties);
+  Edge newEdgeByKeys(Vertex sourceVertex, String destinationVertexType, String[] destinationVertexKeyNames,
+      Object[] destinationVertexKeyValues, boolean createVertexIfNotExist, String edgeType, boolean bidirectional,
+      Object... properties);
 
   /**
    * Returns the query engine by language name.

@@ -22,6 +22,7 @@ import com.arcadedb.engine.FileManager;
 import com.arcadedb.engine.PageManager;
 import com.arcadedb.engine.TransactionManager;
 import com.arcadedb.engine.WALFileFactory;
+import com.arcadedb.exception.TransactionException;
 import com.arcadedb.graph.GraphEngine;
 import com.arcadedb.query.sql.parser.ExecutionPlanCache;
 import com.arcadedb.query.sql.parser.StatementCache;
@@ -40,7 +41,14 @@ public interface DatabaseInternal extends Database {
     TX_AFTER_WAL_WRITE, DB_NOT_CLOSED
   }
 
-  TransactionContext getTransaction();
+  default TransactionContext getTransaction() {
+    final TransactionContext tx = getTransactionIfExists();
+    if (tx == null)
+      throw new TransactionException("Transaction not started on current thread");
+    return tx;
+  }
+
+  TransactionContext getTransactionIfExists();
 
   MutableEmbeddedDocument newEmbeddedDocument(EmbeddedModifier modifier, String typeName);
 
@@ -68,6 +76,8 @@ public interface DatabaseInternal extends Database {
 
   boolean checkTransactionIsActive(boolean createTx);
 
+  boolean isAsyncProcessing();
+
   long getResultSetLimit();
 
   long getReadTimeout();
@@ -93,6 +103,8 @@ public interface DatabaseInternal extends Database {
   void updateRecordNoLock(Record record, boolean discardRecordAfter);
 
   void deleteRecordNoLock(Record record);
+
+  Record invokeAfterReadEvents(Record record);
 
   void kill();
 

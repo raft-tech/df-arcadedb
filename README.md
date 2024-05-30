@@ -9,6 +9,8 @@
   &nbsp;
   <a href="https://docs.oracle.org/en/java/11/"><img src="https://img.shields.io/badge/Java-%3D11-green.svg"></a>
   &nbsp;
+  <a href="https://docs.oracle.org/en/java/17/"><img src="https://img.shields.io/badge/Java-%3D17-green.svg"></a>
+  &nbsp;
   <a href="https://api.reuse.software/info/github.com/ArcadeData/arcadedb"><img src="https://api.reuse.software/badge/github.com/ArcadeData/arcadedb"></a>
   &nbsp;
   <a href="https://maven-badges.herokuapp.com/maven-central/com.arcadedb/arcadedb-parent"><img src="https://maven-badges.herokuapp.com/maven-central/com.arcadedb/arcadedb-parent/badge.svg"></a>
@@ -73,7 +75,7 @@ ArcadeDB understands multiple languages:
 
 - [SQL](https://docs.arcadedb.com#SQL) (from OrientDB SQL)
 - Neo4j [Cypher (Open Cypher)](https://docs.arcadedb.com#Cypher)
-- [Apache Gremlin (Apache Tinkerpop v3.6.x)](https://docs.arcadedb.com#Gremlin-API)
+- [Apache Gremlin (Apache Tinkerpop v3.7.x)](https://docs.arcadedb.com#Gremlin-API)
 - [GraphQL Language](https://docs.arcadedb.com#GraphQL)
 - [MongoDB Query Language](https://docs.arcadedb.com#MongoDB-API)
 
@@ -84,6 +86,8 @@ ArcadeDB can be used as:
 - Remotely by using a [Postgres driver](https://docs.arcadedb.com#Postgres-Driver) (ArcadeDB implements Postgres Wire protocol)
 - Remotely by using a [Redis driver](https://docs.arcadedb.com#Redis-API) (only a subset of the operations are implemented)
 - Remotely by using a [MongoDB driver](https://docs.arcadedb.com#MongoDB-API) (only a subset of the operations are implemented)
+
+For more information, see the [documentation](https://docs.arcadedb.com).
 
 ### Getting started in 5 minutes
 
@@ -101,6 +105,8 @@ imported `OpenBeer` database to find your favorite beer.
 ![ArcadeDB Studio](https://arcadedb.com/assets/images/openbeer-demo-graph.png)
 
 ArcadeDB is cloud-ready with [Docker](https://docs.arcadedb.com/#Docker) and [Kubernetes](https://docs.arcadedb.com/#Kubernetes) support.
+
+You can also [download the latest release](https://github.com/ArcadeData/arcadedb/releases), unpack it on your local hard drive and start the server with ```bin/server.sh``` or ```bin/server.bat``` for Windows.
 
 ### Community
 

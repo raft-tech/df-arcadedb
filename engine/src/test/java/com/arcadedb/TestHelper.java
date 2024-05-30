@@ -21,7 +21,7 @@ package com.arcadedb;
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.query.sql.executor.Result;
 import com.arcadedb.query.sql.executor.ResultSet;
@@ -38,10 +38,10 @@ import java.util.*;
 import java.util.logging.*;
 
 public abstract class TestHelper {
-  private static final int             PARALLEL_LEVEL = 4;
-  protected final      DatabaseFactory factory;
-  protected            Database        database;
-  protected            boolean         autoStartTx    = false;
+  protected static final int             PARALLEL_LEVEL = 4;
+  protected final        DatabaseFactory factory;
+  protected              Database        database;
+  protected              boolean         autoStartTx    = false;
 
   public interface DatabaseTest<PAR> {
     void call(PAR iArgument) throws Exception;
@@ -61,8 +61,6 @@ public abstract class TestHelper {
     factory = new DatabaseFactory(getDatabasePath());
     database = factory.exists() ? factory.open() : factory.create();
     Assertions.assertEquals(database, DatabaseFactory.getActiveDatabaseInstance(database.getDatabasePath()));
-
-    database.async().setParallelLevel(PARALLEL_LEVEL);
 
     if (autoStartTx)
       database.begin();
@@ -140,7 +138,7 @@ public abstract class TestHelper {
       Assertions.assertNull(DatabaseFactory.getActiveDatabaseInstance(database.getDatabasePath()));
     }
 
-    database = factory.open(PaginatedFile.MODE.READ_ONLY);
+    database = factory.open(ComponentFile.MODE.READ_ONLY);
     Assertions.assertEquals(database, DatabaseFactory.getActiveDatabaseInstance(database.getDatabasePath()));
   }
 
@@ -174,7 +172,7 @@ public abstract class TestHelper {
       if (isCheckingDatabaseIntegrity())
         checkDatabaseIntegrity();
 
-      if (database.getMode() == PaginatedFile.MODE.READ_ONLY)
+      if (database.getMode() == ComponentFile.MODE.READ_ONLY)
         reopenDatabase();
 
       ((DatabaseInternal) database).getEmbedded().drop();
@@ -194,7 +192,8 @@ public abstract class TestHelper {
     return "default";
   }
 
-  public static void expectException(final CallableNoReturn callback, final Class<? extends Throwable> expectedException) throws Exception {
+  public static void expectException(final CallableNoReturn callback, final Class<? extends Throwable> expectedException)
+      throws Exception {
     try {
       callback.call();
       Assertions.fail();
@@ -227,7 +226,8 @@ public abstract class TestHelper {
     final Collection<Database> activeDatabases = DatabaseFactory.getActiveDatabaseInstances();
 
     if (!activeDatabases.isEmpty())
-      LogManager.instance().log(TestHelper.class, Level.SEVERE, "Found active databases: " + activeDatabases + ". Forced closing...");
+      LogManager.instance()
+          .log(TestHelper.class, Level.SEVERE, "Found active databases: " + activeDatabases + ". Forced closing...");
 
     for (final Database db : activeDatabases)
       db.close();

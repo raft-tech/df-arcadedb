@@ -18,7 +18,7 @@
  */
 package com.arcadedb.index;
 
-import com.arcadedb.engine.PaginatedComponent;
+import com.arcadedb.engine.Component;
 import com.arcadedb.schema.Type;
 import com.arcadedb.serializer.json.JSONObject;
 
@@ -29,11 +29,15 @@ import java.util.*;
  * Internal Index interface.
  */
 public interface IndexInternal extends Index {
-  long build(int batchSize, BuildIndexCallback callback);
+  public enum INDEX_STATUS {UNAVAILABLE, AVAILABLE, COMPACTION_SCHEDULED, COMPACTION_IN_PROGRESS}
+
+  long build(int buildIndexBatchSize, BuildIndexCallback callback);
 
   boolean compact() throws IOException, InterruptedException;
 
   void setMetadata(String name, String[] propertyNames, int associatedBucketId);
+
+  boolean setStatus(INDEX_STATUS[] expectedStatuses, INDEX_STATUS newStatus);
 
   void close();
 
@@ -43,7 +47,7 @@ public interface IndexInternal extends Index {
 
   int getFileId();
 
-  PaginatedComponent getPaginatedComponent();
+  Component getComponent();
 
   Type[] getKeyTypes();
 
@@ -59,9 +63,13 @@ public interface IndexInternal extends Index {
 
   boolean isCompacting();
 
+  boolean isValid();
+
   boolean scheduleCompaction();
 
   String getMostRecentFileName();
 
   JSONObject toJSON();
+
+  IndexInternal getAssociatedIndex();
 }

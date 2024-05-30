@@ -35,9 +35,8 @@ public class CreateEdgeStatement extends Statement {
   protected Expression leftExpression;
   protected Expression rightExpression;
   protected InsertBody body;
-  protected Number     retry;
-  protected Number     wait;
   protected boolean    ifNotExists;
+  protected boolean    unidirectional = false;
 
   public CreateEdgeStatement(final int id) {
     super(id);
@@ -90,20 +89,15 @@ public class CreateEdgeStatement extends Statement {
     builder.append(" TO ");
     rightExpression.toString(params, builder);
 
+    if (unidirectional)
+      builder.append(" UNIDIRECTIONAL");
+
     if (ifNotExists)
       builder.append(" IF NOT EXISTS");
 
     if (body != null) {
       builder.append(" ");
       body.toString(params, builder);
-    }
-    if (retry != null) {
-      builder.append(" RETRY ");
-      builder.append(retry);
-    }
-    if (wait != null) {
-      builder.append(" WAIT ");
-      builder.append(wait);
     }
   }
 
@@ -115,15 +109,14 @@ public class CreateEdgeStatement extends Statement {
     result.leftExpression = leftExpression == null ? null : leftExpression.copy();
     result.rightExpression = rightExpression == null ? null : rightExpression.copy();
     result.ifNotExists = ifNotExists;
+    result.unidirectional = unidirectional;
     result.body = body == null ? null : body.copy();
-    result.retry = retry;
-    result.wait = wait;
     return result;
   }
 
   @Override
   protected Object[] getIdentityElements() {
-    return new Object[] { targetType, targetBucketName, leftExpression, rightExpression, ifNotExists, body, retry, wait };
+    return new Object[] { targetType, targetBucketName, leftExpression, rightExpression, unidirectional, ifNotExists, body };
   }
 
   public Identifier getTargetType() {
@@ -146,16 +139,12 @@ public class CreateEdgeStatement extends Statement {
     return ifNotExists;
   }
 
+  public boolean isUnidirectional() {
+    return unidirectional;
+  }
+
   public InsertBody getBody() {
     return body;
-  }
-
-  public Number getRetry() {
-    return retry;
-  }
-
-  public Number getWait() {
-    return wait;
   }
 }
 /* JavaCC - OriginalChecksum=2d3dc5693940ffa520146f8f7f505128 (do not edit this line) */

@@ -19,9 +19,12 @@
 package com.arcadedb.database;
 
 import com.arcadedb.exception.DatabaseOperationException;
+import com.arcadedb.graph.MutableEdge;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.serializer.json.JSONObject;
 
+import java.io.*;
+import java.lang.reflect.*;
 import java.util.*;
 
 /**
@@ -52,14 +55,29 @@ public class ImmutableDocument extends BaseDocument {
       return null;
 
     checkForLazyLoading();
-    return database.getSerializer().deserializeProperty(database, buffer, new EmbeddedModifierProperty(this, propertyName), propertyName, type);
+    return database.getSerializer()
+        .deserializeProperty(database, buffer, new EmbeddedModifierProperty(this, propertyName), propertyName, type);
   }
 
   @Override
   public synchronized MutableDocument modify() {
     final Record recordInCache = database.getTransaction().getRecordFromCache(rid);
-    if (recordInCache instanceof MutableDocument)
-      return (MutableDocument) recordInCache;
+    if (recordInCache != null) {
+      if (recordInCache instanceof MutableDocument)
+        return (MutableDocument) recordInCache;
+      else if (!database.getTransaction().hasPageForRecord(rid.getPageId())) {
+        // THE RECORD IS NOT IN TX, SO IT MUST HAVE BEEN LOADED WITHOUT A TX OR PASSED FROM ANOTHER TX
+        // IT MUST BE RELOADED TO GET THE LATEST CHANGES. FORCE RELOAD
+        try {
+          // RELOAD THE PAGE FIRST TO AVOID LOOP WITH TRIGGERS (ENCRYPTION)
+          database.getTransaction()
+              .getPageToModify(rid.getPageId(), database.getSchema().getBucketById(rid.getBucketId()).getPageSize(), false);
+          reload();
+        } catch (final IOException e) {
+          throw new DatabaseOperationException("Error on reloading document " + rid, e);
+        }
+      }
+    }
 
     checkForLazyLoading();
     buffer.rewind();
@@ -67,15 +85,17 @@ public class ImmutableDocument extends BaseDocument {
   }
 
   @Override
-  public synchronized JSONObject toJSON() {
+  public synchronized JSONObject toJSON(final boolean includeMetadata) {
     checkForLazyLoading();
-    final Map<String, Object> map = database.getSerializer().deserializeProperties(database, buffer, new EmbeddedModifierObject(this), type);
-
+    final Map<String, Object> map = database.getSerializer()
+        .deserializeProperties(database, buffer, new EmbeddedModifierObject(this), type);
     final JSONObject result = new JSONSerializer(database).map2json(map);
-    result.put("@cat", "d");
-    result.put("@type", type.getName());
-    if (getIdentity() != null)
-      result.put("@rid", getIdentity().toString());
+    if (includeMetadata) {
+      result.put("@cat", "d");
+      result.put("@type", type.getName());
+      if (getIdentity() != null)
+        result.put("@rid", getIdentity().toString());
+    }
     return result;
   }
 
@@ -95,7 +115,8 @@ public class ImmutableDocument extends BaseDocument {
   @Override
   public synchronized Map<String, Object> toMap(final boolean includeMetadata) {
     checkForLazyLoading();
-    final Map<String, Object> result = database.getSerializer().deserializeProperties(database, buffer, new EmbeddedModifierObject(this), type);
+    final Map<String, Object> result = database.getSerializer()
+        .deserializeProperties(database, buffer, new EmbeddedModifierObject(this), type);
     if (includeMetadata) {
       result.put("@cat", "d");
       result.put("@type", type.getName());
@@ -117,7 +138,8 @@ public class ImmutableDocument extends BaseDocument {
       final int currPosition = buffer.position();
 
       buffer.position(propertiesStartingPosition);
-      final Map<String, Object> map = this.database.getSerializer().deserializeProperties(database, buffer, new EmbeddedModifierObject(this), type);
+      final Map<String, Object> map = this.database.getSerializer()
+          .deserializeProperties(database, buffer, new EmbeddedModifierObject(this), type);
 
       buffer.position(currPosition);
 
@@ -128,7 +150,14 @@ public class ImmutableDocument extends BaseDocument {
 
         output.append(entry.getKey());
         output.append('=');
-        output.append(entry.getValue());
+
+        final Object v = entry.getValue();
+        if (v != null && v.getClass().isArray()) {
+          output.append('[');
+          output.append(Array.getLength(v));
+          output.append(']');
+        } else
+          output.append(v);
         i++;
       }
     }
@@ -149,6 +178,16 @@ public class ImmutableDocument extends BaseDocument {
 
       buffer = database.getSchema().getBucketById(rid.getBucketId()).getRecord(rid);
       buffer.position(propertiesStartingPosition);
+
+      final Record loaded = database.invokeAfterReadEvents(this);
+      if (loaded == null) {
+        buffer = null;
+        return false;
+      } else if (loaded != this) {
+        // CREATE A BUFFER FROM THE MODIFIED RECORD. THIS IS NEEDED FOR ENCRYPTION THAT UPDATE THE RECORD WITH A MUTABLE
+        buffer = database.getSerializer().serialize(database, loaded);
+      }
+
       return true;
     }
 

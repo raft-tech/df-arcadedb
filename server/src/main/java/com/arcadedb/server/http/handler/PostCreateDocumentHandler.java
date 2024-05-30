@@ -34,44 +34,43 @@ import java.io.*;
 /**
  * Deprecated. Use the query language instead. To create a new document you can use the SQL INSERT statement. Example: `INSERT INTO Account SET name = 'Elon'`.
  *
- * @Deprecated
  */
-@Deprecated
 public class PostCreateDocumentHandler extends DatabaseAbstractHandler {
-  public PostCreateDocumentHandler(final HttpServer httpServer) {
-    super(httpServer);
-  }
+    public PostCreateDocumentHandler(final HttpServer httpServer) {
+        super(httpServer);
+    }
 
-  @Override
-  protected boolean mustExecuteOnWorkerThread() {
-    return true;
-  }
+    @Override
+    protected boolean mustExecuteOnWorkerThread() {
+        return true;
+    }
 
-  @Override
-  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user, final Database database) throws IOException {
-    final String payload = parseRequestPayload(exchange);
+    @Override
+    public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user, final Database database) throws IOException {
+        final String payload = parseRequestPayload(exchange);
 
-    final JSONObject json = new JSONObject(payload);
+        final JSONObject json = new JSONObject(payload);
 
-    final String typeName = (String) json.remove("@type");
-    if (typeName == null)
-      return new ExecutionResponse(400, "{ \"error\" : \"@type attribute not found in the record payload\"}");
+        final String typeName = (String) json.remove("@type");
+        if (typeName == null)
+            return new ExecutionResponse(400, "{ \"error\" : \"@type attribute not found in the record payload\"}");
 
-    httpServer.getServer().getServerMetrics().meter("http.create-record").hit();
+        httpServer.getServer().getServerMetrics().meter("http.create-record").hit();
 
-    final DocumentType type = database.getSchema().getType(typeName);
+        final DocumentType type = database.getSchema().getType(typeName);
 
-    final MutableDocument document;
-    if (type instanceof VertexType)
-      document = database.newVertex(typeName);
-    else if (type instanceof EdgeType)
-      document = new MutableEdge(database, (EdgeType) type, null);
-    else
-      document = database.newDocument(typeName);
+        final MutableDocument document;
+        if (type instanceof VertexType)
+            document = database.newVertex(typeName);
+        else if (type instanceof EdgeType)
+            document = new MutableEdge(database, (EdgeType) type, null);
+        else
+            document = database.newDocument(typeName);
 
-    document.fromJSON(json);
-    document.save();
+        document.fromJSON(json);
+        document.save();
 
-    return new ExecutionResponse(200, "{ \"result\" : \"" + document.getIdentity() + "\"}");
-  }
+        return new ExecutionResponse(200, "{ \"result\" : \"" + document.getIdentity() + "\"}");
+    }
 }
+

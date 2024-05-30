@@ -26,6 +26,7 @@ import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.ACCM.AccmProperty;
 import com.arcadedb.serializer.json.JSONObject;
 
+import java.lang.reflect.*;
 import java.util.*;
 
 /**
@@ -79,7 +80,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
 
   @Override
   public synchronized void unsetDirty() {
-    map = null;
+    //map = null;
     dirty = false;
   }
 
@@ -122,13 +123,15 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   }
 
   @Override
-  public synchronized JSONObject toJSON() {
+  public synchronized JSONObject toJSON(final boolean includeMetadata) {
     checkForLazyLoadingProperties();
     final JSONObject result = new JSONSerializer(database).map2json(map);
-    result.put("@cat", "d");
-    result.put("@type", type.getName());
-    if (getIdentity() != null)
-      result.put("@rid", getIdentity().toString());
+    if (includeMetadata) {
+      result.put("@cat", "d");
+      result.put("@type", type.getName());
+      if (getIdentity() != null)
+        result.put("@rid", getIdentity().toString());
+    }
     return result;
   }
 
@@ -311,10 +314,11 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     final Object old = get(propertyName);
 
     final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
-        embeddedTypeName);
-    if (old instanceof Collection)
+            embeddedTypeName);
+    if (old instanceof Collection) {
       ((Collection<EmbeddedDocument>) old).add(emb);
-    else
+      dirty = true;
+    } else
       set(propertyName, emb);
 
     return emb;
@@ -327,13 +331,40 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    * @param embeddedTypeName Embedded type name
    * @param propertyName     Current document's property name where the embedded
    *                         document is stored
-   * @param propertyMapKey   Key to use when storing the embedded document in the
-   *                         map
    *
    * @return MutableEmbeddedDocument instance
    */
-  public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName,
-      final String propertyName, final Object propertyMapKey) {
+  public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName, final String propertyName,
+      final String mapKey) {
+    final Object old = get(propertyName);
+
+    final MutableEmbeddedDocument emb = database.newEmbeddedDocument(new EmbeddedModifierProperty(this, propertyName),
+        embeddedTypeName);
+
+    if (old == null) {
+      final Map<String, EmbeddedDocument> embMap = new HashMap<>();
+      embMap.put(mapKey, emb);
+      set(propertyName, embMap);
+    } else if (old instanceof Map)
+      ((Map<String, EmbeddedDocument>) old).put(mapKey, emb);
+    else
+      throw new IllegalArgumentException(
+          "Property '" + propertyName + "' is '" + old.getClass() + "', but null or Map was expected");
+
+    return emb;
+  }
+
+  /**
+   * Creates a new embedded document attached to the current document inside a map that must be previously created and set.
+   *
+   * @param embeddedTypeName Embedded type name
+   * @param propertyName     Current document's property name where the embedded document is stored
+   * @param propertyMapKey   Key to use when storing the embedded document in the map
+   *
+   * @return MutableEmbeddedDocument instance
+   */
+  public synchronized MutableEmbeddedDocument newEmbeddedDocument(final String embeddedTypeName, final String propertyName,
+      final Object propertyMapKey) {
     final Object old = get(propertyName);
 
     if (old == null)
@@ -398,7 +429,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     dirty = true;
     if (rid != null) {
       // UPDATE
-      if (rid.bucketId != database.getSchema().getBucketByName(bucketName).getId())
+      if (rid.bucketId != database.getSchema().getBucketByName(bucketName).getFileId())
         throw new IllegalStateException("Cannot update a record in a custom bucket");
 
       database.updateRecord(this);
@@ -433,7 +464,14 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
 
         result.append(entry.getKey());
         result.append('=');
-        result.append(entry.getValue());
+
+        final Object v = entry.getValue();
+        if (v != null && v.getClass().isArray()) {
+          result.append('[');
+          result.append(Array.getLength(v));
+          result.append(']');
+        } else
+          result.append(v);
         i++;
       }
     }
@@ -485,6 +523,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     if (property != null)
       try {
         final Type propType = property.getType();
+        final String ofType = property.getOfType();
 
         final Class javaImplementation;
         if (propType == Type.DATE)
@@ -499,6 +538,19 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
             if (value instanceof Map) {
               final Map<String, Object> map = (Map<String, Object>) value;
               final String embType = (String) map.get("@type");
+
+              if (ofType != null) {
+                // VALIDATE CONSTRAINT
+                if (!ofType.equals(embType)) {
+                  // CHECK INHERITANCE
+                  final DocumentType schemaType = database.getSchema().getType(embType);
+                  if (!schemaType.instanceOf(ofType))
+                    throw new ValidationException(
+                        "Embedded type '" + embType + "' is not compatible with the type defined in the schema constraint '"
+                            + ofType + "'");
+                }
+              }
+
               return newEmbeddedDocument(embType, name);
             }
           }
@@ -507,9 +559,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
         return Type.convert(database, value, javaImplementation, property);
       } catch (final Exception e) {
         throw new IllegalArgumentException(
-            "Cannot convert type '" + value.getClass() + "' to '" + property.getType().name() + "' found in property '"
-                + name + "'",
-            e);
+            "Cannot convert type '" + value.getClass() + "' to '" + property.getType().name() + "' found in property '" + name
+                + "'", e);
       }
 
     return value;
@@ -521,6 +572,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
     // DATABASE
     if (value instanceof EmbeddedDocument) {
       if (!((EmbeddedDocument) value).getDatabase().getName().equals(database.getName())) {
+        // SET DIRTY TO FORCE RE-MARSHALL. IF THE RECORD COMES FROM ANOTHER DATABASE WITHOUT A FULL RE-MARSHALL, IT WILL HAVE THE DICTIONARY IDS OF THE OTHER DATABASE
         ((BaseDocument) value).buffer.rewind();
         final MutableDocument newRecord = (MutableDocument) database.getRecordFactory()
             .newMutableRecord(database, ((EmbeddedDocument) value).getType(), null, ((BaseDocument) value).buffer,

@@ -22,12 +22,15 @@ import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.ComponentFile;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.serializer.json.JSONArray;
+import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.ArcadeDBServer;
+import com.arcadedb.server.ServerDatabase;
 import com.arcadedb.server.ServerException;
 import com.arcadedb.server.ha.HAServer;
 import com.arcadedb.server.ha.Leader2ReplicaNetworkExecutor;
@@ -48,11 +51,12 @@ import com.google.gson.JsonParser;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 
 import io.undertow.server.HttpServerExchange;
+import io.undertow.util.StatusCodes;
 
 import java.io.*;
 import java.util.*;
 
-public class PostServerCommandHandler extends AbstractHandler {
+public class PostServerCommandHandler extends AbstractServerHttpHandler {
   public PostServerCommandHandler(final HttpServer httpServer) {
     super(httpServer);
   }
@@ -63,99 +67,85 @@ public class PostServerCommandHandler extends AbstractHandler {
   }
 
   @Override
-  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user)
-      throws IOException {
-    String payloadString = parseRequestPayload(exchange);
+  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user) throws IOException {
 
-    if (payloadString != null && StringUtils.isNotBlank(payloadString)) {
-      final var payload = JsonParser.parseString(payloadString).getAsJsonObject();
+    final String LIST_DATABASES = "list databases";
+    final String SHUTDOWN = "shutdown";
+    final String CREATE_DATABASE = "create database";
+    final String DROP_DATABASE = "drop database";
+    final String CLOSE_DATABASE = "close database";
+    final String OPEN_DATABASE = "open database";
+    final String CREATE_USER = "create user";
+    final String DROP_USER = "drop user";
+    final String CONNECT_CLUSTER = "connect cluster";
+    final String DISCONNECT_CLUSTER = "disconnect cluster";
+    final String SET_DATABASE_SETTING = "set database setting";
+    final String SET_SERVER_SETTING = "set server setting";
+    final String GET_SERVER_EVENTS = "get server events";
+    final String ALIGN_DATABASE = "align database";
 
-      final String command = payload.has("command") ? payload.get("command").getAsString() : null;
-      if (command == null)
-        return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
+    final JSONObject payload = new JSONObject(parseRequestPayload(exchange));
 
-      // List of server commands that will check their own user permissions
-      var excludedTopLevelCheckComamnds = List.of("list databases", "create database", "drop database");
+    final String command = payload.has("command") ? payload.getString("command") : null;
+    if (command == null)
+      return new ExecutionResponse(400, "{ \"error\" : \"Server command is null\"}");
 
-      var isExcludedCommand = excludedTopLevelCheckComamnds.stream()
-          .anyMatch(excludedCommand -> command.startsWith(excludedCommand));
+    // List of server commands that will check their own user permissions
+    var excludedTopLevelCheckComamnds = List.of(LIST_DATABASES, CREATE_DATABASE, DROP_DATABASE);
 
-      // If not a command that manages its own permissions, check if user has sa role
-      if (!isExcludedCommand
-          && !httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
-        throw new ServerSecurityException(
-            String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
-      }
+    var isExcludedCommand = excludedTopLevelCheckComamnds.stream()
+            .anyMatch(excludedCommand -> command.startsWith(excludedCommand));
 
-      if (command.startsWith("shutdown"))
-        shutdownServer(command);
-      else if (command.startsWith("create database "))
-        createDatabase(payload, user);
-      else if (command.equals("list databases")) {
-        return listDatabases(user);
-      } else if (command.startsWith("drop database "))
-        dropDatabase(command, user);
-      else if (command.startsWith("close database "))
-        closeDatabase(command);
-      else if (command.startsWith("open database "))
-        openDatabase(command);
-      else if (command.startsWith("create user ")) {
-        // createUser(command);
-        return new ExecutionResponse(400, "{ \"error\" : \"Please create new users through keycloak.\"}");
-      } else if (command.startsWith("drop user "))
-        dropUser(command);
-      else if (command.startsWith("connect cluster ")) {
-        if (!connectCluster(command, exchange))
-          return null;
-      } else if (command.equals("disconnect cluster"))
-        disconnectCluster();
-      else if (command.startsWith("set database setting "))
-        setDatabaseSetting(command);
-      else if (command.startsWith("set server setting "))
-        setServerSetting(command);
-      else if (command.startsWith("get server events"))
-        return getServerEvents(command);
-      else if (command.startsWith("align database "))
-        alignDatabase(command);
-      else {
-        httpServer.getServer().getServerMetrics().meter("http.server-command.invalid").hit();
-        return new ExecutionResponse(400, "{ \"error\" : \"Server command not valid\"}");
-      }
+    // If not a command that manages its own permissions, check if user has sa role
+    if (!isExcludedCommand
+            && !httpServer.getServer().getSecurity().checkUserHasAnyServerAdminRole(user, List.of(ServerAdminRole.ALL))) {
+      throw new ServerSecurityException(
+              String.format("User '%s' is not authorized to execute server command '%s'", user.getName(), command));
     }
 
-    return new ExecutionResponse(200, "{ \"result\" : \"ok\"}");
+    final JSONObject response = createResult(user, null).put("result","ok");
+    final String command_lc = command.toLowerCase(Locale.ENGLISH);
+    if (command_lc.startsWith(SHUTDOWN))
+      shutdownServer(command.substring(SHUTDOWN.length()).trim());
+    else if (command_lc.startsWith(CREATE_DATABASE))
+      createDatabase(payload, user);
+    else if (command_lc.startsWith(DROP_DATABASE))
+      dropDatabase(command.substring(DROP_DATABASE.length()).trim(), user);
+    else if (command_lc.startsWith(CLOSE_DATABASE))
+      closeDatabase(command.substring(CLOSE_DATABASE.length()).trim());
+    else if (command_lc.startsWith(OPEN_DATABASE))
+      openDatabase(command.substring(OPEN_DATABASE.length()).trim());
+    else if (command_lc.startsWith(CREATE_USER))
+      createUser(command.substring(CREATE_USER.length()).trim());
+    else if (command_lc.startsWith(DROP_USER))
+      dropUser(command.substring(DROP_USER.length()).trim());
+    else if (command_lc.startsWith(CONNECT_CLUSTER)) {
+      if (!connectCluster(command.substring(CONNECT_CLUSTER.length()).trim(), exchange)) return null;
+      else if (command_lc.equals(DISCONNECT_CLUSTER)) disconnectCluster();
+    }
+    else if (command_lc.startsWith(SET_DATABASE_SETTING))
+      setDatabaseSetting(command.substring(SET_DATABASE_SETTING.length()).trim());
+    else if (command_lc.startsWith(SET_SERVER_SETTING))
+      setServerSetting(command.substring(SET_SERVER_SETTING.length()).trim());
+    else if (command_lc.startsWith(GET_SERVER_EVENTS))
+      return getServerEvents(command);
+    else if (command_lc.startsWith(ALIGN_DATABASE))
+      alignDatabase(command.substring(ALIGN_DATABASE.length()).trim());
+    else {
+      httpServer.getServer().getServerMetrics().meter("http.server-command.invalid").hit();
+      return new ExecutionResponse(400, "{ \"error\" : \"Server command not valid\"}");
+    }
+
+    return new ExecutionResponse(200, response.toString());
   }
 
-  private void setDatabaseSetting(final String command) throws IOException {
-    final String pair = command.substring("set database setting ".length());
-    final String[] dbKeyValue = pair.split(" ");
-    if (dbKeyValue.length != 3)
-      throw new IllegalArgumentException("Expected <database> <key> <value>");
-
-    final DatabaseInternal database = (DatabaseInternal) httpServer.getServer().getDatabase(dbKeyValue[0]);
-    database.getConfiguration().setValue(dbKeyValue[1], dbKeyValue[2]);
-    database.saveConfiguration();
-  }
-
-  private void setServerSetting(final String command) {
-    // TODO check if user has sa role, or is root
-
-    final String pair = command.substring("set server setting ".length());
-    final String[] keyValue = pair.split(" ");
-    if (keyValue.length != 2)
-      throw new IllegalArgumentException("Expected <key> <value>");
-
-    httpServer.getServer().getConfiguration().setValue(keyValue[0], keyValue[1]);
-  }
-
-  private void shutdownServer(final String command) throws IOException {
+  private void shutdownServer(final String serverName) throws IOException {
     httpServer.getServer().getServerMetrics().meter("http.server-shutdown").hit();
 
-    if (command.equals("shutdown")) {
+    if (serverName.isEmpty()) {
       // SHUTDOWN CURRENT SERVER
       httpServer.getServer().stop();
-    } else if (command.startsWith("shutdown ")) {
-      final String serverName = command.substring("shutdown ".length()).trim();
+    } else {
       final HAServer ha = getHA();
       final Leader2ReplicaNetworkExecutor replica = ha.getReplica(serverName);
       if (replica == null)
@@ -165,17 +155,6 @@ public class PostServerCommandHandler extends AbstractHandler {
       ha.getMessageFactory().serializeCommand(new ServerShutdownRequest(), buffer, -1);
       replica.sendMessage(buffer);
     }
-  }
-
-  private void disconnectCluster() {
-    httpServer.getServer().getServerMetrics().meter("http.server-disconnect").hit();
-    final HAServer ha = getHA();
-
-    final Replica2LeaderNetworkExecutor leader = ha.getLeader();
-    if (leader != null)
-      leader.close();
-    else
-      ha.disconnectAllReplicas();
   }
 
   private boolean connectCluster(final String command, final HttpServerExchange exchange) {
@@ -195,7 +174,7 @@ public class PostServerCommandHandler extends AbstractHandler {
     return toCheck != null && !toCheck.isEmpty();
   }
 
-  private void createDatabase(final JsonObject command, final ServerSecurityUser user) {
+  private void createDatabase(final JSONObject command, final ServerSecurityUser user) {
 
     // check if user has create database role, or is root
     var anyRequiredRoles = List.of(ServerAdminRole.CREATE_DATABASE, ServerAdminRole.ALL);
@@ -203,7 +182,7 @@ public class PostServerCommandHandler extends AbstractHandler {
       checkServerIsLeaderIfInHA();
 
       // TODO check if required database info is present in the JSON options payload, including owner, classificaiton, public/private
-      final String databaseName = command.get("command").getAsString().substring("create database ".length()).trim();
+      final String databaseName = command.getString("command").substring("create database".length()).trim();
 
       final String OPTIONS = "options";
       final String CLASSIFICATION = "classification";
@@ -219,20 +198,20 @@ public class PostServerCommandHandler extends AbstractHandler {
       if (!command.has(OPTIONS))
         throw new IllegalArgumentException(String.format("Missing %s object", OPTIONS));
 
-      var options = command.get(OPTIONS).getAsJsonObject();
+      var options = command.getJSONObject(OPTIONS);
 
-      if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.get(CLASSIFICATION).getAsString())) {
+      if (!options.has(CLASSIFICATION) && !isNotNullOrEmpty(options.getString(CLASSIFICATION))) {
         throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, CLASSIFICATION));
       }
-      if (!options.has(OWNER) && !isNotNullOrEmpty(options.get(OWNER).getAsString())) {
+      if (!options.has(OWNER) && !isNotNullOrEmpty(options.getString(OWNER))) {
         throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, OWNER));
       }
-      if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.get(VISIBILITY).getAsString())) {
+      if (options.has(VISIBILITY) && !isNotNullOrEmpty(options.getString(VISIBILITY))) {
         throw new IllegalArgumentException(String.format("Missing %s.%s", OPTIONS, VISIBILITY));
       }
 
       // Handle operational database metadata
-      String classification = options.get(CLASSIFICATION).getAsString();
+      String classification = options.getString(CLASSIFICATION);
 
       // TODO cap acceptable classifications at the deployment level.
       // make static util method for this
@@ -241,16 +220,16 @@ public class PostServerCommandHandler extends AbstractHandler {
         throw new IllegalArgumentException(String.format("Invalid classification %s. Acceptable values are %s", classification));
       }
       
-      String owner = options.has(OWNER) ? options.get(OWNER).getAsString() : null;
-      boolean isPublic = options.has(VISIBILITY) ? options.get(VISIBILITY).getAsString().equalsIgnoreCase("public") : false;
+      String owner = options.has(OWNER) ? options.getString(OWNER) : null;
+      boolean isPublic = options.has(VISIBILITY) ? options.getString(VISIBILITY).equalsIgnoreCase("public") : false;
 
       boolean isClassificationValidationEnabled = options.has(CLASSIFICATION_VALIDATION_ENABLED)
-              ? options.get(CLASSIFICATION_VALIDATION_ENABLED).getAsBoolean() : true;
+              ? options.getBoolean(CLASSIFICATION_VALIDATION_ENABLED) : true;
 
       final ArcadeDBServer server = httpServer.getServer();
       server.getServerMetrics().meter("http.create-database").hit();
 
-      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE, classification, owner, isPublic, isClassificationValidationEnabled);
+      final DatabaseInternal db = server.createDatabase(databaseName, PaginatedComponentFile.MODE.READ_WRITE, classification, owner, isPublic, isClassificationValidationEnabled);
 
       if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
         ((ReplicatedDatabase) db).createInReplicas();
@@ -262,7 +241,7 @@ public class PostServerCommandHandler extends AbstractHandler {
       createAndAssignRoleToUser(dataRole, user.getName());
       createAndAssignRoleToUser(schemaRole, user.getName());
 
-      if (options.has("importOntology") && options.get("importOntology").getAsBoolean()) {
+      if (options.has("importOntology") && options.getBoolean("importOntology")) {
         // get the ontology file from project resources
         try {
           InputStream inputStream = PostServerCommandHandler.class.getResourceAsStream("/ontology");
@@ -330,20 +309,7 @@ public class PostServerCommandHandler extends AbstractHandler {
     return new ExecutionResponse(200, "{ \"result\" : " + new JSONArray(installedDatabases) + "}");
   }
 
-  private void alignDatabase(final String command) {
-    final String databaseName = command.substring("align database ".length()).trim();
-    if (databaseName.isEmpty())
-      throw new IllegalArgumentException("Database name empty");
-
-    final Database database = httpServer.getServer().getDatabase(databaseName);
-
-    httpServer.getServer().getServerMetrics().meter("http.align-database").hit();
-
-    database.command("sql", "align database");
-  }
-
-  private void dropDatabase(final String command, final ServerSecurityUser user) {
-    final String databaseName = command.substring("drop database ".length()).trim();
+  private void dropDatabase(final String databaseName, final ServerSecurityUser user) {
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 
@@ -364,25 +330,22 @@ public class PostServerCommandHandler extends AbstractHandler {
     }
   }
 
-  private void closeDatabase(final String command) {
-    final String databaseName = command.substring("close database ".length()).trim();
+  private void closeDatabase(final String databaseName) {
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 
-    final Database database = httpServer.getServer().getDatabase(databaseName);
-    ((DatabaseInternal) database).getEmbedded().close();
+    final ServerDatabase database = httpServer.getServer().getDatabase(databaseName);
+    database.getEmbedded().close();
 
     httpServer.getServer().getServerMetrics().meter("http.close-database").hit();
     httpServer.getServer().removeDatabase(database.getName());
   }
 
-  private void openDatabase(final String command) {
-    final String databaseName = command.substring("open database ".length()).trim();
+  private void openDatabase(final String databaseName) {
     if (databaseName.isEmpty())
       throw new IllegalArgumentException("Database name empty");
 
     httpServer.getServer().getDatabase(databaseName);
-
     httpServer.getServer().getServerMetrics().meter("http.open-database").hit();
   }
 
@@ -410,8 +373,7 @@ public class PostServerCommandHandler extends AbstractHandler {
     throw new RuntimeException("Please create new user through keycloak");
   }
 
-  private void dropUser(final String command) {
-    final String userName = command.substring("drop user ".length()).trim();
+  private void dropUser(final String userName) {
     if (userName.isEmpty())
       throw new IllegalArgumentException("User name was missing");
 
@@ -420,6 +382,46 @@ public class PostServerCommandHandler extends AbstractHandler {
     final boolean result = httpServer.getServer().getSecurity().dropUser(userName);
     if (!result)
       throw new IllegalArgumentException("User '" + userName + "' not found on server");
+  }
+
+  private void disconnectCluster() {
+    httpServer.getServer().getServerMetrics().meter("http.server-disconnect").hit();
+    final HAServer ha = getHA();
+
+    final Replica2LeaderNetworkExecutor leader = ha.getLeader();
+    if (leader != null)
+      leader.close();
+    else
+      ha.disconnectAllReplicas();
+  }
+
+  private void setDatabaseSetting(final String pair) throws IOException {
+    final String[] dbKeyValue = pair.split(" ");
+    if (dbKeyValue.length != 3)
+      throw new IllegalArgumentException("Expected <database> <key> <value>");
+
+    final DatabaseInternal database = (DatabaseInternal) httpServer.getServer().getDatabase(dbKeyValue[0]);
+    database.getConfiguration().setValue(dbKeyValue[1], dbKeyValue[2]);
+    database.saveConfiguration();
+  }
+
+  private void setServerSetting(final String pair) {
+    final String[] keyValue = pair.split(" ");
+    if (keyValue.length != 2)
+      throw new IllegalArgumentException("Expected <key> <value>");
+
+    httpServer.getServer().getConfiguration().setValue(keyValue[0], keyValue[1]);
+  }
+
+  private void alignDatabase(final String databaseName) {
+    if (databaseName.isEmpty())
+      throw new IllegalArgumentException("Database name empty");
+
+    final Database database = httpServer.getServer().getDatabase(databaseName);
+
+    httpServer.getServer().getServerMetrics().meter("http.align-database").hit();
+
+    database.command("sql", "align database");
   }
 
   private void checkServerIsLeaderIfInHA() {

@@ -20,7 +20,7 @@ package com.arcadedb.server.http.handler;
 
 import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.ha.ReplicatedDatabase;
@@ -36,36 +36,35 @@ import java.util.*;
  * @author Luca Garulli (l.garulli@arcadedata.com)
  * @Deprecated Use the generic @see PostServerCommandHandler
  */
-@Deprecated
-public class PostCreateDatabaseHandler extends AbstractHandler {
-  public PostCreateDatabaseHandler(final HttpServer httpServer) {
-    super(httpServer);
-  }
+public class PostCreateDatabaseHandler extends AbstractServerHttpHandler {
+    public PostCreateDatabaseHandler(final HttpServer httpServer) {
+        super(httpServer);
+    }
 
-  @Override
-  public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user) {
-    checkRootUser(user);
+    @Override
+    public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user) {
+        checkRootUser(user);
 
-    final Deque<String> databaseNamePar = exchange.getQueryParameters().get("database");
-    String databaseName = databaseNamePar.isEmpty() ? null : databaseNamePar.getFirst().trim();
-    if (databaseName.isEmpty())
-      databaseName = null;
+        final Deque<String> databaseNamePar = exchange.getQueryParameters().get("database");
+        String databaseName = databaseNamePar.isEmpty() ? null : databaseNamePar.getFirst().trim();
+        if (databaseName.isEmpty())
+            databaseName = null;
 
-    if (databaseName == null)
-      return new ExecutionResponse(400, "{ \"error\" : \"Database parameter is null\"}");
+        if (databaseName == null)
+            return new ExecutionResponse(400, "{ \"error\" : \"Database parameter is null\"}");
 
-    final ArcadeDBServer server = httpServer.getServer();
-    if (!server.getHA().isLeader())
-      // NOT THE LEADER
-      throw new ServerIsNotTheLeaderException("Creation of database can be executed only on the leader server", server.getHA().getLeaderName());
+        final ArcadeDBServer server = httpServer.getServer();
+        if (!server.getHA().isLeader())
+            // NOT THE LEADER
+            throw new ServerIsNotTheLeaderException("Creation of database can be executed only on the leader server", server.getHA().getLeaderName());
 
-    server.getServerMetrics().meter("http.create-database").hit();
+        server.getServerMetrics().meter("http.create-database").hit();
 
-    final DatabaseInternal db = server.createDatabase(databaseName, PaginatedFile.MODE.READ_WRITE);
+        final DatabaseInternal db = server.createDatabase(databaseName, PaginatedComponentFile.MODE.READ_WRITE);
 
-    if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
-      ((ReplicatedDatabase) db).createInReplicas();
+        if (server.getConfiguration().getValueAsBoolean(GlobalConfiguration.HA_ENABLED))
+            ((ReplicatedDatabase) db).createInReplicas();
 
-    return new ExecutionResponse(200, "{ \"result\" : \"ok\"}");
-  }
+        return new ExecutionResponse(200, "{ \"result\" : \"ok\"}");
+    }
 }

@@ -44,6 +44,7 @@ import com.arcadedb.query.sql.method.conversion.SQLMethodAsList;
 import com.arcadedb.query.sql.method.conversion.SQLMethodAsLong;
 import com.arcadedb.query.sql.method.conversion.SQLMethodAsMap;
 import com.arcadedb.query.sql.method.conversion.SQLMethodAsRID;
+import com.arcadedb.query.sql.method.conversion.SQLMethodAsRecord;
 import com.arcadedb.query.sql.method.conversion.SQLMethodAsSet;
 import com.arcadedb.query.sql.method.conversion.SQLMethodAsShort;
 import com.arcadedb.query.sql.method.conversion.SQLMethodAsString;
@@ -65,6 +66,7 @@ import com.arcadedb.query.sql.method.misc.SQLMethodType;
 
 // String
 import com.arcadedb.query.sql.method.string.SQLMethodAppend;
+import com.arcadedb.query.sql.method.string.SQLMethodCapitalize;
 import com.arcadedb.query.sql.method.string.SQLMethodCharAt;
 import com.arcadedb.query.sql.method.string.SQLMethodFormat;
 import com.arcadedb.query.sql.method.string.SQLMethodIndexOf;
@@ -114,6 +116,7 @@ public class DefaultSQLMethodFactory implements SQLMethodFactory {
     register(SQLMethodAsLong.NAME, new SQLMethodAsLong());
     register(SQLMethodAsMap.NAME, new SQLMethodAsMap());
     register(SQLMethodAsRID.NAME, new SQLMethodAsRID());
+    register(SQLMethodAsRecord.NAME, new SQLMethodAsRecord());
     register(SQLMethodAsSet.NAME, new SQLMethodAsSet());
     register(SQLMethodAsShort.NAME, new SQLMethodAsShort());
     register(SQLMethodAsString.NAME, new SQLMethodAsString());
@@ -135,6 +138,7 @@ public class DefaultSQLMethodFactory implements SQLMethodFactory {
 
     // String
     register(SQLMethodAppend.NAME, new SQLMethodAppend());
+    register(SQLMethodCapitalize.NAME, new SQLMethodCapitalize());
     register(SQLMethodCharAt.NAME, new SQLMethodCharAt());
     register(SQLMethodFormat.NAME, new SQLMethodFormat());
     register(SQLMethodIndexOf.NAME, new SQLMethodIndexOf());

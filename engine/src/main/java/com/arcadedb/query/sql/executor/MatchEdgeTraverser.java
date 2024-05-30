@@ -89,9 +89,7 @@ public class MatchEdgeTraverser {
   }
 
   protected Object toResult(final Document nextElement) {
-    final ResultInternal result = new ResultInternal();
-    result.setElement(nextElement);
-    return result;
+    return new ResultInternal(nextElement);
   }
 
   protected String getStartingPointAlias() {
@@ -131,7 +129,7 @@ public class MatchEdgeTraverser {
       className = targetClassName(item, iCommandContext);
       final String clusterName = targetClusterName(item, iCommandContext);
       if (clusterName != null) {
-        clusterId = iCommandContext.getDatabase().getSchema().getBucketByName(clusterName).getId();
+        clusterId = iCommandContext.getDatabase().getSchema().getBucketByName(clusterName).getFileId();
       }
       targetRid = targetRid(item, iCommandContext);
     }

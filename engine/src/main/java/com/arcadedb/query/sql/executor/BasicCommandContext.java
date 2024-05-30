@@ -21,6 +21,7 @@ package com.arcadedb.query.sql.executor;
 import com.arcadedb.ContextConfiguration;
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
+import com.arcadedb.database.Document;
 
 import java.util.*;
 import java.util.concurrent.atomic.*;
@@ -41,6 +42,69 @@ public class BasicCommandContext implements CommandContext {
   protected       ContextConfiguration configuration           = new ContextConfiguration();
   protected final Set<String>          declaredScriptVariables = new HashSet<>();
   protected final AtomicLong           resultsProcessed        = new AtomicLong(0);
+
+  @Override
+  public Object getVariablePath(final String name) {
+    return getVariablePath(name, null);
+  }
+
+  @Override
+  public Object getVariablePath(String name, final Object iDefault) {
+    if (name == null)
+      return iDefault;
+
+    Object result;
+
+    int pos = name.indexOf('.');
+    String firstPart = pos > -1 ? name.substring(0, pos) : name;
+    String otherParts = pos > -1 ? name.substring(pos + 1) : "";
+
+    if (firstPart.startsWith("$"))
+      firstPart = firstPart.substring(1);
+
+    if (firstPart.equalsIgnoreCase("CONTEXT"))
+      result = getVariables();
+    else if (firstPart.equalsIgnoreCase("PARENT")) {
+      if (parent != null && !otherParts.isEmpty())
+        return parent.getVariablePath(otherParts);
+      result = parent;
+
+    } else if (firstPart.equalsIgnoreCase("ROOT")) {
+      CommandContext p = this;
+      while (p.getParent() != null)
+        p = p.getParent();
+
+      if (p != null && !otherParts.isEmpty())
+        return p.getVariablePath(otherParts);
+
+      result = p;
+    } else {
+      if (variables != null && variables.containsKey(firstPart))
+        result = variables.get(firstPart);
+      else {
+        if (child != null)
+          result = child.getVariablePath(firstPart);
+        else
+          result = getVariableFromParentHierarchy(firstPart);
+      }
+
+      while (!otherParts.isEmpty()) {
+        pos = otherParts.indexOf('.');
+        firstPart = pos > -1 ? otherParts.substring(0, pos) : otherParts;
+        otherParts = pos > -1 ? otherParts.substring(pos + 1) : "";
+
+        if (result instanceof Result)
+          result = ((Result) result).getProperty(firstPart);
+        else if (result instanceof Map)
+          result = ((Map) result).get(firstPart);
+        else if (result instanceof Document)
+          result = ((Document) result).get(firstPart);
+
+      }
+    }
+
+    return result != null ? result : iDefault;
+  }
 
   public Object getVariable(final String name) {
     return getVariable(name, null);
@@ -100,25 +164,9 @@ public class BasicCommandContext implements CommandContext {
 
     init();
 
-    if (variables.containsKey(name)) {
-      variables.put(name, value);//this is a local existing variable, so it's bound to current context
-    } else if (parent != null && parent instanceof BasicCommandContext && ((BasicCommandContext) parent).hasVariable(name)) {
-      parent.setVariable(name, value);// it is an existing variable in parent context, so it's bound to parent context
-    } else {
-      variables.put(name, value); //it's a new variable, so it's created in this context
-    }
+    variables.put(name, value);
 
     return this;
-  }
-
-  boolean hasVariable(final String name) {
-    if (variables != null && variables.containsKey(name)) {
-      return true;
-    }
-    if (parent != null && parent instanceof BasicCommandContext) {
-      return ((BasicCommandContext) parent).hasVariable(name);
-    }
-    return false;
   }
 
   @Override
@@ -232,9 +280,8 @@ public class BasicCommandContext implements CommandContext {
   }
 
   public Map<String, Object> getInputParameters() {
-    if (inputParameters != null) {
+    if (inputParameters != null)
       return inputParameters;
-    }
 
     return parent == null ? null : parent.getInputParameters();
   }
@@ -253,12 +300,12 @@ public class BasicCommandContext implements CommandContext {
   }
 
   public DatabaseInternal getDatabase() {
-    if (database != null) {
+    if (database != null)
       return database;
-    }
-    if (parent != null) {
+
+    if (parent != null)
       return parent.getDatabase();
-    }
+
     return null;
   }
 
@@ -274,17 +321,17 @@ public class BasicCommandContext implements CommandContext {
 
   @Override
   public boolean isScriptVariableDeclared(String varName) {
-    if (varName == null || varName.length() == 0) {
+    if (varName == null || varName.length() == 0)
       return false;
-    }
+
     String dollarVar = varName;
-    if (!dollarVar.startsWith("$")) {
+    if (!dollarVar.startsWith("$"))
       dollarVar = "$" + varName;
-    }
+
     varName = dollarVar.substring(1);
-    if (variables != null && (variables.containsKey(varName) || variables.containsKey(dollarVar))) {
+    if (variables != null && (variables.containsKey(varName) || variables.containsKey(dollarVar)))
       return true;
-    }
+
     return declaredScriptVariables.contains(varName) || declaredScriptVariables.contains(dollarVar) || (parent != null && parent.isScriptVariableDeclared(
         varName));
   }

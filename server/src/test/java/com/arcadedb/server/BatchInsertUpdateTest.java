@@ -33,11 +33,13 @@ import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Schema;
 import com.arcadedb.schema.Type;
 import com.arcadedb.serializer.json.JSONObject;
-import org.junit.jupiter.api.AfterAll;
+import com.arcadedb.utility.FileUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
@@ -134,7 +136,6 @@ public class BatchInsertUpdateTest {
 
       } finally {
         arcadeDBServer.stop();
-        databaseFactory.open().drop();
       }
     }
   }
@@ -201,25 +202,21 @@ public class BatchInsertUpdateTest {
     }
 
     result.put("totalRows", counter.get());
-    System.out.println("insert orders result = " + result + " in " + (System.currentTimeMillis() - begin) + "ms");
+    //System.out.println("insert orders result = " + result + " in " + (System.currentTimeMillis() - begin) + "ms");
     return result;
   }
 
-  @BeforeAll
-  public static void beginTests() {
+  @BeforeEach
+  public void beginTests() {
     final ContextConfiguration serverConfiguration = new ContextConfiguration();
     final String rootPath = IntegrationUtils.setRootPath(serverConfiguration);
+    FileUtils.deleteRecursively(new File(rootPath + "/databases"));
 
     GlobalConfiguration.SERVER_ROOT_PASSWORD.setValue(DEFAULT_PASSWORD_FOR_TESTS);
-    //GlobalConfiguration.TYPE_DEFAULT_BUCKETS.setValue(1);
-    try (DatabaseFactory databaseFactory = new DatabaseFactory(rootPath + "/databases/" + DATABASE_NAME)) {
-      if (databaseFactory.exists())
-        databaseFactory.open().drop();
-    }
   }
 
-  @AfterAll
-  public static void endTests() {
+  @AfterEach
+  public void endTests() {
     TestServerHelper.checkActiveDatabases();
     GlobalConfiguration.resetAll();
   }

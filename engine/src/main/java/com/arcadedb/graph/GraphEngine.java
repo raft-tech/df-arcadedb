@@ -63,13 +63,18 @@ public class GraphEngine {
     }
   }
 
-  public void createVertexType(final VertexType type) {
-    for (final Bucket b : type.getBuckets(false)) {
-      if (!database.getSchema().existsBucket(b.getName() + OUT_EDGES_SUFFIX))
-        database.getSchema().createBucket(b.getName() + OUT_EDGES_SUFFIX);
-      if (!database.getSchema().existsBucket(b.getName() + IN_EDGES_SUFFIX))
-        database.getSchema().createBucket(b.getName() + IN_EDGES_SUFFIX);
-    }
+  public List<Bucket> createVertexAdditionalBuckets(final Bucket b) {
+    final Bucket[] outInBuckets = new Bucket[2];
+    if (database.getSchema().existsBucket(b.getName() + OUT_EDGES_SUFFIX))
+      outInBuckets[0] = database.getSchema().getBucketByName(b.getName() + OUT_EDGES_SUFFIX);
+    else
+      outInBuckets[0] = database.getSchema().createBucket(b.getName() + OUT_EDGES_SUFFIX);
+
+    if (database.getSchema().existsBucket(b.getName() + IN_EDGES_SUFFIX))
+      outInBuckets[1] = database.getSchema().getBucketByName(b.getName() + IN_EDGES_SUFFIX);
+    else
+      outInBuckets[1] = database.getSchema().createBucket(b.getName() + IN_EDGES_SUFFIX);
+    return List.of(outInBuckets);
   }
 
   public void dropVertexType(final VertexType type) {
@@ -558,7 +563,7 @@ public class GraphEngine {
     if (edgeType == null)
       throw new IllegalArgumentException("Edge type is null");
 
-    final int[] bucketFilter = vertex.getDatabase().getSchema().getType(edgeType).getBuckets(true).stream().mapToInt(x -> x.getId()).toArray();
+    final int[] bucketFilter = vertex.getDatabase().getSchema().getType(edgeType).getBuckets(true).stream().mapToInt(x -> x.getFileId()).toArray();
 
     if (direction == Vertex.DIRECTION.OUT || direction == Vertex.DIRECTION.BOTH) {
       final EdgeLinkedList outEdges = getEdgeHeadChunk(vertex, Vertex.DIRECTION.OUT);

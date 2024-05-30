@@ -20,7 +20,9 @@ package com.arcadedb.server.ha;
 
 import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.database.Database;
+import com.arcadedb.exception.DuplicatedKeyException;
 import com.arcadedb.exception.NeedRetryException;
+import com.arcadedb.exception.TimeoutException;
 import com.arcadedb.exception.TransactionException;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.query.sql.executor.Result;
@@ -43,6 +45,11 @@ public class HARandomCrashIT extends ReplicationServerIT {
   public void setTestConfiguration() {
     super.setTestConfiguration();
     GlobalConfiguration.HA_QUORUM.setValue("Majority");
+  }
+
+  @Override
+  protected HAServer.SERVER_ROLE getServerRole(int serverIndex) {
+    return HAServer.SERVER_ROLE.ANY;
   }
 
   @Test
@@ -71,8 +78,9 @@ public class HARandomCrashIT extends ReplicationServerIT {
             try {
               final long count = db.countType(VERTEX1_TYPE_NAME, true);
               if (count > (getTxs() * getVerticesPerTx()) * 9 / 10) {
-                LogManager.instance().log(this, Level.FINE, "TEST: Skip stop of server because it's close to the end of the test (%d/%d)", null, count,
-                    getTxs() * getVerticesPerTx());
+                LogManager.instance()
+                    .log(this, getLogLevel(), "TEST: Skip stop of server because it's close to the end of the test (%d/%d)", null,
+                        count, getTxs() * getVerticesPerTx());
                 return;
               }
             } catch (final Exception e) {
@@ -84,7 +92,7 @@ public class HARandomCrashIT extends ReplicationServerIT {
             }
 
             delay = 1000;
-            LogManager.instance().log(this, Level.FINE, "TEST: Stopping the Server %s (delay=%d)...", null, serverId, delay);
+            LogManager.instance().log(this, getLogLevel(), "TEST: Stopping the Server %s (delay=%d)...", null, serverId, delay);
 
             getServer(serverId).stop();
 
@@ -96,18 +104,27 @@ public class HARandomCrashIT extends ReplicationServerIT {
               }
             }
 
-            LogManager.instance().log(this, Level.FINE, "TEST: Restarting the Server %s (delay=%d)...", null, serverId, delay);
+            LogManager.instance().log(this, getLogLevel(), "TEST: Restarting the Server %s (delay=%d)...", null, serverId, delay);
 
             restarts++;
-            getServer(serverId).start();
 
-            LogManager.instance().log(this, Level.FINE, "TEST: Server %s restarted (delay=%d)...", null, serverId, delay);
+            for (int j = 0; j < 3; j++) {
+              try {
+                getServer(serverId).start();
+                break;
+              } catch (Throwable e) {
+                LogManager.instance()
+                    .log(this, getLogLevel(), "TEST: Error on restarting the server %s, retrying (%d/%d)", e, j + 1, 3);
+              }
+            }
+
+            LogManager.instance().log(this, getLogLevel(), "TEST: Server %s restarted (delay=%d)...", null, serverId, delay);
 
             new Timer().schedule(new TimerTask() {
               @Override
               public void run() {
                 delay = 0;
-                LogManager.instance().log(this, Level.FINE, "TEST: Resetting delay (delay=%d)...", null, delay);
+                LogManager.instance().log(this, getLogLevel(), "TEST: Resetting delay (delay=%d)...", null, delay);
               }
             }, 10000);
 
@@ -115,7 +132,7 @@ public class HARandomCrashIT extends ReplicationServerIT {
 
           }
 
-        LogManager.instance().log(this, Level.FINE, "TEST: Cannot restart server because unable to count vertices");
+        LogManager.instance().log(this, getLogLevel(), "TEST: Cannot restart server because unable to count vertices");
 
       }
     }, 15000, 10000);
@@ -123,10 +140,11 @@ public class HARandomCrashIT extends ReplicationServerIT {
     final String server1Address = getServer(0).getHttpServer().getListeningAddress();
     final String[] server1AddressParts = server1Address.split(":");
 
-    final RemoteDatabase db = new RemoteDatabase(server1AddressParts[0], Integer.parseInt(server1AddressParts[1]), getDatabaseName(), "root",
-        BaseGraphServerTest.DEFAULT_PASSWORD_FOR_TESTS);
+    final RemoteDatabase db = new RemoteDatabase(server1AddressParts[0], Integer.parseInt(server1AddressParts[1]),
+        getDatabaseName(), "root", BaseGraphServerTest.DEFAULT_PASSWORD_FOR_TESTS);
 
-    LogManager.instance().log(this, Level.FINE, "TEST: Executing %s transactions with %d vertices each...", null, getTxs(), getVerticesPerTx());
+    LogManager.instance()
+        .log(this, getLogLevel(), "TEST: Executing %s transactions with %d vertices each...", null, getTxs(), getVerticesPerTx());
 
     long counter = 0;
 
@@ -138,7 +156,8 @@ public class HARandomCrashIT extends ReplicationServerIT {
 
           for (int i = 0; i < getVerticesPerTx(); ++i) {
 
-            final ResultSet resultSet = db.command("SQL", "CREATE VERTEX " + VERTEX1_TYPE_NAME + " SET id = ?, name = ?", ++counter, "distributed-test");
+            final ResultSet resultSet = db.command("SQL", "CREATE VERTEX " + VERTEX1_TYPE_NAME + " SET id = ?, name = ?", ++counter,
+                "distributed-test");
 
             Assertions.assertTrue(resultSet.hasNext());
             final Result result = resultSet.next();
@@ -159,11 +178,15 @@ public class HARandomCrashIT extends ReplicationServerIT {
           }
           break;
 
-        } catch (final TransactionException | NeedRetryException | RemoteException e) {
-          LogManager.instance().log(this, Level.FINE, "TEST: - RECEIVED ERROR: %s (RETRY %d/%d)", null, e.toString(), retry, getMaxRetry());
+        } catch (final TransactionException | NeedRetryException | RemoteException | TimeoutException e) {
+          LogManager.instance()
+              .log(this, getLogLevel(), "TEST: - RECEIVED ERROR: %s (RETRY %d/%d)", null, e.toString(), retry, getMaxRetry());
           if (retry >= getMaxRetry() - 1)
             throw e;
           counter = lastGoodCounter;
+        } catch (final DuplicatedKeyException e) {
+          // THIS MEANS THE ENTRY WAS INSERTED BEFORE THE CRASH
+          LogManager.instance().log(this, getLogLevel(), "TEST: - RECEIVED ERROR: %s (IGNORE IT)", null, e.toString());
         } catch (final Exception e) {
           LogManager.instance().log(this, Level.SEVERE, "TEST: - RECEIVED UNKNOWN ERROR: %s", e, e.toString());
           throw e;
@@ -171,14 +194,14 @@ public class HARandomCrashIT extends ReplicationServerIT {
       }
 
       if (counter % 1000 == 0) {
-        LogManager.instance().log(this, Level.FINE, "TEST: - Progress %d/%d", null, counter, (getTxs() * getVerticesPerTx()));
+        LogManager.instance().log(this, getLogLevel(), "TEST: - Progress %d/%d", null, counter, (getTxs() * getVerticesPerTx()));
 
         for (int i = 0; i < getServerCount(); ++i) {
           final Database database = getServerDatabase(i, getDatabaseName());
           database.begin();
           try {
             final long tot = database.countType(VERTEX1_TYPE_NAME, false);
-            LogManager.instance().log(this, Level.FINE, "TEST: -- SERVER %d - %d records", null, i, tot);
+            LogManager.instance().log(this, getLogLevel(), "TEST: -- SERVER %d - %d records", null, i, tot);
           } catch (final Exception e) {
             LogManager.instance().log(this, Level.SEVERE, "TEST: -- ERROR ON RETRIEVING COUNT FROM DATABASE '%s'", e, database);
           } finally {
@@ -195,7 +218,7 @@ public class HARandomCrashIT extends ReplicationServerIT {
 
     timer.cancel();
 
-    LogManager.instance().log(this, Level.FINE, "Done, restarted %d times", null, restarts);
+    LogManager.instance().log(this, getLogLevel(), "Done, restarted %d times", null, restarts);
 
     try {
       Thread.sleep(5000);
@@ -211,6 +234,10 @@ public class HARandomCrashIT extends ReplicationServerIT {
     onAfterTest();
 
     Assertions.assertTrue(restarts >= getServerCount(), "Restarts " + restarts);
+  }
+
+  private static Level getLogLevel() {
+    return Level.SEVERE;
   }
 
   @Override

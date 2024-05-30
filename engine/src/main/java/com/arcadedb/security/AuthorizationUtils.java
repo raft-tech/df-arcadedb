@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Level;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
@@ -14,6 +15,8 @@ import com.arcadedb.security.ACCM.Expression;
 import com.arcadedb.security.ACCM.ExpressionOperator;
 import com.arcadedb.security.ACCM.GraphType;
 import com.arcadedb.security.ACCM.TypeRestriction;
+import com.arcadedb.log.LogManager;
+import com.arcadedb.serializer.json.JSONObject;
 
 public class AuthorizationUtils {
 
@@ -298,14 +301,4 @@ public class AuthorizationUtils {
     // return false;
   }
 
-  public static boolean checkPermissionsOnClassificationMarking(String classificationMarking, final SecurityDatabaseUser currentUser) {
-
-    // TODO detect and provide org for clearance
-    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
-    var nationality = currentUser.getNationality();
-    var tetragraphs = currentUser.getTetragraphs();
-   
-    return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
-                 classificationMarking);
-  }
 }

@@ -6,6 +6,7 @@ import com.arcadedb.database.EmbeddedDatabase;
 import com.arcadedb.database.Identifiable;
 import com.arcadedb.engine.ImmutablePage;
 import com.arcadedb.engine.PageId;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.exception.CommandSQLParsingException;
 import com.arcadedb.exception.ConcurrentModificationException;
 import com.arcadedb.query.sql.SQLQueryEngine;
@@ -19,22 +20,19 @@ import java.io.*;
  * @author Luigi Dell'Aquila (l.dellaquila-(at)-orientdatabase.com)
  */
 public class ScriptExecutionTest extends TestHelper {
-  public class OSQLFunctionThrowCME extends SQLFunctionAbstract {
+  public static class SQLFunctionThrowCME extends SQLFunctionAbstract {
     public static final String NAME = "throwCME";
 
     /**
      * Get the date at construction to have the same date for all the iteration.
      */
-    public OSQLFunctionThrowCME() {
+    public SQLFunctionThrowCME() {
       super(NAME);
     }
 
-    public Object execute(Object iThis, final Identifiable iCurrentRecord, final Object iCurrentResult, final Object[] iParams, CommandContext iContext) {
+    public Object execute(Object iThis, final Identifiable iCurrentRecord, final Object iCurrentResult, final Object[] iParams,
+        CommandContext iContext) {
       throw new ConcurrentModificationException("" + iParams[0]);
-    }
-
-    public boolean aggregateResults(final Object[] configuredParameters) {
-      return false;
     }
 
     public String getSyntax() {
@@ -52,7 +50,8 @@ public class ScriptExecutionTest extends TestHelper {
     String className = "testTwoInserts";
     database.getSchema().createDocumentType(className);
     database.transaction(() -> {
-      database.execute("sqlscript", "INSERT INTO " + className + " SET name = 'foo';INSERT INTO " + className + " SET name = 'bar';");
+      database.command("sqlscript",
+          "INSERT INTO " + className + " SET name = 'foo';INSERT INTO " + className + " SET name = 'bar';");
     });
     ResultSet rs = database.query("sql", "SELECT count(*) as count from " + className);
     Assertions.assertEquals((Object) 2L, rs.next().getProperty("count"));
@@ -74,7 +73,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "   INSERT INTO " + className + " SET name = 'bar';";
       script += "}";
 
-      database.execute("sqlscript", script);
+      database.command("sqlscript", script);
     });
     ResultSet rs = database.query("sql", "SELECT count(*) as count from " + className);
     Assertions.assertEquals((Object) 2L, rs.next().getProperty("count"));
@@ -94,7 +93,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "   RETURN;";
       script += "}";
       script += "INSERT INTO " + className + " SET name = 'baz';";
-      database.execute("sqlscript", script);
+      database.command("sqlscript", script);
     });
 
     final ResultSet rs = database.query("sql", "SELECT count(*) as count from " + className);
@@ -114,7 +113,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "   RETURN 'OK';";
       script += "}";
       script += "RETURN 'FAIL';";
-      ResultSet result = database.execute("sqlscript", script);
+      ResultSet result = database.command("sqlscript", script);
 
       Result item = result.next();
 
@@ -136,7 +135,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "   RETURN 'FAIL';";
       script += "}";
       script += "RETURN 'OK';";
-      ResultSet result = database.execute("sqlscript", script);
+      ResultSet result = database.command("sqlscript", script);
 
       Result item = result.next();
 
@@ -155,7 +154,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "   RETURN 'FAIL';";
       script += "}";
       script += "RETURN 'OK';";
-      ResultSet result = database.execute("sqlscript", script);
+      ResultSet result = database.command("sqlscript", script);
 
       Result item = result.next();
 
@@ -181,7 +180,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "  SELECT throwCME(#-1:-1, 1, 1, 1);";
       script += "}";
       script += "COMMIT RETRY 10;";
-      database.execute("sqlscript", script);
+      database.command("sqlscript", script);
     });
 
     ResultSet result = database.query("sql", "select from " + className);
@@ -241,8 +240,8 @@ public class ScriptExecutionTest extends TestHelper {
 
     database.async().waitCompletion();
 
-    ImmutablePage page = ((EmbeddedDatabase) database).getPageManager()
-        .getImmutablePage(new PageId(2, 0), ((EmbeddedDatabase) database).getFileManager().getFile(2).getPageSize(), false, false);
+    ImmutablePage page = ((EmbeddedDatabase) database).getPageManager().getImmutablePage(new PageId(2, 0),
+        ((PaginatedComponentFile) ((EmbeddedDatabase) database).getFileManager().getFile(2)).getPageSize(), false, false);
 
     Assertions.assertEquals(TOTAL + 1, page.getVersion(), "Page v." + page.getVersion());
   }
@@ -273,7 +272,7 @@ public class ScriptExecutionTest extends TestHelper {
     ResultSet result = database.query("sql", "select from " + className + " where id = 0");
     Assertions.assertTrue(result.hasNext());
     Result item = result.next();
-    Assertions.assertTrue((Integer) item.getProperty("attempt") < TOTAL);
+    Assertions.assertTrue((Integer) item.getProperty("attempt") < TOTAL, "Found attempts = " + item.getProperty("attempt"));
     Assertions.assertFalse(result.hasNext());
     result.close();
 
@@ -296,8 +295,8 @@ public class ScriptExecutionTest extends TestHelper {
 
     database.async().waitCompletion();
 
-    ImmutablePage page = ((EmbeddedDatabase) database).getPageManager()
-        .getImmutablePage(new PageId(2, 0), ((EmbeddedDatabase) database).getFileManager().getFile(2).getPageSize(), false, false);
+    ImmutablePage page = ((EmbeddedDatabase) database).getPageManager().getImmutablePage(new PageId(2, 0),
+        ((PaginatedComponentFile) ((EmbeddedDatabase) database).getFileManager().getFile(2)).getPageSize(), false, false);
 
     Assertions.assertEquals(TOTAL + 1, page.getVersion(), "Page v." + page.getVersion());
 
@@ -325,7 +324,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "SELECT throwCME(#-1:-1, 1, 1, 1);";
       script += "COMMIT RETRY 10;";
       try {
-        database.execute("sqlscript", script);
+        database.command("sqlscript", script);
       } catch (ConcurrentModificationException x) {
       }
 
@@ -352,7 +351,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "COMMIT RETRY 10 ELSE CONTINUE;";
       script += "INSERT INTO " + className + " set name = 'foo';";
 
-      database.execute("sqlscript", script);
+      database.command("sqlscript", script);
 
       ResultSet result = database.query("sql", "select from " + className);
       Assertions.assertTrue(result.hasNext());
@@ -381,7 +380,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "INSERT INTO " + className + " set name = 'foo';";
       script += "} AND CONTINUE;";
 
-      database.execute("sqlscript", script);
+      database.command("sqlscript", script);
     });
 
     ResultSet result = database.query("sql", "select from " + className);
@@ -411,7 +410,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "} AND FAIL;";
 
       try {
-        database.execute("sqlscript", script);
+        database.command("sqlscript", script);
         Assertions.fail();
       } catch (ConcurrentModificationException e) {
       }
@@ -423,10 +422,6 @@ public class ScriptExecutionTest extends TestHelper {
     Assertions.assertEquals("foo", item.getProperty("name"));
     Assertions.assertFalse(result.hasNext());
     result.close();
-  }
-
-  private SQLFunction defineThrowCME() {
-    return new OSQLFunctionThrowCME();
   }
 
   @Test
@@ -448,7 +443,7 @@ public class ScriptExecutionTest extends TestHelper {
       script += "}";
 
       try {
-        database.execute("sqlscript", script);
+        database.command("sqlscript", script);
         Assertions.fail();
       } catch (ConcurrentModificationException e) {
 
@@ -475,7 +470,7 @@ public class ScriptExecutionTest extends TestHelper {
       } catch (CommandSQLParsingException e) {
       }
 
-      ResultSet rs = database.execute("sqlscript", script);
+      ResultSet rs = database.command("sqlscript", script);
       Assertions.assertTrue(rs.hasNext());
       Result item = rs.next();
       Assertions.assertEquals(8, (Integer) item.getProperty("result"));
@@ -500,7 +495,7 @@ public class ScriptExecutionTest extends TestHelper {
 
       script += "create edge E from (select from V where name = 'a') to (select from V where name = 'b');\n";
       script += "create edge E from (select from V where name = 'c') to (select from V where name = 'd');\n";
-      database.execute("sql", script).close();
+      database.command("sqlscript", script).close();
     });
 
     String script = "begin;\n";
@@ -512,12 +507,21 @@ public class ScriptExecutionTest extends TestHelper {
     script += "};\n";
     script += "commit retry 10;\n";
 
-    database.execute("sql", script).close();
+    database.command("sqlscript", script).close();
 
     try (ResultSet rs = database.query("sql", "select from IndirectEdge")) {
       Assertions.assertTrue(rs.hasNext());
       Assertions.assertEquals("foo2", rs.next().getProperty("Source"));
       Assertions.assertFalse(rs.hasNext());
     }
+  }
+
+  @Override
+  protected void beginTest() {
+    database.async().setParallelLevel(PARALLEL_LEVEL);
+  }
+
+  private SQLFunction defineThrowCME() {
+    return new SQLFunctionThrowCME();
   }
 }

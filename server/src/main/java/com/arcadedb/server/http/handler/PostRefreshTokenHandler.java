@@ -14,7 +14,7 @@ import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PostRefreshTokenHandler extends AbstractHandler {
+public class PostRefreshTokenHandler extends AbstractServerHttpHandler {
     public PostRefreshTokenHandler(final HttpServer httpServer) {
         super(httpServer);
     }

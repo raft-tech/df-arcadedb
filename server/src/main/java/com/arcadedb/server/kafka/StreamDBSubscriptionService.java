@@ -5,6 +5,7 @@ import com.arcadedb.event.AfterRecordCreateListener;
 import com.arcadedb.event.AfterRecordDeleteListener;
 import com.arcadedb.event.AfterRecordUpdateListener;
 import com.arcadedb.log.LogManager;
+import com.arcadedb.server.ServerDatabase;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,13 +14,13 @@ import java.util.logging.Level;
 
 public class StreamDBSubscriptionService extends Thread {
     private final ConcurrentMap<String, KafkaEventListener> registeredEventListeners = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, DatabaseInternal> databases;
+    private final ConcurrentMap<String, ServerDatabase> databases;
     private final KafkaClient kafkaClient = new KafkaClient();
     private final String dbNamePattern;
     private final long serviceTimeoutMillis;
     private final String databaseUsername;
 
-    public StreamDBSubscriptionService(final String dbNamePattern, final ConcurrentMap<String, DatabaseInternal> databases, long serviceTimeoutMillis) {
+    public StreamDBSubscriptionService(final String dbNamePattern, final ConcurrentMap<String, ServerDatabase> databases, long serviceTimeoutMillis) {
         this.databases = databases;
         this.dbNamePattern = dbNamePattern;
         this.serviceTimeoutMillis = serviceTimeoutMillis;
@@ -29,7 +30,7 @@ public class StreamDBSubscriptionService extends Thread {
     @Override
     public void run() {
         while (true) {
-            for (Map.Entry<String, DatabaseInternal> entry : this.databases.entrySet()) {
+            for (Map.Entry<String, ServerDatabase> entry : this.databases.entrySet()) {
                 if (entry.getKey().matches(this.dbNamePattern) && !registeredEventListeners.containsKey(entry.getKey())) {
                     String databaseName = entry.getKey();
                     String databaseUsername = getOrDefaultUsername(entry.getValue()); // This can be null. This is handled in Event listener.

@@ -63,13 +63,11 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
 
       @Override
       public boolean hasNext() {
-
-        if (fetched >= nRecords || finished) {
+        if (fetched >= nRecords || finished)
           return false;
-        }
-        if (nextItem == null) {
+
+        if (nextItem == null)
           fetchNextItem();
-        }
 
         return nextItem != null;
 
@@ -77,15 +75,15 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
 
       @Override
       public Result next() {
-        if (fetched >= nRecords || finished) {
+        if (fetched >= nRecords || finished)
           throw new NoSuchElementException();
-        }
-        if (nextItem == null) {
+
+        if (nextItem == null)
           fetchNextItem();
-        }
-        if (nextItem == null) {
+
+        if (nextItem == null)
           throw new NoSuchElementException();
-        }
+
         final Result result = nextItem;
         nextItem = null;
         fetched++;
@@ -94,9 +92,9 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
 
       private void fetchNextItem() {
         nextItem = null;
-        if (finished) {
+        if (finished)
           return;
-        }
+
         if (prevResult == null) {
           prevResult = prevStep.syncPull(context, nRecords);
           if (!prevResult.hasNext()) {
@@ -135,18 +133,14 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
             }
 
             if (finalVal instanceof RID) {
-              final ResultInternal res = new ResultInternal();
               try {
-                res.setElement(((RID) finalVal).asDocument());
-                nextItem = res;
+                nextItem = new ResultInternal(((RID) finalVal).asDocument());
               } catch (final RecordNotFoundException e) {
                 LogManager.instance().log(this, Level.WARNING, "Record %s not found. Skip it from the result set", null, finalVal);
                 continue;
               }
             } else if (finalVal instanceof Document) {
-              final ResultInternal res = new ResultInternal();
-              res.setElement((Document) finalVal);
-              nextItem = res;
+              nextItem = new ResultInternal((Document) finalVal);
             } else if (finalVal instanceof Result) {
               nextItem = (Result) finalVal;
             }
@@ -158,7 +152,6 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
           }
         }
       }
-
     };
   }
 
@@ -166,9 +159,10 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
   public String prettyPrint(final int depth, final int indent) {
     final String spaces = ExecutionStepInternal.getIndent(depth, indent);
     String result = spaces + "+ EXTRACT VALUE FROM INDEX ENTRY";
-    if (profilingEnabled) {
+
+    if (profilingEnabled)
       result += " (" + getCostFormatted() + ")";
-    }
+
     if (filterClusterIds != null) {
       result += "\n";
       result += spaces;
@@ -176,6 +170,7 @@ public class GetValueFromIndexEntryStep extends AbstractExecutionStep {
       result += Arrays.stream(filterClusterIds).boxed().map(x -> "" + x).collect(Collectors.joining(","));
       result += "]";
     }
+
     return result;
   }
 

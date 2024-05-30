@@ -21,12 +21,13 @@ package com.arcadedb.database;
 import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.engine.BasePage;
 import com.arcadedb.engine.Bucket;
+import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.engine.ImmutablePage;
 import com.arcadedb.engine.MutablePage;
 import com.arcadedb.engine.PageId;
 import com.arcadedb.engine.PageManager;
 import com.arcadedb.engine.PaginatedComponent;
-import com.arcadedb.engine.PaginatedFile;
+import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.engine.WALFile;
 import com.arcadedb.exception.ConcurrentModificationException;
 import com.arcadedb.exception.DuplicatedKeyException;
@@ -39,6 +40,7 @@ import com.arcadedb.log.LogManager;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.atomic.*;
 import java.util.logging.*;
 
 /**
@@ -54,6 +56,7 @@ import java.util.logging.*;
 public class TransactionContext implements Transaction {
   private final DatabaseInternal                     database;
   private final Map<Integer, Integer>                newPageCounters       = new HashMap<>();
+  private final Map<Integer, AtomicInteger>          bucketRecordDelta     = new HashMap<>();
   private final Map<RID, Record>                     immutableRecordsCache = new HashMap<>(1024);
   private final Map<RID, Record>                     modifiedRecordsCache  = new HashMap<>(1024);
   private final TransactionIndexContext              indexChanges;
@@ -159,8 +162,8 @@ public class TransactionContext implements Transaction {
     final long pageNum = pos / bucket.getMaxRecordsInPage();
 
     // FOR IMMUTABLE RECORDS AVOID THAT THEY ARE POINTING TO THE OLD OFFSET IN A MODIFIED PAGE
-    immutableRecordsCache.values()
-        .removeIf(r -> r.getIdentity().getBucketId() == bucketId && r.getIdentity().getPosition() / bucket.getMaxRecordsInPage() == pageNum);
+    immutableRecordsCache.values().removeIf(
+        r -> r.getIdentity().getBucketId() == bucketId && r.getIdentity().getPosition() / bucket.getMaxRecordsInPage() == pageNum);
   }
 
   public void removeRecordFromCache(final RID rid) {
@@ -194,11 +197,12 @@ public class TransactionContext implements Transaction {
   @Override
   public void rollback() {
     LogManager.instance()
-        .log(this, Level.FINE, "Rollback transaction newPages=%s modifiedPages=%s (threadId=%d)", newPages, modifiedPages, Thread.currentThread().getId());
+        .log(this, Level.FINE, "Rollback transaction newPages=%s modifiedPages=%s (threadId=%d)", newPages, modifiedPages,
+            Thread.currentThread().getId());
 
     if (database.isOpen() && database.getSchema().getDictionary() != null) {
       if (modifiedPages != null) {
-        final int dictionaryId = database.getSchema().getDictionary().getId();
+        final int dictionaryId = database.getSchema().getDictionary().getFileId();
 
         for (final PageId pageId : modifiedPages.keySet()) {
           if (dictionaryId == pageId.getFileId()) {
@@ -246,6 +250,21 @@ public class TransactionContext implements Transaction {
   }
 
   /**
+   * Used to determine if a page has been already loaded. This is important for isolation.
+   */
+  public boolean hasPageForRecord(final PageId pageId) {
+    if (modifiedPages != null)
+      if (modifiedPages.containsKey(pageId))
+        return true;
+
+    if (newPages != null)
+      if (newPages.containsKey(pageId))
+        return true;
+
+    return immutablePages.containsKey(pageId);
+  }
+
+  /**
    * Looks for the page in the TX context first, then delegates to the database.
    */
   public BasePage getPage(final PageId pageId, final int size) throws IOException {
@@ -269,7 +288,7 @@ public class TransactionContext implements Transaction {
         case READ_COMMITTED:
           break;
         case REPEATABLE_READ:
-          final PaginatedFile file = database.getFileManager().getFile(pageId.getFileId());
+          final PaginatedComponentFile file = (PaginatedComponentFile) database.getFileManager().getFile(pageId.getFileId());
           final boolean isNewPage = pageId.getPageNumber() >= file.getTotalPages();
           if (!isNewPage)
             // CACHE THE IMMUTABLE PAGE ONLY IF IT IS NOT NEW
@@ -285,7 +304,7 @@ public class TransactionContext implements Transaction {
   /**
    * If the page is not already in transaction tx, loads from the database and clone it locally.
    */
-  public MutablePage getPageToModify(final PageId pageId, final int size, final boolean isNew) throws IOException {
+  public MutablePage getPageToModify(final PageId pageId, final int pageSize, final boolean isNew) throws IOException {
     if (!isActive())
       throw new TransactionException("Transaction not active");
 
@@ -299,7 +318,7 @@ public class TransactionContext implements Transaction {
         final ImmutablePage loadedPage = immutablePages.remove(pageId);
         if (loadedPage == null)
           // NOT FOUND, DELEGATES TO THE DATABASE
-          page = database.getPageManager().getMutablePage(pageId, size, isNew, true);
+          page = database.getPageManager().getMutablePage(pageId, pageSize, isNew, true);
         else
           page = loadedPage.modify();
 
@@ -349,7 +368,7 @@ public class TransactionContext implements Transaction {
   public long getFileSize(final int fileId) throws IOException {
     final Integer lastPage = newPageCounters.get(fileId);
     if (lastPage != null)
-      return (long) (lastPage + 1) * database.getFileManager().getFile(fileId).getPageSize();
+      return (long) (lastPage + 1) * ((PaginatedComponentFile) database.getFileManager().getFile(fileId)).getPageSize();
 
     return database.getFileManager().getVirtualFileSize(fileId);
   }
@@ -406,12 +425,44 @@ public class TransactionContext implements Transaction {
     immutablePages.clear();
   }
 
+  public Map<Integer, Integer> getBucketRecordDelta() {
+    final Map<Integer, Integer> map = new HashMap<>(bucketRecordDelta.size());
+    for (Map.Entry<Integer, AtomicInteger> entry : bucketRecordDelta.entrySet())
+      map.put(entry.getKey(), entry.getValue().get());
+    return map;
+  }
+
+  /**
+   * Returns the delta of records considering the pending changes in transaction.
+   */
+  public long getBucketRecordDelta(final int bucketId) {
+    final AtomicInteger delta = bucketRecordDelta.get(bucketId);
+    if (delta != null)
+      return delta.get();
+    return 0;
+  }
+
+  /**
+   * Updates the record counter for buckets. At transaction commit, the delta is updated into the schema.
+   */
+  public void updateBucketRecordDelta(final int bucketId, final int delta) {
+    AtomicInteger counter = bucketRecordDelta.get(bucketId);
+    if (counter == null) {
+      counter = new AtomicInteger(delta);
+      bucketRecordDelta.put(bucketId, counter);
+    } else
+      counter.addAndGet(delta);
+  }
+
   /**
    * Executes 1st phase from a replica.
    */
   public void commitFromReplica(final WALFile.WALTransaction buffer,
-      final Map<String, TreeMap<TransactionIndexContext.ComparableKey, Map<TransactionIndexContext.IndexKey, TransactionIndexContext.IndexKey>>> keysTx)
-      throws TransactionException {
+      final Map<String, TreeMap<TransactionIndexContext.ComparableKey, Map<TransactionIndexContext.IndexKey, TransactionIndexContext.IndexKey>>> keysTx,
+      final Map<Integer, Integer> bucketRecordDelta) throws TransactionException {
+
+    for (Map.Entry<Integer, Integer> entry : bucketRecordDelta.entrySet())
+      this.bucketRecordDelta.put(entry.getKey(), new AtomicInteger(entry.getValue()));
 
     final int totalImpactedPages = buffer.pages.length;
     if (totalImpactedPages == 0 && keysTx.isEmpty()) {
@@ -430,11 +481,11 @@ public class TransactionContext implements Transaction {
       indexChanges.setKeys(keysTx);
       indexChanges.addFilesToLock(modifiedFiles);
 
-      final int dictionaryFileId = database.getSchema().getDictionary().getId();
+      final int dictionaryFileId = database.getSchema().getDictionary().getFileId();
       boolean dictionaryModified = false;
 
       for (final WALFile.WALPage p : buffer.pages) {
-        final PaginatedFile file = database.getFileManager().getFile(p.fileId);
+        final PaginatedComponentFile file = (PaginatedComponentFile) database.getFileManager().getFile(p.fileId);
         final int pageSize = file.getPageSize();
 
         final PageId pageId = new PageId(p.fileId, p.pageNumber);
@@ -487,7 +538,8 @@ public class TransactionContext implements Transaction {
           database.updateRecordNoLock(rec, false);
         } catch (final RecordNotFoundException e) {
           // DELETED IN TRANSACTION, THIS IS FULLY MANAGED TO NEVER HAPPEN, BUT IF IT DOES DUE TO THE INTRODUCTION OF A BUG, JUST LOG SOMETHING AND MOVE ON
-          LogManager.instance().log(this, Level.WARNING, "Attempt to update the delete record %s in transaction", rec.getIdentity());
+          LogManager.instance()
+              .log(this, Level.WARNING, "Attempt to update the delete record %s in transaction", rec.getIdentity());
         }
       updatedRecords = null;
     }
@@ -551,7 +603,8 @@ public class TransactionContext implements Transaction {
       rollback();
       throw e;
     } catch (final Exception e) {
-      LogManager.instance().log(this, Level.FINE, "Unknown exception during commit (threadId=%d)", e, Thread.currentThread().getId());
+      LogManager.instance()
+          .log(this, Level.FINE, "Unknown exception during commit (threadId=%d)", e, Thread.currentThread().getId());
       rollback();
       throw new TransactionException("Transaction error on commit", e);
     }
@@ -562,7 +615,7 @@ public class TransactionContext implements Transaction {
       if (changes == null)
         return;
 
-      if (database.getMode() == PaginatedFile.MODE.READ_ONLY)
+      if (database.getMode() == ComponentFile.MODE.READ_ONLY)
         throw new TransactionException("Cannot commit changes because the database is open in read-only mode");
 
       if (status != STATUS.COMMIT_1ST_PHASE)
@@ -577,23 +630,33 @@ public class TransactionContext implements Transaction {
       // AT THIS POINT, LOCK + VERSION CHECK, THERE IS NO NEED TO MANAGE ROLLBACK BECAUSE THERE CANNOT BE CONCURRENT TX THAT UPDATE THE SAME PAGE CONCURRENTLY
       // UPDATE PAGE COUNTER FIRST
       LogManager.instance()
-          .log(this, Level.FINE, "TX committing pages newPages=%s modifiedPages=%s (threadId=%d)", newPages, modifiedPages, Thread.currentThread().getId());
+          .log(this, Level.FINE, "TX committing pages newPages=%s modifiedPages=%s (threadId=%d)", newPages, modifiedPages,
+              Thread.currentThread().getId());
 
       database.getPageManager().updatePages(newPages, modifiedPages, asyncFlush);
 
       if (newPages != null) {
         for (final Map.Entry<Integer, Integer> entry : newPageCounters.entrySet()) {
-          database.getSchema().getFileById(entry.getKey()).setPageCount(entry.getValue());
-          database.getFileManager()
-              .setVirtualFileSize(entry.getKey(), (long) entry.getValue() * database.getFileManager().getFile(entry.getKey()).getPageSize());
+          final PaginatedComponent component = (PaginatedComponent) database.getSchema().getFileById(entry.getKey());
+          component.setPageCount(entry.getValue());
+          database.getFileManager().setVirtualFileSize(entry.getKey(),
+              (long) entry.getValue() * ((PaginatedComponentFile) database.getFileManager().getFile(entry.getKey())).getPageSize());
         }
+      }
+
+      // UPDATE RECORD COUNT
+      for (Map.Entry<Integer, AtomicInteger> entry : bucketRecordDelta.entrySet()) {
+        final Bucket bucket = database.getSchema().getBucketById(entry.getKey());
+        if (bucket.getCachedRecordCount() > -1)
+          // UPDATE THE CACHE COUNTER ONLY IF ALREADY COMPUTED
+          bucket.setCachedRecordCount(bucket.getCachedRecordCount() + entry.getValue().get());
       }
 
       for (final Record r : modifiedRecordsCache.values())
         ((RecordInternal) r).unsetDirty();
 
       for (final int fileId : lockedFiles) {
-        final PaginatedComponent file = database.getSchema().getFileByIdIfExists(fileId);
+        final PaginatedComponent file = (PaginatedComponent) database.getSchema().getFileByIdIfExists(fileId);
         if (file != null)
           // THE FILE COULD BE NULL IN CASE OF INDEX COMPACTION
           file.onAfterCommit();
@@ -602,7 +665,8 @@ public class TransactionContext implements Transaction {
     } catch (final ConcurrentModificationException e) {
       throw e;
     } catch (final Exception e) {
-      LogManager.instance().log(this, Level.FINE, "Unknown exception during commit (threadId=%d)", e, Thread.currentThread().getId());
+      LogManager.instance()
+          .log(this, Level.FINE, "Unknown exception during commit (threadId=%d)", e, Thread.currentThread().getId());
       throw new TransactionException("Transaction error on commit", e);
     } finally {
       reset();
@@ -640,6 +704,7 @@ public class TransactionContext implements Transaction {
     modifiedRecordsCache.clear();
     immutableRecordsCache.clear();
     immutablePages.clear();
+    bucketRecordDelta.clear();
     txId = -1;
   }
 
@@ -661,7 +726,7 @@ public class TransactionContext implements Transaction {
     if (lockedFiles != null)
       lockedFiles.remove(fileId);
 
-    final PaginatedComponent component = database.getSchema().getFileByIdIfExists(fileId);
+    final PaginatedComponent component = (PaginatedComponent) database.getSchema().getFileByIdIfExists(fileId);
     if (component instanceof LSMTreeIndexAbstract)
       indexChanges.removeIndex(component.getName());
   }

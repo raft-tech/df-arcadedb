@@ -12,7 +12,7 @@ import io.undertow.server.HttpServerExchange;
  * Returns metadata about the available databases for the current user that the UI can display, 
  * such as classificaiton markings.
  */
-public class GetDatabasesInfoHandler  extends AbstractHandler {
+public class GetDatabasesInfoHandler  extends AbstractServerHttpHandler {
   public GetDatabasesInfoHandler(final HttpServer httpServer) {
     super(httpServer);
   }
