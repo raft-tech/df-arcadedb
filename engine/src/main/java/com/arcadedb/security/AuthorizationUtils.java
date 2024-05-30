@@ -7,6 +7,7 @@ import java.util.logging.Level;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
 import com.arcadedb.log.LogManager;
+import com.arcadedb.security.serializers.OpaPolicy;
 import com.arcadedb.serializer.json.JSONObject;
 
 public class AuthorizationUtils {
@@ -202,6 +203,8 @@ public class AuthorizationUtils {
   }
 
   public static boolean checkPermissionsOnDocumentToRead(final Document document, final SecurityDatabaseUser currentUser) {
+    String dbName = document.getDatabase().getName();
+    currentUser.getOpaPolicy().stream().filter(OpaPolicy::getDatabase());
     return checkPermissionsOnDocument(document, currentUser, false);
   }
 

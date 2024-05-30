@@ -20,7 +20,6 @@ package com.arcadedb.server.security;
 
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.ComponentFile;
-import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.SecurityManager;
@@ -29,6 +28,7 @@ import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.security.oidc.ArcadeRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 
+import com.arcadedb.security.serializers.OpaPolicy;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
@@ -46,13 +46,15 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   private final boolean[] databaseAccessMap = new boolean[DATABASE_ACCESS.values().length];
   private List<ArcadeRole> arcadeRoles = new ArrayList<>();
   private Map<String,Object> attributes;
+  private List<OpaPolicy> policy;
 
-  public ServerSecurityDatabaseUser(final String databaseName, final String userName, final String[] groups, final List<ArcadeRole> arcadeRoles, Map<String, Object> attributes) {
+  public ServerSecurityDatabaseUser(final String databaseName, final String userName, final String[] groups, final List<ArcadeRole> arcadeRoles, Map<String, Object> attributes, List<OpaPolicy> policy) {
     this.databaseName = databaseName;
     this.userName = userName;
     this.groups = groups;
     this.arcadeRoles = arcadeRoles;
     this.attributes = attributes;
+    this.policy = policy;
   }
 
   public String[] getGroups() {
@@ -366,6 +368,11 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
    */
   public String getTetragraphs() {
     return getStringValueFromKeycloakAttribute("tetragraphs");
+  }
+
+  @Override
+  public List<OpaPolicy> getOpaPolicy() {
+    return this.policy;
   }
 
   /**
