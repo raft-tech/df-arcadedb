@@ -1,5 +1,6 @@
 package com.arcadedb.security;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -7,7 +8,12 @@ import java.util.logging.Level;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
 import com.arcadedb.log.LogManager;
-import com.arcadedb.serializer.json.JSONObject;
+import com.arcadedb.security.ACCM.Argument;
+import com.arcadedb.security.ACCM.ArgumentOperator;
+import com.arcadedb.security.ACCM.Expression;
+import com.arcadedb.security.ACCM.ExpressionOperator;
+import com.arcadedb.security.ACCM.GraphType;
+import com.arcadedb.security.ACCM.TypeRestriction;
 
 public class AuthorizationUtils {
 
@@ -16,6 +22,16 @@ public class AuthorizationUtils {
    * There may be a faster/better way of doing this, but bigger fish to fry first
    */
   public static final Map<String, Integer> classificationOptions = Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
+
+  private static TypeRestriction getTypeRestriction() {
+    Argument classificationArg = new Argument("classificationTest", ArgumentOperator.ANY_OF, new String[]{"U", "S"});
+    Argument releasableToArg = new Argument("releaseableTo", ArgumentOperator.ANY_IN, new String[]{"USA"});
+
+    Expression expression = new Expression(ExpressionOperator.AND, classificationArg, releasableToArg);
+    TypeRestriction typeRestriction = new TypeRestriction("beta", GraphType.VERTEX, List.of(expression), List.of(expression), List.of(expression), List.of(expression));
+    return typeRestriction;
+  }
+
 
   /**
    * Checks if the provided classification is permitted given the deployment classification.
@@ -205,6 +221,9 @@ public class AuthorizationUtils {
     // log duration in ns
     long startTime = System.nanoTime();
     boolean result = checkPermissionsOnDocument(document, currentUser, false);
+
+
+
     long endTime = System.nanoTime();
     long duration = (endTime - startTime);
     LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "checkPermissionsOnDocumentToRead took " + duration + " ns");
@@ -228,6 +247,7 @@ public class AuthorizationUtils {
     // Expensive to do at read time. Include linkages and classification at write time?
     // Needs performance testing and COA analysis.
 
+    // TODO prevent data stewards from seeing data outside their access
     if (currentUser.isServiceAccount() || currentUser.isDataSteward(document.getTypeName())) {
       return true;
     }
@@ -238,42 +258,44 @@ public class AuthorizationUtils {
       return false;
     }
 
+    return getTypeRestriction().evaluateCreateRestrictions(document.toJSON());
+
     // TODO detect and provide org for clearance
-    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
-    var nationality = currentUser.getNationality();
-    var tetragraphs = currentUser.getTetragraphs();
+    // var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
+    // var nationality = currentUser.getNationality();
+    // var tetragraphs = currentUser.getTetragraphs();
 
-    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
-      // sources will be a map, in the form of source number : (classification//ACCM) source id
-      // check if user has appropriate clearance for any of the sources for the document
+    // if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
+    //   // sources will be a map, in the form of source number : (classification//ACCM) source id
+    //   // check if user has appropriate clearance for any of the sources for the document
       
-      var array = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+    //   var array = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
       
-      for (int i = 0; i < array.length(); i++) {
-        JSONObject jo = array.getJSONObject(i);
+    //   for (int i = 0; i < array.length(); i++) {
+    //     JSONObject jo = array.getJSONObject(i);
 
-        // TODO update
-        if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
-            AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
-              jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
-          return true;
-        }
-      }
-    }
+    //     // TODO update
+    //     // if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
+    //     //     AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
+    //     //       jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
+    //     //   return true;
+    //     // }
+    //   }
+    // }
 
-    if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-          && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
-      var docClassification = 
-          document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
-      if (docClassification != null && !docClassification.isEmpty()) {
-        var isAuthorized = isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
-        return isAuthorized;
-      } else {
-        return false;
-      }
-    }
+    // if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
+    //       && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
+    //   var docClassification = 
+    //       document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
+    //   if (docClassification != null && !docClassification.isEmpty()) {
+    //     // var isAuthorized = isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
+    //     // return isAuthorized;
+    //   } else {
+    //     return false;
+    //   }
+    // }
 
-    return false;
+    // return false;
   }
 
   public static boolean checkPermissionsOnClassificationMarking(String classificationMarking, final SecurityDatabaseUser currentUser) {
