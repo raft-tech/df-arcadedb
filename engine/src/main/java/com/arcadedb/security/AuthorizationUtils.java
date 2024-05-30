@@ -229,9 +229,6 @@ public class AuthorizationUtils {
     long startTime = System.nanoTime();
     boolean result = checkPermissionsOnDocument(document, currentUser, RecordAction.READ);
 
-    // String dbName = document.getDatabase().getName();
-    // currentUser.getOpaPolicy().stream().filter(OpaPolicy::getDatabase());
-
     long endTime = System.nanoTime();
     long duration = (endTime - startTime);
     LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "checkPermissionsOnDocumentToRead took " + duration + " ns");
@@ -271,15 +268,38 @@ public class AuthorizationUtils {
       return false;
     }
 
+    String dbName = document.getDatabase().getName();
+    var databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals(dbName)).findFirst().orElse(null);
+
+    if (databasePolicy == null) {
+      // todo throw illegal arg exception, no valid policy
+      return false;
+    }
+
+    // get typerestriction for document type name, support regex type restriction name
+    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().equals(document.getTypeName())).findFirst().orElse(null);
+
+    // java regex string matcher
+    if (typeRestriction == null) {
+      typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> document.getTypeName().matches(tr.getName())).findFirst().orElse(null);
+    }
+
+    if (typeRestriction == null) {
+      // todo throw illegal arg exception, no valid type restriction
+      return false;
+    }
+
+    // TODO support multiple type restrictions for a single document type. Could be an explicit, and multiple regex matches.
+    
     switch (action) {
       case CREATE:
-        return getTypeRestriction().evaluateCreateRestrictions(document.toJSON());
+        return typeRestriction.evaluateCreateRestrictions(document.toJSON());
       case READ:
-        return getTypeRestriction().evaluateReadRestrictions(document.toJSON());
+        return typeRestriction.evaluateReadRestrictions(document.toJSON());
       case UPDATE:
-        return getTypeRestriction().evaluateUpdateRestrictions(document.toJSON());
+        return typeRestriction.evaluateUpdateRestrictions(document.toJSON());
       case DELETE:
-        return getTypeRestriction().evaluateDeleteRestrictions(document.toJSON());
+        return typeRestriction.evaluateDeleteRestrictions(document.toJSON());
       default:
         LogManager.instance().log(AuthorizationUtils.class, Level.SEVERE, "Invalid action: " + action);
         return false;
