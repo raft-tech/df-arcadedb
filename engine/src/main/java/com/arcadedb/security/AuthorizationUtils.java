@@ -121,7 +121,6 @@ public class AuthorizationUtils {
    * Checks if the classification markings contains a releaseable to block, and if so, checks if the user
    * belongs to an allowable nationality.
    * @param nationality
-   * @param resouceClassificationMarkings
    * @return
    */
   private static boolean isBlockedByReleaseableTo(final String nationality, final String tetragraphs, 
@@ -263,7 +262,7 @@ public class AuthorizationUtils {
     }
 
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
-    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
+    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) && RecordAction.CREATE != action) {
       // todo throw illegal arg exception, no valid marking
       return false;
     }

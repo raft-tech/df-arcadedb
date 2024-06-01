@@ -63,6 +63,7 @@ public class DataFabricRestClient {
         return tokenJO.getString("access_token");
     }
 
+    // todo this can go away
     public static String getAccessTokenJsonFromResponse(String token) {
         if (token != null) {
             JSONObject tokenJO = new JSONObject(token);
@@ -103,6 +104,7 @@ public class DataFabricRestClient {
         return sendAndGetResponse(request);
     }
 
+    // todo this can be removed
     protected static String putAuthenticatedAndGetResponse(String url, String jsonPayload) {
         String accessTokenString = loginAndGetEncodedAccessString();
 

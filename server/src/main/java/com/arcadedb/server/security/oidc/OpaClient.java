@@ -8,14 +8,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class OpaClient extends DataFabricRestClient {
     private static String getBaseOpaUrl() {
-        return String.format("%s/v1/data/datafabric/arcadedb/authz/create_type_enfocements_for_user", GlobalConfiguration.OPA_ROOT_URL.getValueAsString());
+        return String.format("%s/v1/data/datafabric/arcadedb/authz/create_type_enforcements_for_user", GlobalConfiguration.OPA_ROOT_URL.getValueAsString());
     }
 
     public static OpaResponse getPolicy(String username) {
         var policyResponse = sendAuthenticatedPostAndGetResponse(getBaseOpaUrl(), username);
 
         try {
-            return new ObjectMapper().readValue(policyResponse, OpaResponse.class);
+            OpaResponse response = new ObjectMapper().readValue(policyResponse, OpaResponse.class);
+            return response;
         } catch (JsonProcessingException e) {
             return null;
         }

@@ -10,7 +10,6 @@ import java.util.Map;
 @Data
 @Jacksonized
 public class OpaPolicy {
-    private Map<String, Object> attributes;
     private String database;
     private List<String> permissions;
     private List<TypeRestriction> typeRestrictions;
