@@ -375,7 +375,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     }
     log.debug("Opa policy {}", result);
 
-    if (result.getPolicy().isEmpty()) {
+    if (result.getRoles().isEmpty()) {
       // not an authorized arcade user
       throw new ServerSecurityException("User not authorized");
     }

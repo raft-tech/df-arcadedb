@@ -80,8 +80,6 @@ public class DocumentValidator {
     }
 
     boolean validSources = false;
-    var policy = securityDatabaseUser.getOpaPolicy();
-
     // validate sources, if present
     if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE) && !document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).isEmpty()) {
       validateSources(document, securityDatabaseUser, action);

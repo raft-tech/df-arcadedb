@@ -428,8 +428,6 @@ public enum GlobalConfiguration {
 
   MONGO_HOST("arcadedb.mongo.host", SCOPE.SERVER,
       "TCP/IP host name used for incoming connections for Mongo plugin. Default is '0.0.0.0'", String.class, "0.0.0.0"), 
-      
-  OPA_ROOT_URL("arcadedb.opaRootUrl", SCOPE.SERVER, "Root URL for OPA", String.class, "http://df-opa:8181"),
   ;
 
   /**
