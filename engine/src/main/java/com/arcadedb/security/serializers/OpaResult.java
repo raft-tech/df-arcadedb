@@ -9,6 +9,7 @@ import java.util.Map;
 @Data
 @Jacksonized
 public class OpaResult {
+    private boolean allow;
     private List<String> roles;
     private Map<String, Object> attributes;
     private List<OpaPolicy> policy;
