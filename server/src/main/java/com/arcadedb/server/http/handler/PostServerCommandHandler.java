@@ -235,8 +235,6 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
       ArcadeRole schemaRole = new ArcadeRole(RoleType.DATABASE_ADMIN, databaseName, DatabaseAdminRole.ALL);
       createAndAssignRoleToUser(dataRole, user.getName());
       createAndAssignRoleToUser(schemaRole, user.getName());
-      createRoleForUser(dataRole, user.getName());
-      createRoleForUser(schemaRole, user.getName());
 
       if (options.has("importOntology") && options.getBoolean("importOntology")) {
         // get the ontology file from project resources
@@ -273,7 +271,6 @@ public class PostServerCommandHandler extends AbstractServerHttpHandler {
   }
 
   private void createAndAssignRoleToUser(ArcadeRole arcadeRole, String username) {
-  private void createRoleForUser(ArcadeRole arcadeRole, String username) {
     String newRole = arcadeRole.getKeycloakRoleName();
     KeycloakClient.createRole(newRole);
     KeycloakClient.assignRoleToUser(newRole, username);

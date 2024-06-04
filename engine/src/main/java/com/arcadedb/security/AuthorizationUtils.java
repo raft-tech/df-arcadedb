@@ -8,6 +8,7 @@ import java.util.logging.Level;
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
 import com.arcadedb.database.EmbeddedDatabase.RecordAction;
+import com.arcadedb.exception.ValidationException;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.security.serializers.OpaPolicy;
 import com.arcadedb.serializer.json.JSONObject;
@@ -263,20 +264,23 @@ public class AuthorizationUtils {
 
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
     if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) && RecordAction.CREATE != action) {
-      // todo throw illegal arg exception, no valid marking
-      return false;
+      throw new ValidationException("Classification markings are missing on document");
     }
 
     String dbName = document.getDatabase().getName();
     var databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals(dbName)).findFirst().orElse(null);
 
+    // Supporting regex match on dbnames as well
     if (databasePolicy == null) {
-      // todo throw illegal arg exception, no valid policy
-      return false;
+      databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> dbName.matches(policy.getDatabase())).findFirst().orElse(null);
+    }
+
+    if (databasePolicy == null) {
+      throw new ValidationException("Missing policy for database");
     }
 
     // get typerestriction for document type name, support regex type restriction name
-    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().equals(document.getTypeName())).findFirst().orElse(null);
+    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().matches(document.getTypeName())).findFirst().orElse(null);
 
     // java regex string matcher
     if (typeRestriction == null) {
@@ -284,8 +288,7 @@ public class AuthorizationUtils {
     }
 
     if (typeRestriction == null) {
-      // todo throw illegal arg exception, no valid type restriction
-      return false;
+      throw new ValidationException("Missing type restrictions for user");
     }
 
     // TODO support multiple type restrictions for a single document type. Could be an explicit, and multiple regex matches.
