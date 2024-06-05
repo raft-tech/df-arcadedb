@@ -1,5 +1,6 @@
 package com.arcadedb.security.ACCM;
 
+import com.arcadedb.database.DocumentValidator;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -131,14 +132,34 @@ public class Argument {
                     }
                 }
                 return false;
-            case GT:
-                return (int) docFieldValue > (int) this.value;
-            case GT_EQ:
-                return (int) docFieldValue >= (int) this.value;
-            case LT:
-                return (int) docFieldValue < (int) this.value;
-            case LT_EQ:
-                return (int) docFieldValue <= (int) this.value;
+            case GT: {
+                if (this.value instanceof String) {
+                    return DocumentValidator.classificationOptions.get((String) docFieldValue) > DocumentValidator.classificationOptions.get((String) this.value);
+                } else {
+                    return (int) docFieldValue > (int) this.value;
+                }
+            }
+            case GT_EQ: {
+                if (this.value instanceof String) {
+                    return DocumentValidator.classificationOptions.get((String) docFieldValue) >= DocumentValidator.classificationOptions.get((String) this.value);
+                } else {
+                    return (int) docFieldValue > (int) this.value;
+                }
+            }
+            case LT: {
+                if (this.value instanceof String) {
+                    return DocumentValidator.classificationOptions.get((String) docFieldValue) < DocumentValidator.classificationOptions.get((String) this.value);
+                } else {
+                    return (int) docFieldValue > (int) this.value;
+                }
+            }
+            case LT_EQ: {
+                if (this.value instanceof String) {
+                    return DocumentValidator.classificationOptions.get((String) docFieldValue) <= DocumentValidator.classificationOptions.get((String) this.value);
+                } else {
+                    return (int) docFieldValue > (int) this.value;
+                }
+            }
             case ANY_IN:
                 if (docFieldValue instanceof JSONArray) {
                     for (Object docVal :  ((JSONArray) docFieldValue).toList()) {

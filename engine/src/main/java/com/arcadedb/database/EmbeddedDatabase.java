@@ -37,11 +37,7 @@ import com.arcadedb.exception.DuplicatedKeyException;
 import com.arcadedb.exception.InvalidDatabaseInstanceException;
 import com.arcadedb.exception.NeedRetryException;
 import com.arcadedb.exception.TransactionException;
-import com.arcadedb.graph.Edge;
-import com.arcadedb.graph.GraphEngine;
-import com.arcadedb.graph.MutableVertex;
-import com.arcadedb.graph.Vertex;
-import com.arcadedb.graph.VertexInternal;
+import com.arcadedb.graph.*;
 import com.arcadedb.index.IndexCursor;
 import com.arcadedb.index.IndexInternal;
 import com.arcadedb.index.TypeIndex;
@@ -1001,10 +997,10 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
         var rec = (MutableDocument) record;
         var context = DatabaseContext.INSTANCE.getContext(rec.database.getDatabasePath());
         if (context.getCurrentUser() != null)
-          if (AuthorizationUtils.checkPermissionsOnDocument(record.asDocument(true), context.getCurrentUser(), RecordAction.DELETE)) {
-            deleteRecordNoLock(record);
-          }
+            rec.validateAndAccmCheck(context.getCurrentUser(), RecordAction.DELETE);
       }
+
+      deleteRecordNoLock(record);
 
       return null;
     });

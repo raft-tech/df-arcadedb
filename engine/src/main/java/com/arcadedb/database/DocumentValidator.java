@@ -181,11 +181,11 @@ public class DocumentValidator {
 
       var jo = (JSONObject) obj;
 
-      if (!jo.has(MutableDocument.CLASSIFICATION_PROPERTY)) {
+      if (!jo.has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
         throw new ValidationException("Source " + jo + " is missing classification property");
       }
 
-      var classification = jo.getString(MutableDocument.CLASSIFICATION_PROPERTY);
+      var classification = jo.getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
 
       if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
         throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");

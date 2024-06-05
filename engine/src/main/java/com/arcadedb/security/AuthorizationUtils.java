@@ -11,6 +11,7 @@ import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.exception.ValidationException;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.security.serializers.OpaPolicy;
+import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.security.ACCM.Argument;
 import com.arcadedb.security.ACCM.ArgumentOperator;
@@ -262,11 +263,16 @@ public class AuthorizationUtils {
       return true;
     }
 
-    // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
-    if ((!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) && RecordAction.CREATE != action) {
-      throw new ValidationException("Classification markings are missing on document");
+    // If classification is not enabled on database it does not make sense to keep going. is not enabled.
+    if (!document.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
+      return true;
     }
 
+    // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
+    if ( (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) && RecordAction.CREATE != action) {
+      throw new ValidationException("Classification markings are missing on document");
+    }
+    // todo add check for type if edge or vertex. Check if vertex or edge can have the same names.
     String dbName = document.getDatabase().getName();
     var databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals(dbName)).findFirst().orElse(null);
 
@@ -291,17 +297,33 @@ public class AuthorizationUtils {
       throw new ValidationException("Missing type restrictions for user");
     }
 
+    if (document.toJSON().has("sources")) {
+      // Combining all results
+      boolean results = true;
+      JSONArray sources = document.toJSON().getJSONArray("sources");
+      for (int i = 0; i < sources.length(); i++) {
+        results &= evalutateAccm(typeRestriction, sources.getJSONObject(i), action);
+      }
+      return results;
+    } else if (document.toJSON().has("classification")) {
+      return evalutateAccm(typeRestriction, document.toJSON().getJSONObject("classification"), action);
+    } else {
+      throw new ValidationException("Misformated classification payload");
+    }
+  }
+
+  // TODO looking at classification payload only to determine if document has the proper markings. Since OPA is not aware of record schema columns/record attributes will not be available hence we are narrowing down the validation to classification object only.
+  private static boolean evalutateAccm(final TypeRestriction typeRestriction, final JSONObject classificationJson, final RecordAction action) {
     // TODO support multiple type restrictions for a single document type. Could be an explicit, and multiple regex matches.
-    
     switch (action) {
       case CREATE:
-        return typeRestriction.evaluateCreateRestrictions(document.toJSON());
+        return typeRestriction.evaluateCreateRestrictions(classificationJson);
       case READ:
-        return typeRestriction.evaluateReadRestrictions(document.toJSON());
+        return typeRestriction.evaluateReadRestrictions(classificationJson);
       case UPDATE:
-        return typeRestriction.evaluateUpdateRestrictions(document.toJSON());
+        return typeRestriction.evaluateUpdateRestrictions(classificationJson);
       case DELETE:
-        return typeRestriction.evaluateDeleteRestrictions(document.toJSON());
+        return typeRestriction.evaluateDeleteRestrictions(classificationJson);
       default:
         LogManager.instance().log(AuthorizationUtils.class, Level.SEVERE, "Invalid action: " + action);
         return false;

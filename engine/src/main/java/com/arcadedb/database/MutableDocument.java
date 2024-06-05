@@ -43,7 +43,8 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   protected boolean dirty = false;
 
   public static final String CLASSIFICATION_PROPERTY = "classification";
-  public static final String CLASSIFICATION_GENERAL_PROPERTY = "general";
+  public static final String CLASSIFICATION_GENERAL_PROPERTY = "clearance";
+  public static final String CLASSIFICATION_RELEASABLE_TO = "releasableTo";
   public static final String CLASSIFICATION_ATTRIBUTES_PROPERTY = "attributes";
   public static final String CLASSIFICATION_MARKED = "classificationMarked";
 
