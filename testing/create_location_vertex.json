@@ -1,0 +1,7 @@
+{
+  "language": "sql",
+  "command": "create vertex type Location",
+  "limit": 25,
+  "profileExecution": "basic",
+  "serializer": "studio"
+}

@@ -1,0 +1,7 @@
+{
+  "language": "sql",
+  "command": "select from `People` limit 30",
+  "limit": 25,
+  "profileExecution": "basic",
+  "serializer": "studio"
+}

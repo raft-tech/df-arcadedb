@@ -1,0 +1,7 @@
+{
+  "language": "sql",
+  "command": "INSERT INTO People CONTENT \n{ \n  firstName: &#039;Enzo1&#039;, \n  lastName: &#039;Ferrari&#039;, \n  classification: { \n    general: &#039;U&#039;,\n    attributes: {\n      firstName: &#039;U&#039;,\n      lastName: &#039;U&#039;\n    }\n  }\n}",
+  "limit": 25,
+  "profileExecution": "basic",
+  "serializer": "studio"
+}
