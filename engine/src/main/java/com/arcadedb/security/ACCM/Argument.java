@@ -76,12 +76,14 @@ public class Argument {
             current = current.getJSONObject(path[i]);
         }
         return current.get(path[path.length - 1]);
-    }  
+    }
 
+    // TODO - remove seems like dead code.
     public boolean isValid() {
         return validate();
     }
 
+    // TODO - remove seems like dead code.
     private boolean validate() {
         switch (operator) {
             case EQ:

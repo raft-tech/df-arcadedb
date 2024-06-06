@@ -269,7 +269,10 @@ public class AuthorizationUtils {
     }
 
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
-    if ( (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) && RecordAction.CREATE != action) {
+    // The action where we do not want to raise exception is on create and update. The update is included because on edge creation there is technically
+    // an update in place where we actually link two vertices.
+    if ( (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) &&
+            (RecordAction.CREATE != action && RecordAction.UPDATE != action)) {
       throw new ValidationException("Classification markings are missing on document");
     }
     // todo add check for type if edge or vertex. Check if vertex or edge can have the same names.
