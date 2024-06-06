@@ -26,6 +26,8 @@ public class AuthorizationUtils {
    * The valid classification options, in order of increasing sensitivity. Permits math comparisons.
    * There may be a faster/better way of doing this, but bigger fish to fry first
    */
+
+  // todo move to opa since it needs to be configurable
   public static final Map<String, Integer> classificationOptions = Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
 
   private static TypeRestriction getTypeRestriction() {
@@ -36,7 +38,6 @@ public class AuthorizationUtils {
     TypeRestriction typeRestriction = new TypeRestriction("beta", GraphType.VERTEX, List.of(expression), List.of(expression), List.of(expression), List.of(expression));
     return typeRestriction;
   }
-
 
   /**
    * Checks if the provided classification is permitted given the deployment classification.
