@@ -1,0 +1,7 @@
+{
+  "language": "sql",
+  "command": "CREATE EDGE LivesIn \nFROM (SELECT FROM People WHERE firstName = &#039;Enzo5&#039;) TO\n     (SELECT FROM Location WHERE name = &#039;Huntsville&#039;)\nCONTENT {\n  sources: [\n     {\n       name: &#039;IIR 123456&#039;,\n       classification: &#039;S//NF&#039;,\n       attributes: {\n       }\n     }\n   ]\n}",
+  "limit": 25,
+  "profileExecution": "basic",
+  "serializer": "studio"
+}

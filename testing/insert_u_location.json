@@ -1,0 +1,7 @@
+{
+  "language": "sql",
+  "command": "INSERT INTO Location CONTENT \n{ \n  name: &#039;Richmond&#039;, \n  type: &#039;City&#039;, \n  classification: { \n    general: &#039;U&#039;,\n    attributes: {\n      name: &#039;U&#039;,\n      type: &#039;U&#039;\n    }\n  }\n}",
+  "limit": 25,
+  "profileExecution": "basic",
+  "serializer": "studio"
+}

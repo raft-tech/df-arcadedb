@@ -1,0 +1,7 @@
+{
+  "language": "sql",
+  "command": "create edge type LivesIn",
+  "limit": 25,
+  "profileExecution": "basic",
+  "serializer": "studio"
+}

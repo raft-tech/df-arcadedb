@@ -162,14 +162,60 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
-< create_u_location.json
+< insert_u_location.json
 ```
 
-21. As an unclassified user, create an Edge from S//NF person to U location
+21. As an unclassified user, create an Edge type
 ```shell
-
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< create_edge.json
 ```
 
-22. Bump user to secret Now try again. This should work.
-23. Create a new relationship from S//NF location -> U person
-24. Change the user back to U and check that
+22. As an unclassified user, add an edge from S//NF person (Enzo5) to U location
+This command should fail.
+```shell
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< create_snf_person_edge.json
+```
+
+23. Bump user to secret and try again. This should work.
+Keycloak attributes:
+```
+clearance-usa = S
+nationality = USA
+```
+
+```shell
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< create_snf_person_edge.json
+```
+
+24. Create a new S//NF location, create an edge to a S//NF person
+```shell
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< insert_snf_location.json
+```
+
+```shell
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< create_snf_edge.json
+```
+
+25. With an unclassified user, query for edges
+This command should return no edges.
+Keycloak attributes:
+```
+clearance-usa = U
+nationality = USA
+```
+
+```shell
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< select_from_edge.json
+```
