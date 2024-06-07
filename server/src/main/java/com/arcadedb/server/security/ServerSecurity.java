@@ -24,6 +24,7 @@ import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.security.SecurityManager;
+import com.arcadedb.security.serializers.OpaResult;
 import com.arcadedb.serializer.json.JSONException;
 import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.server.ArcadeDBServer;
@@ -32,13 +33,7 @@ import com.arcadedb.server.ServerException;
 import com.arcadedb.server.ServerPlugin;
 import com.arcadedb.server.security.credential.CredentialsValidator;
 import com.arcadedb.server.security.credential.DefaultCredentialsValidator;
-import com.arcadedb.server.security.oidc.ArcadeRole;
-import com.arcadedb.server.security.oidc.Group;
-import com.arcadedb.server.security.oidc.GroupMap;
-import com.arcadedb.server.security.oidc.GroupTypeAccess;
-import com.arcadedb.server.security.oidc.KeycloakClient;
-import com.arcadedb.server.security.oidc.KeycloakUser;
-import com.arcadedb.server.security.oidc.User;
+import com.arcadedb.server.security.oidc.*;
 import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
@@ -278,9 +273,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       groupRepository.stop();
   }
 
-  private KeycloakUser createKeycloakUser(String username) {
-    List<String> roles = KeycloakClient.getUserClientRoles(username);
-    return new KeycloakUser(username, roles);
+  private OpaResult getAuthorization(String username) {
+      return OpaClient.getPolicy(username).getResult();
   }
 
   /**
@@ -289,7 +283,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
    * @param jwtRoles
    * @return
    */
-  private List<ArcadeRole> getArcadeRolesFromJwtRoles(List<String> jwtRoles) {
+  private List<ArcadeRole> getArcadeRolesFromString(List<String> jwtRoles) {
     List<ArcadeRole> arcadeRoles = new ArrayList<>();
     for (String role : jwtRoles) {
       if (ArcadeRole.isArcadeRole(role)) {
@@ -373,40 +367,32 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       return users.get(username);
     }
 
-    // 1. get user from keycloak
-    KeycloakUser keycloakUser = createKeycloakUser(username);
-
-    if (keycloakUser == null) {
-      // user doesn't exist in keycloak
+    // 1. Check if user is authoried to hit arcade
+    OpaResult result = getAuthorization(username);
+    if (result == null) {
+      // Could not get policy
       throw new ServerSecurityException("User not found");
     }
+    log.debug("Opa policy {}", result);
 
-    log.debug("returned user {}", keycloakUser.toString());
-
-    // 2. Check if user is authoried to hit arcade
-    List<String> arcadeJwtRoles = keycloakUser.getRoles()
-        .stream()
-        .filter(r -> ArcadeRole.isArcadeRole(r))
-        .collect(Collectors.toList());
-
-    if (arcadeJwtRoles.isEmpty()) {
+    if (result.getRoles().isEmpty()) {
       // not an authorized arcade user
       throw new ServerSecurityException("User not authorized");
     }
 
-    // 3. get any arcade roles from jwt
-    List<ArcadeRole> arcadeRoles = getArcadeRolesFromJwtRoles(arcadeJwtRoles);
+    // 2. get any arcade roles from opa response
+    List<ArcadeRole> arcadeRoles = getArcadeRolesFromString(result.getRoles());
     userArcadeRoles.put(username, arcadeRoles);
 
-    log.debug("getOrCreateuser - parsed arcade roles {}", arcadeRoles.toString());
+    log.debug("getOrCreateuser - parsed arcade roles {}", arcadeRoles);
 
-    // 4. Convert arcade roles to groups
+    // 3. Convert arcade roles to groups
     List<Group> neededGroups = arcadeRoles.stream()
         .map(this::getGroupFromArcadeRole)
         .collect(Collectors.toList());
 
-    // 5. Create and add any missing groups
-    neededGroups.stream().forEach(g -> {
+    // 4. Create and add any missing groups
+    neededGroups.forEach(g -> {
       // if group isn't in currentGroups, add it
       if (g.getDatabase() != null) {
         if (groups.containsKey(g.getDatabase())) {
@@ -424,7 +410,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       // permission on the edge type and updateRecord on the vertex type.
     });
 
-    // 6. Create new user config
+    // 5. Create new user config
     Map<String, List<String>> groupMap = new HashMap<>();
     for (Group group : neededGroups) {
       if (!groupMap.containsKey(group.getDatabase())) {
@@ -432,7 +418,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       }
       groupMap.get(group.getDatabase()).add(group.getArcadeName());
     }
-    User user = new User(keycloakUser.getUsername(), groupMap);
+    User user = new User(username, groupMap);
 
     JSONObject userJson = new JSONObject();
     userJson.put("name", user.getName());
@@ -443,12 +429,12 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     }
     userJson.put("databases", databases);
 
-    log.debug("getOrCreateUser userJson {}", userJson.toString());
+    log.debug("getOrCreateUser userJson {}", userJson);
 
-    // 7. get user attribtues for ACCM
-    Map<String, Object> attributes = KeycloakClient.getUserAttributes(username);
+    // 6. get user attribtues for ACCM
+    Map<String, Object> attributes = result.getAttributes();
 
-    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis());
+    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis(), result.getPolicy());
     users.put(serverSecurityUser);
 
     return serverSecurityUser;

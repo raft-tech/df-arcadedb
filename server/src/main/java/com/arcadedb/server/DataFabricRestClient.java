@@ -15,6 +15,7 @@ import java.util.Map;
 import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.serializer.json.JSONObject;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -62,6 +63,7 @@ public class DataFabricRestClient {
         return tokenJO.getString("access_token");
     }
 
+    // todo this can go away
     public static String getAccessTokenJsonFromResponse(String token) {
         if (token != null) {
             JSONObject tokenJO = new JSONObject(token);
@@ -102,6 +104,7 @@ public class DataFabricRestClient {
         return sendAndGetResponse(request);
     }
 
+    // todo this can be removed
     protected static String putAuthenticatedAndGetResponse(String url, String jsonPayload) {
         String accessTokenString = loginAndGetEncodedAccessString();
 
@@ -170,5 +173,32 @@ public class DataFabricRestClient {
             formBodyBuilder.append(URLEncoder.encode(singleEntry.getValue(), StandardCharsets.UTF_8));
         }
         return formBodyBuilder.toString();
+    }
+
+    public static String sendAuthenticatedPostAndGetResponse(String url, String username) {
+        Map<String, Object> input = Map.of(
+                "input", Map.of(
+                        "username", username
+                )
+        );
+
+        HttpClient client = HttpClient.newHttpClient();
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .POST(HttpRequest.BodyPublishers.ofString(new ObjectMapper().writeValueAsString(input)))
+                    .build();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+        } catch (IOException | InterruptedException e) {
+            log.error("sendAuthenticatedPostAndGetResponse()", e.getMessage());
+            log.debug("Exception", e);
+            return null;
+        }
+
+        return null;
     }
 }

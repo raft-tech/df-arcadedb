@@ -18,6 +18,10 @@
  */
 package com.arcadedb.security;
 
+import com.arcadedb.security.serializers.OpaPolicy;
+
+import java.util.List;
+
 /**
  * Security user for a database. It declares the authorized permissions against the database.
  *
@@ -80,7 +84,8 @@ public interface SecurityDatabaseUser {
 
   String getTetragraphs();
 
-  boolean hasTetragraph(String tetragraph);
+  List<OpaPolicy> getOpaPolicy();
 
+  boolean hasTetragraph(String tetragraph);
   // TODO location, organization, etc.
 }

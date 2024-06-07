@@ -25,13 +25,12 @@ import com.arcadedb.security.SecurityUser;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.security.oidc.ArcadeRole;
 
+import com.arcadedb.security.serializers.OpaPolicy;
 import lombok.extern.slf4j.Slf4j;
 
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
-import com.arcadedb.server.ArcadeDBServer;
 
-import java.sql.Time;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -47,12 +46,13 @@ public class ServerSecurityUser implements SecurityUser {
   private final List<ArcadeRole> arcadeRoles;
   private final Map<String,Object> attributes;
   private final long createTime;
+  private final List<OpaPolicy> policy;
 
   public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration) {
-    this(server, userConfiguration, new ArrayList<>(), null, System.currentTimeMillis());
+    this(server, userConfiguration, new ArrayList<>(), null, System.currentTimeMillis(), null);
   }
 
-  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles, Map<String, Object> attributes, long createTime) {
+  public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration, List<ArcadeRole> arcadeRoles, Map<String, Object> attributes, long createTime, List<OpaPolicy> policy) {
     this.server = server;
     this.userConfiguration = userConfiguration;
 
@@ -75,6 +75,7 @@ public class ServerSecurityUser implements SecurityUser {
     this.arcadeRoles = arcadeRoles;
     this.attributes = attributes;
     this.createTime = createTime;
+    this.policy = policy;
   }
 
   @Override
@@ -116,7 +117,7 @@ public class ServerSecurityUser implements SecurityUser {
 
     if (dbu == null)
       // USER HAS NO ACCESS TO THE DATABASE, RETURN A USER WITH NO AX
-      dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], getRelevantRoles(arcadeRoles, databaseName), attributes);
+      dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], getRelevantRoles(arcadeRoles, databaseName), attributes, policy);
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)
@@ -200,7 +201,7 @@ public class ServerSecurityUser implements SecurityUser {
     log.debug("XX registerDatabaseUser: name: {}; database: {}; groupList: {}", name, databaseName, groupList.toString());
     
     ServerSecurityDatabaseUser dbu = new ServerSecurityDatabaseUser(databaseName, name, groupList.toArray(new String[groupList.size()]), 
-            getRelevantRoles(arcadeRoles, databaseName), attributes);
+            getRelevantRoles(arcadeRoles, databaseName), attributes, policy);
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)
@@ -222,5 +223,9 @@ public class ServerSecurityUser implements SecurityUser {
 
   public long getCreateTime() {
     return createTime;
+  }
+
+  public List<OpaPolicy> getPolicy() {
+    return this.policy;
   }
 }

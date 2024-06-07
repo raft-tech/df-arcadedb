@@ -22,7 +22,6 @@ import com.arcadedb.GlobalConfiguration;
 import com.arcadedb.database.Binary;
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
-import com.arcadedb.engine.ComponentFile;
 import com.arcadedb.engine.PaginatedComponentFile;
 import com.arcadedb.exception.CommandExecutionException;
 import com.arcadedb.network.binary.ServerIsNotTheLeaderException;
@@ -46,12 +45,8 @@ import com.arcadedb.server.security.oidc.role.CRUDPermission;
 import com.arcadedb.server.security.oidc.role.DatabaseAdminRole;
 import com.arcadedb.server.security.oidc.role.RoleType;
 import com.arcadedb.server.security.oidc.role.ServerAdminRole;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.nimbusds.oauth2.sdk.util.StringUtils;
 
 import io.undertow.server.HttpServerExchange;
-import io.undertow.util.StatusCodes;
 
 import java.io.*;
 import java.util.*;

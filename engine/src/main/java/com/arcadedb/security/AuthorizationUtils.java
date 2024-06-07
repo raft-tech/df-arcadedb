@@ -1,13 +1,24 @@
 package com.arcadedb.security;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 
 import com.arcadedb.database.Document;
 import com.arcadedb.database.MutableDocument;
+import com.arcadedb.database.EmbeddedDatabase.RecordAction;
+import com.arcadedb.exception.ValidationException;
 import com.arcadedb.log.LogManager;
+import com.arcadedb.security.serializers.OpaPolicy;
+import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
+import com.arcadedb.security.ACCM.Argument;
+import com.arcadedb.security.ACCM.ArgumentOperator;
+import com.arcadedb.security.ACCM.Expression;
+import com.arcadedb.security.ACCM.ExpressionOperator;
+import com.arcadedb.security.ACCM.GraphType;
+import com.arcadedb.security.ACCM.TypeRestriction;
 
 public class AuthorizationUtils {
 
@@ -15,7 +26,18 @@ public class AuthorizationUtils {
    * The valid classification options, in order of increasing sensitivity. Permits math comparisons.
    * There may be a faster/better way of doing this, but bigger fish to fry first
    */
+
+  // todo move to opa since it needs to be configurable
   public static final Map<String, Integer> classificationOptions = Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
+
+  private static TypeRestriction getTypeRestriction() {
+    Argument classificationArg = new Argument("classificationTest", ArgumentOperator.ANY_OF, new String[]{"U", "S"});
+    Argument releasableToArg = new Argument("releaseableTo", ArgumentOperator.ANY_IN, new String[]{"USA"});
+
+    Expression expression = new Expression(ExpressionOperator.AND, classificationArg, releasableToArg);
+    TypeRestriction typeRestriction = new TypeRestriction("beta", GraphType.VERTEX, List.of(expression), List.of(expression), List.of(expression), List.of(expression));
+    return typeRestriction;
+  }
 
   /**
    * Checks if the provided classification is permitted given the deployment classification.
@@ -102,7 +124,6 @@ public class AuthorizationUtils {
    * Checks if the classification markings contains a releaseable to block, and if so, checks if the user
    * belongs to an allowable nationality.
    * @param nationality
-   * @param resouceClassificationMarkings
    * @return
    */
   private static boolean isBlockedByReleaseableTo(final String nationality, final String tetragraphs, 
@@ -201,15 +222,32 @@ public class AuthorizationUtils {
     return classification;
   }
 
+  public static boolean checkPermissionsOnDocumentToCreate(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, RecordAction.CREATE);
+  }
+
   public static boolean checkPermissionsOnDocumentToRead(final Document document, final SecurityDatabaseUser currentUser) {
-    return checkPermissionsOnDocument(document, currentUser, false);
+    // log duration in ns
+    long startTime = System.nanoTime();
+    boolean result = checkPermissionsOnDocument(document, currentUser, RecordAction.READ);
+
+    long endTime = System.nanoTime();
+    long duration = (endTime - startTime);
+    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "checkPermissionsOnDocumentToRead took " + duration + " ns");
+
+    return result;
   }
 
-  public static boolean checkPermissionsOnDocumentToWrite(final Document document, final SecurityDatabaseUser currentUser) {
-    return checkPermissionsOnDocument(document, currentUser, true);
+  public static boolean checkPermissionsOnDocumentToUpdate(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, RecordAction.UPDATE);
   }
 
-  private static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser, final boolean isWriteAction) {
+  public static boolean checkPermissionsOnDocumentToDelete(final Document document, final SecurityDatabaseUser currentUser) {
+    return checkPermissionsOnDocument(document, currentUser, RecordAction.DELETE);
+  }
+
+  // split out crud actions
+  public static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser, final RecordAction action) {
     // Allow root user to access all documents for HA syncing between nodes
     if (currentUser.getName().equals("root")) {
       return true;
@@ -221,62 +259,78 @@ public class AuthorizationUtils {
     // Expensive to do at read time. Include linkages and classification at write time?
     // Needs performance testing and COA analysis.
 
+    // TODO prevent data stewards from seeing data outside their access
     if (currentUser.isServiceAccount() || currentUser.isDataSteward(document.getTypeName())) {
       return true;
     }
 
+    // If classification is not enabled on database it does not make sense to keep going. is not enabled.
+    if (!document.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
+      return true;
+    }
+
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
-    if (!isWriteAction && (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED))) {
-      // todo throw illegal arg exception, no valid marking
-      return false;
+    // The action where we do not want to raise exception is on create and update. The update is included because on edge creation there is technically
+    // an update in place where we actually link two vertices.
+    if ( (!document.has(MutableDocument.CLASSIFICATION_MARKED) || !document.getBoolean(MutableDocument.CLASSIFICATION_MARKED)) &&
+            (RecordAction.CREATE != action && RecordAction.UPDATE != action)) {
+      throw new ValidationException("Classification markings are missing on document");
+    }
+    // todo add check for type if edge or vertex. Check if vertex or edge can have the same names.
+    String dbName = document.getDatabase().getName();
+    var databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals(dbName)).findFirst().orElse(null);
+
+    // Supporting regex match on dbnames as well
+    if (databasePolicy == null) {
+      databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> dbName.matches(policy.getDatabase())).findFirst().orElse(null);
     }
 
-    // TODO detect and provide org for clearance
-    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
-    var nationality = currentUser.getNationality();
-    var tetragraphs = currentUser.getTetragraphs();
+    if (databasePolicy == null) {
+      throw new ValidationException("Missing policy for database");
+    }
 
-    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE)) {
-      // sources will be a map, in the form of source number : (classification//ACCM) source id
-      // check if user has appropriate clearance for any of the sources for the document
-      
-      var array = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
-      
-      for (int i = 0; i < array.length(); i++) {
-        JSONObject jo = array.getJSONObject(i);
+    // get typerestriction for document type name, support regex type restriction name
+    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().matches(document.getTypeName())).findFirst().orElse(null);
 
-        // TODO update
-        if (jo.has(MutableDocument.CLASSIFICATION_PROPERTY) &&
-            AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
-              jo.getString(MutableDocument.CLASSIFICATION_PROPERTY))) {
-          return true;
-        }
+    // java regex string matcher
+    if (typeRestriction == null) {
+      typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> document.getTypeName().matches(tr.getName())).findFirst().orElse(null);
+    }
+
+    if (typeRestriction == null) {
+      throw new ValidationException("Missing type restrictions for user");
+    }
+
+    if (document.toJSON().has("sources")) {
+      // Combining all results
+      boolean results = true;
+      JSONArray sources = document.toJSON().getJSONArray("sources");
+      for (int i = 0; i < sources.length(); i++) {
+        results &= evalutateAccm(typeRestriction, sources.getJSONObject(i), action);
       }
+      return results;
+    } else if (document.toJSON().has("classification")) {
+      return evalutateAccm(typeRestriction, document.toJSON().getJSONObject("classification"), action);
+    } else {
+      throw new ValidationException("Misformated classification payload");
     }
-
-    if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-          && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
-      var docClassification = 
-          document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
-      if (docClassification != null && !docClassification.isEmpty()) {
-        var isAuthorized = isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, docClassification);
-        return isAuthorized;
-      } else {
-        return false;
-      }
-    }
-
-    return false;
   }
 
-  public static boolean checkPermissionsOnClassificationMarking(String classificationMarking, final SecurityDatabaseUser currentUser) {
-
-    // TODO detect and provide org for clearance
-    var clearance = currentUser.getClearanceForCountryOrTetragraphCode("USA");
-    var nationality = currentUser.getNationality();
-    var tetragraphs = currentUser.getTetragraphs();
-   
-    return AuthorizationUtils.isUserAuthorizedForResourceMarking(clearance, nationality, tetragraphs, 
-                 classificationMarking);
+  // TODO looking at classification payload only to determine if document has the proper markings. Since OPA is not aware of record schema columns/record attributes will not be available hence we are narrowing down the validation to classification object only.
+  private static boolean evalutateAccm(final TypeRestriction typeRestriction, final JSONObject classificationJson, final RecordAction action) {
+    // TODO support multiple type restrictions for a single document type. Could be an explicit, and multiple regex matches.
+    switch (action) {
+      case CREATE:
+        return typeRestriction.evaluateCreateRestrictions(classificationJson);
+      case READ:
+        return typeRestriction.evaluateReadRestrictions(classificationJson);
+      case UPDATE:
+        return typeRestriction.evaluateUpdateRestrictions(classificationJson);
+      case DELETE:
+        return typeRestriction.evaluateDeleteRestrictions(classificationJson);
+      default:
+        LogManager.instance().log(AuthorizationUtils.class, Level.SEVERE, "Invalid action: " + action);
+        return false;
+    }
   }
 }

@@ -37,11 +37,7 @@ import com.arcadedb.exception.DuplicatedKeyException;
 import com.arcadedb.exception.InvalidDatabaseInstanceException;
 import com.arcadedb.exception.NeedRetryException;
 import com.arcadedb.exception.TransactionException;
-import com.arcadedb.graph.Edge;
-import com.arcadedb.graph.GraphEngine;
-import com.arcadedb.graph.MutableVertex;
-import com.arcadedb.graph.Vertex;
-import com.arcadedb.graph.VertexInternal;
+import com.arcadedb.graph.*;
 import com.arcadedb.index.IndexCursor;
 import com.arcadedb.index.IndexInternal;
 import com.arcadedb.index.TypeIndex;
@@ -60,6 +56,7 @@ import com.arcadedb.schema.EmbeddedSchema;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Schema;
 import com.arcadedb.schema.VertexType;
+import com.arcadedb.security.AuthorizationUtils;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.SecurityManager;
 import com.arcadedb.serializer.BinarySerializer;
@@ -122,6 +119,10 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
   private final        RecordEventsRegistry                      events                               = new RecordEventsRegistry();
   private final        ConcurrentHashMap<String, QueryEngine>    reusableQueryEngines                 = new ConcurrentHashMap<>();
   private              TRANSACTION_ISOLATION_LEVEL               transactionIsolationLevel            = TRANSACTION_ISOLATION_LEVEL.READ_COMMITTED;
+
+  public static enum RecordAction {
+    CREATE, READ, UPDATE, DELETE
+  }
 
   protected EmbeddedDatabase(final String path, final PaginatedComponentFile.MODE mode, final ContextConfiguration configuration, final SecurityManager security,
                              final Map<CALLBACK_EVENT, List<Callable<Void>>> callbacks) {
@@ -803,7 +804,7 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
     setDefaultValues(record);
 
     if (record instanceof MutableDocument) {
-      ((MutableDocument) record).validateAndAccmCheck(getContext().getCurrentUser());
+      ((MutableDocument) record).validateAndAccmCheck(getContext().getCurrentUser(), RecordAction.CREATE);
 
       ((MutableDocument) record).set(Utils.CREATED_BY, getCurrentUserName());
       ((MutableDocument) record).set(Utils.CREATED_DATE, LocalDateTime.now());
@@ -877,7 +878,7 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
       var rec = (MutableDocument) record;
       var context = DatabaseContext.INSTANCE.getContext(rec.database.getDatabasePath());
       if (context.getCurrentUser() != null)
-        rec.validateAndAccmCheck(context.getCurrentUser());
+        rec.validateAndAccmCheck(context.getCurrentUser(), RecordAction.UPDATE);
     }
 
     // INVOKE EVENT CALLBACKS
@@ -992,7 +993,15 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
   @Override
   public void deleteRecord(final Record record) {
     executeInReadLock(() -> {
+      if (record instanceof MutableDocument) {
+        var rec = (MutableDocument) record;
+        var context = DatabaseContext.INSTANCE.getContext(rec.database.getDatabasePath());
+        if (context.getCurrentUser() != null)
+            rec.validateAndAccmCheck(context.getCurrentUser(), RecordAction.DELETE);
+      }
+
       deleteRecordNoLock(record);
+
       return null;
     });
   }
