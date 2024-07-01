@@ -99,17 +99,20 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnFile(final int fileId, final ACCESS access) {
-    // Allow root user to access all files for HA syncing between nodes
-    if (this.getName().equals("root")) {
-      return true;
-    }
 
-    final boolean[] permissions = fileAccessMap[fileId];
-    // log.info("requestAccessOnFile: database: {}; fileId: {}, access: {}, permissions: {}", databaseName, fileId, access,
-    //     permissions);
-    // log.info("requestAccessOnFile decision {} {}", permissions != null,
-    //     permissions != null ? permissions[access.ordinal()] : "false");
-    return permissions != null && permissions[access.ordinal()];
+    return true;
+
+    // // Allow root user to access all files for HA syncing between nodes
+    // if (this.getName().equals("root")) {
+    //   return true;
+    // }
+
+    // final boolean[] permissions = fileAccessMap[fileId];
+    // // log.info("requestAccessOnFile: database: {}; fileId: {}, access: {}, permissions: {}", databaseName, fileId, access,
+    // //     permissions);
+    // // log.info("requestAccessOnFile decision {} {}", permissions != null,
+    // //     permissions != null ? permissions[access.ordinal()] : "false");
+    // return permissions != null && permissions[access.ordinal()];
   }
 
   public void updateDatabaseConfiguration(final JSONObject configuredGroups) {

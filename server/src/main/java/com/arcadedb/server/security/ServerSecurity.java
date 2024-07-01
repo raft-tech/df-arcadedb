@@ -24,6 +24,12 @@ import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.security.SecurityManager;
+import com.arcadedb.security.ACCM.Argument;
+import com.arcadedb.security.ACCM.ArgumentOperator;
+import com.arcadedb.security.ACCM.Expression;
+import com.arcadedb.security.ACCM.ExpressionOperator;
+import com.arcadedb.security.ACCM.GraphType;
+import com.arcadedb.security.ACCM.TypeRestriction;
 import com.arcadedb.security.serializers.OpaResult;
 import com.arcadedb.serializer.json.JSONException;
 import com.arcadedb.serializer.json.JSONObject;
@@ -273,8 +279,86 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
       groupRepository.stop();
   }
 
+
+
+
+  // response object will contain
+  /*
+   * valid classifications
+   * if can access noforn
+   * valid releasable to
+   * 
+   * 
+   * 
+   */
+
   private OpaResult getAuthorization(String username) {
-      return OpaClient.getPolicy(username).getResult();
+
+    // var response = OpaClient.getPolicy(username);
+
+    // // init new array
+
+
+    // String[] authorizedClassifications = {"U", "S"};
+
+    // var hasAccessToNoforn = true;
+
+    // var relTo = new ArrayList<String>();
+
+    // var nationality = "USA";
+    // var hasAccessToFvey = true;
+    // var hasAccessToAcgu = true;
+
+    // relTo.add(nationality);
+
+    // if (hasAccessToFvey) {
+    //   relTo.add("FVEY");
+    // }
+
+    // if (hasAccessToAcgu) {
+    //   relTo.add("ACGU");
+    // }
+
+
+
+		// // "has_access_to_acgu": true,
+		// // "has_access_to_fvey": true,
+		// // "highest_classification": "S",
+    // // "user_has_access_to_noforn": true
+
+    // // user has access to fgi if country isn't nationality and relto doesn't contain country
+
+    // Expression disclosedData = new Expression();
+
+    // List<Argument> accmArgs = new ArrayList<>();
+
+ 
+    // accmArgs.add(new Argument("classification.components.classification", ArgumentOperator.ANY_OF, authorizedClassifications));
+   
+    // if (!hasAccessToNoforn) {
+    //   accmArgs.add(new Argument("classification.components.disseminationControls", ArgumentOperator.NEQ, "NOFORN", true));
+    // }
+
+    // accmArgs.add(new Argument("classification.components.releasableTo", ArgumentOperator.ANY_IN, relTo));
+    
+
+    // Expression accm = new Expression(ExpressionOperator.AND, (Expression[]) accmArgs.toArray());
+
+    // Expression expressionOuter = new Expression();
+
+    // List<Expression> expressions = new ArrayList<>();
+    // expressions.add(accm);
+
+    // TypeRestriction typeRestrictionEdge = new TypeRestriction("*", GraphType.EDGE, expressions, expressions, expressions, expressions);
+    // TypeRestriction typeRestrictionVertex = new TypeRestriction("*", GraphType.VERTEX, expressions, expressions, expressions, expressions);
+
+    // OpaResult result = new OpaResult();
+  //  re
+
+  // get current request contenxt database
+
+
+    return OpaClient.getPolicy(username, server.getDatabaseNames()).getResult();
   }
 
   /**
@@ -434,7 +518,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     // 6. get user attribtues for ACCM
     Map<String, Object> attributes = result.getAttributes();
 
-    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis(), result.getPolicy());
+    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, 
+            System.currentTimeMillis(), result.getPolicy());
     users.put(serverSecurityUser);
 
     return serverSecurityUser;

@@ -18,6 +18,8 @@ public class Argument {
     private ArgumentOperator operator;
     private Object value;
 
+    private boolean not = false;
+
     // is null/missing field value treated as true or false? presumably false for now
 
     public Argument(String field, ArgumentOperator operator, Object value) {
@@ -26,36 +28,43 @@ public class Argument {
         this.value = value;
     }
 
+    public Argument(String field, ArgumentOperator operator, Object value, boolean not) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+        this.not = not;
+    }
+
     // overload constructor for each of boolean, int, double, string, array
-    public Argument(String field, ArgumentOperator operator, boolean value) {
-        this.field = field;
-        this.operator = operator;
-        this.value = value;
-    }
+    // public Argument(String field, ArgumentOperator operator, boolean value) {
+    //     this.field = field;
+    //     this.operator = operator;
+    //     this.value = value;
+    // }
 
-    public Argument(String field, ArgumentOperator operator, int value) {
-        this.field = field;
-        this.operator = operator;
-        this.value = value;
-    }
+    // public Argument(String field, ArgumentOperator operator, int value) {
+    //     this.field = field;
+    //     this.operator = operator;
+    //     this.value = value;
+    // }
 
-    public Argument(String field, ArgumentOperator operator, double value) {
-        this.field = field;
-        this.operator = operator;
-        this.value = value;
-    }
+    // public Argument(String field, ArgumentOperator operator, double value) {
+    //     this.field = field;
+    //     this.operator = operator;
+    //     this.value = value;
+    // }
 
-    public Argument(String field, ArgumentOperator operator, String value) {
-        this.field = field;
-        this.operator = operator;
-        this.value = value;
-    }
+    // public Argument(String field, ArgumentOperator operator, String value) {
+    //     this.field = field;
+    //     this.operator = operator;
+    //     this.value = value;
+    // }
 
-    public Argument(String field, ArgumentOperator operator, Object[] value) {
-        this.field = field;
-        this.operator = operator;
-        this.value = value;
-    }
+    // public Argument(String field, ArgumentOperator operator, Object[] value) {
+    //     this.field = field;
+    //     this.operator = operator;
+    //     this.value = value;
+    // }
 
     // TODO add date comparison
 
@@ -80,6 +89,10 @@ public class Argument {
 
     // TODO - remove seems like dead code.
     public boolean isValid() {
+
+        if (not) {
+            return !validate();
+        }
         return validate();
     }
 
@@ -105,6 +118,10 @@ public class Argument {
     }
 
     public boolean evaluate(JSONObject json) {
+        return evaluate(json);
+    }
+
+    private boolean evaluateInternal(JSONObject json) {
 
         if (json == null) {
             return false;

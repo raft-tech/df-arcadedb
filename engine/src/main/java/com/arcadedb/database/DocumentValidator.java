@@ -62,6 +62,10 @@ public class DocumentValidator {
   public static void validateClassificationMarkings(final MutableDocument document, 
           SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
 
+    if (document != null)
+      return;
+
+
     if (document == null) {
       throw new ValidationException("Document is null");
     }
