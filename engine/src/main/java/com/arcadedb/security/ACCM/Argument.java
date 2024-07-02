@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 
 import com.arcadedb.log.LogManager;
@@ -35,36 +36,42 @@ public class Argument {
         this.not = not;
     }
 
-    // overload constructor for each of boolean, int, double, string, array
-    // public Argument(String field, ArgumentOperator operator, boolean value) {
-    //     this.field = field;
-    //     this.operator = operator;
-    //     this.value = value;
-    // }
+  //  overload constructor for each of boolean, int, double, string, array
+    public Argument(String field, ArgumentOperator operator, boolean value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
 
-    // public Argument(String field, ArgumentOperator operator, int value) {
-    //     this.field = field;
-    //     this.operator = operator;
-    //     this.value = value;
-    // }
+    public Argument(String field, ArgumentOperator operator, int value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
 
-    // public Argument(String field, ArgumentOperator operator, double value) {
-    //     this.field = field;
-    //     this.operator = operator;
-    //     this.value = value;
-    // }
+    public Argument(String field, ArgumentOperator operator, double value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
 
-    // public Argument(String field, ArgumentOperator operator, String value) {
-    //     this.field = field;
-    //     this.operator = operator;
-    //     this.value = value;
-    // }
+    public Argument(String field, ArgumentOperator operator, String value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
 
-    // public Argument(String field, ArgumentOperator operator, Object[] value) {
-    //     this.field = field;
-    //     this.operator = operator;
-    //     this.value = value;
-    // }
+    public Argument(String field, ArgumentOperator operator, Object[] value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
+
+    public Argument(String field, ArgumentOperator operator, List<String> value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
 
     // TODO add date comparison
 
@@ -118,7 +125,11 @@ public class Argument {
     }
 
     public boolean evaluate(JSONObject json) {
-        return evaluate(json);
+        var result = evaluateInternal(json);
+
+        LogManager.instance().log(this, Level.INFO, "Result: " + result + " for argument: " + this.toString() + " on json: " + json.toString(2));
+
+        return result;
     }
 
     private boolean evaluateInternal(JSONObject json) {
@@ -143,6 +154,17 @@ public class Argument {
             case NEQ:
                 return !this.value.equals(docFieldValue);
             case ANY_OF:
+
+                // check if this.value is a list
+                if (this.value instanceof List) {
+                    for (Object val : (List<Object>) this.value) {
+                        if (val.equals(docFieldValue)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
                 for (Object val : (Object[]) this.value) {
                     LogManager.instance().log(this, Level.INFO, "val: " + val + "; vt: " + val.getClass().getName());
 
@@ -188,6 +210,10 @@ public class Argument {
                         
                         // Split the string by commas
                         String[] stringArray = str.split(", ");
+
+                        LogManager.instance().log(this, Level.INFO, "stringArray: " + stringArray);
+                        LogManager.instance().log(this, Level.INFO, "docVal: " + docVal);
+
                         for (String val : stringArray) {
                             if (val.equals(docVal)) {
                                 return true;

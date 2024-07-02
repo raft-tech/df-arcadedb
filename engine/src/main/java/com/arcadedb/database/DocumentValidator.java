@@ -20,6 +20,7 @@ package com.arcadedb.database;
 
 import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.exception.ValidationException;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
@@ -62,10 +63,6 @@ public class DocumentValidator {
   public static void validateClassificationMarkings(final MutableDocument document, 
           SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
 
-    if (document != null)
-      return;
-
-
     if (document == null) {
       throw new ValidationException("Document is null");
     }
@@ -91,9 +88,9 @@ public class DocumentValidator {
     }
 
     if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-        && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
+        && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has("components") && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components").has(MutableDocument.CLASSIFICATION_PROPERTY)) {
 
-      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY)
+      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components")
           .getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
 
       if (classificationMarkings.trim().isEmpty()) {

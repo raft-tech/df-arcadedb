@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 import com.arcadedb.GlobalConfiguration;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.security.ACCM.Argument;
 import com.arcadedb.security.ACCM.ArgumentOperator;
 import com.arcadedb.security.ACCM.Expression;
@@ -30,7 +32,7 @@ public class OpaClient extends DataFabricRestClient {
     public static OpaResponse getPolicy(String username, Set<String> databaseNames) {
         var policyResponseString = sendAuthenticatedPostAndGetResponse(getBaseOpaUrl(), username);
 
-        System.out.println("policy response string: " + policyResponseString);
+        LogManager.instance().log(OpaClient.class, Level.INFO, "policy response string: " + policyResponseString);
 
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode responseJson = null;
@@ -61,9 +63,6 @@ public class OpaClient extends DataFabricRestClient {
             }
         }
 
-        
-        System.out.println("authorized clasifications: " + authorizedClassificationsList);
-
         var hasAccessToNoforn = responseJson.get("user_has_access_to_noforn").asBoolean();
 
         // relto
@@ -89,13 +88,13 @@ public class OpaClient extends DataFabricRestClient {
 
         List<Argument> accmArgs = new ArrayList<>();
 
-        accmArgs.add(new Argument("classification.components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
+        accmArgs.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
     
         if (!hasAccessToNoforn) {
-          accmArgs.add(new Argument("classification.components.disseminationControls", ArgumentOperator.NEQ, "NOFORN", true));
+          accmArgs.add(new Argument("components.disseminationControls", ArgumentOperator.NEQ, "NOFORN", true));
         }
 
-        accmArgs.add(new Argument("classification.components.releasableTo", ArgumentOperator.ANY_IN, relTo));
+        accmArgs.add(new Argument("components.releasableTo", ArgumentOperator.ANY_IN, relTo));
 
         Expression accm = new Expression();
         accm.setOperator(ExpressionOperator.AND);
