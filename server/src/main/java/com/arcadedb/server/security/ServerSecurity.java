@@ -468,7 +468,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     List<ArcadeRole> arcadeRoles = getArcadeRolesFromString(result.getRoles());
     userArcadeRoles.put(username, arcadeRoles);
 
-    log.debug("getOrCreateuser - parsed arcade roles {}", arcadeRoles);
+    log.info("getOrCreateuser - parsed arcade roles {}", arcadeRoles);
 
     // 3. Convert arcade roles to groups
     List<Group> neededGroups = arcadeRoles.stream()
@@ -552,6 +552,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     if (databaseName != null) {
       final Set<String> allowedDatabases = su.getAuthorizedDatabases();
       if (!allowedDatabases.contains(SecurityManager.ANY) && !su.getAuthorizedDatabases().contains(databaseName)) {
+        LogManager.instance().log(this, Level.SEVERE, "User '%s' does not have access to database '%s'", userName,
+            databaseName);
         throw new ServerSecurityException("User does not have access to database '" + databaseName + "'");
       }
     }

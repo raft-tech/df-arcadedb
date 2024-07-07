@@ -48,6 +48,7 @@ public class OpaClient extends DataFabricRestClient {
             responseJson = objectMapper.readTree(policyResponseString);
             responseJson = responseJson.get("result");
         } catch (JsonProcessingException e) {
+            LogManager.instance().log(OpaClient.class, Level.SEVERE, "Error parsing JSON response from OPA");
             e.printStackTrace();
             return null;
         }

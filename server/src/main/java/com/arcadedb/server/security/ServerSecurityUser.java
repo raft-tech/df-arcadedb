@@ -20,12 +20,16 @@ package com.arcadedb.server.security;
 
 import com.arcadedb.database.Database;
 import com.arcadedb.database.DatabaseInternal;
+import com.arcadedb.log.LogManager;
+import com.arcadedb.log.Logger;
 import com.arcadedb.security.SecurityManager;
 import com.arcadedb.security.SecurityUser;
 import com.arcadedb.server.ArcadeDBServer;
 import com.arcadedb.server.security.oidc.ArcadeRole;
 
 import com.arcadedb.security.serializers.OpaPolicy;
+
+import lombok.extern.java.Log;
 import lombok.extern.slf4j.Slf4j;
 
 import com.arcadedb.serializer.json.JSONArray;
@@ -33,6 +37,7 @@ import com.arcadedb.serializer.json.JSONObject;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -47,6 +52,7 @@ public class ServerSecurityUser implements SecurityUser {
   private final Map<String,Object> attributes;
   private final long createTime;
   private final List<OpaPolicy> policy;
+
 
   public ServerSecurityUser(final ArcadeDBServer server, final JSONObject userConfiguration) {
     this(server, userConfiguration, new ArrayList<>(), null, System.currentTimeMillis(), null);
@@ -71,6 +77,8 @@ public class ServerSecurityUser implements SecurityUser {
     } else {
       databasesNames = Collections.emptySet();
     }
+
+    LogManager.instance().log(this, Level.INFO, "User %s created with databases %s", null, name, databasesNames);
 
     this.arcadeRoles = arcadeRoles;
     this.attributes = attributes;
@@ -115,9 +123,13 @@ public class ServerSecurityUser implements SecurityUser {
         dbu = registerDatabaseUser(server, database, SecurityManager.ANY);
     }
 
-    if (dbu == null)
+    if (dbu == null) {
       // USER HAS NO ACCESS TO THE DATABASE, RETURN A USER WITH NO AX
       dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], getRelevantRoles(arcadeRoles, databaseName), attributes, policy);
+      System.out.println("user has no access to db. ServerSecurityUser.getDatabaseUser: " + dbu);
+      LogManager.instance().log(this, Level.INFO, "User %s has no access to database '%s'", null, name, databaseName);
+    }
+
 
     final ServerSecurityDatabaseUser prev = databaseCache.putIfAbsent(databaseName, dbu);
     if (prev != null)
@@ -176,7 +188,7 @@ public class ServerSecurityUser implements SecurityUser {
       return true;
     }
 
-    log.debug("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
+    log.info("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
     return databasesNames.contains(SecurityManager.ANY) || databasesNames.contains(databaseName);
   }
 
