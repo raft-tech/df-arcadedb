@@ -21,6 +21,8 @@ public class Argument {
 
     private boolean not = false;
 
+    private boolean nullEvaluatesToGrantAccess = true;
+
     // is null/missing field value treated as true or false? presumably false for now
 
     public Argument(String field, ArgumentOperator operator, Object value) {
@@ -91,6 +93,11 @@ public class Argument {
 
             current = current.getJSONObject(path[i]);
         }
+
+        if (!current.has(path[path.length - 1])) {
+            return null;
+        }
+
         return current.get(path[path.length - 1]);
     }
 
@@ -144,7 +151,7 @@ public class Argument {
 
         // TODO configurably handle null values- could eval to true or false
         if (docFieldValue == null) {
-            return false;
+            return this.nullEvaluatesToGrantAccess;
         }
 
         // evaluate if the value satisfies the argument, and validate the value is valid for the argument type

@@ -25,6 +25,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class OpaClient extends DataFabricRestClient {
+
+    private static final String NOFORN = "user_has_access_to_noforn";
+    private static final String FVEY = "has_access_to_fvey";
+    private static final String ACGU = "has_access_to_acgu";
+
+
     private static String getBaseOpaUrl() {
         return String.format("%s/v1/data/datafabric/accm/postauthorize/authz", GlobalConfiguration.OPA_ROOT_URL.getValueAsString());
     }
@@ -46,15 +52,9 @@ public class OpaClient extends DataFabricRestClient {
             return null;
         }
 
-        //var response = OpaClient.getPolicy(username);
-
         var possibleClassifications = new String[] { "U", "C", "S", "TS" };
         var clearance = responseJson.get("clearance_usa").asText();
 
-
-        // TODO look at this. Don't think it's right
-    //    String[] authorizedClassifications = List.of(possibleClassifications).subList(0, List.of(possibleClassifications).indexOf(clearance) + 1).toArray(new String[0]);
-        
         List<String> authorizedClassificationsList = new ArrayList<>();
         for (String classification : possibleClassifications) {
             authorizedClassificationsList.add(classification);
@@ -63,14 +63,14 @@ public class OpaClient extends DataFabricRestClient {
             }
         }
 
-        var hasAccessToNoforn = responseJson.get("user_has_access_to_noforn").asBoolean();
+        var hasAccessToNoforn = responseJson.has(NOFORN) ? responseJson.get(NOFORN).asBoolean() : false;
 
         // relto
         List<String> relTo = new ArrayList<>();// Arrays.asList(responseJson.get("releasable_to").asText().split(","));
 
-        String nationality = "USA";
-        var hasAccessToFvey = responseJson.get("has_access_to_fvey").asBoolean();
-        var hasAccessToAcgu = responseJson.get("has_access_to_acgu").asBoolean();
+        String nationality = responseJson.get("user_attributes").get("nationality").asText();
+        var hasAccessToFvey = responseJson.has(FVEY) ? responseJson.get(FVEY).asBoolean() : false;
+        var hasAccessToAcgu = responseJson.has(ACGU) ? responseJson.get(ACGU).asBoolean() : false;
 
         relTo.add(nationality);
 
@@ -90,8 +90,8 @@ public class OpaClient extends DataFabricRestClient {
 
         accmArgs.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
     
-        if (!hasAccessToNoforn) {
-          accmArgs.add(new Argument("components.disseminationControls", ArgumentOperator.NEQ, "NOFORN", true));
+        if (!hasAccessToNoforn || relTo.isEmpty()) {
+          accmArgs.add(new Argument("components.disseminationControls", ArgumentOperator.ANY_OF, "NOFORN", true));
         }
 
         accmArgs.add(new Argument("components.releasableTo", ArgumentOperator.ANY_IN, relTo));
