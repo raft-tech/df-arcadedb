@@ -23,7 +23,7 @@ public class GetTablePropertiesHandler extends AbstractServerHttpHandler {
     public ExecutionResponse execute(final HttpServerExchange exchange, final ServerSecurityUser user) {
 
     var databaseName = exchange.getQueryParameters().get("database").getFirst();
-    var typeName = exchange.getQueryParameters().get("type").getFirst();
+    var typeName = exchange.getQueryParameters().get("table").getFirst();
 
     final Database database = httpServer.getServer().getDatabase(databaseName);
     var type = database.getSchema().getType(typeName);

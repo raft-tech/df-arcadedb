@@ -125,7 +125,7 @@ public class HttpServer implements ServerPlugin {
             .post("/drop/{database}", new PostDropDatabaseHandler(this))
             .get("/databases", new GetDatabasesHandler(this))// DEPRECATED
             .get("/databases/{database}/tables", new GetTablesForDatabaseHandler(this))
-            .get("/databases/{database}/tables/{table}/props", new GetTablePropertiesHandler(this))
+            .get("/databases/{database}/tables/{table}/properties", new GetTablePropertiesHandler(this))
             .get("/databasesInfo", new GetDatabasesInfoHandler(this))
             .get("/exists/{database}", new GetExistsDatabaseHandler(this))//
             .get("/query/{database}/{language}/{command}", new GetQueryHandler(this))//
