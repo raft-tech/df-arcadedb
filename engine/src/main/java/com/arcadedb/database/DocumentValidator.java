@@ -122,9 +122,11 @@ public class DocumentValidator {
           .count();
 
       // TODO this check only matters if there are non system attributes on the object.
-      if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
-        throw new ValidationException("Missing classification attributes on document");
-      }
+
+      // TODO reenable attribute classification checks.s
+      // if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
+      //   throw new ValidationException("Missing classification attributes on document");
+      // }
 
       validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser, action);
     } else if (!validSources){
