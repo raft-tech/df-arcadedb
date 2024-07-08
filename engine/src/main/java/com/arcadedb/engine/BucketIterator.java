@@ -45,7 +45,7 @@ public class BucketIterator implements Iterator<Record> {
   final long limit;
 
   BucketIterator(final Bucket bucket, final Database db) {
-    //((DatabaseInternal) db).checkPermissionsOnFile(bucket.fileId, SecurityDatabaseUser.ACCESS.READ_RECORD);
+    ((DatabaseInternal) db).checkPermissionsOnFile(bucket.fileId, SecurityDatabaseUser.ACCESS.READ_RECORD);
 
     this.database = (DatabaseInternal) db;
     this.bucket = bucket;
@@ -94,9 +94,9 @@ public class BucketIterator implements Iterator<Record> {
               if (!bucket.existsRecord(rid))
                 continue;
 
-              // if (!AuthorizationUtils.checkPermissionsOnDocumentToRead(rid.asDocument(true), database.getContext().getCurrentUser())) {
-              //   continue;
-              // }
+              if (!AuthorizationUtils.checkPermissionsOnDocumentToRead(rid.asDocument(true), database.getContext().getCurrentUser())) {
+                continue;
+              }
 
               next = rid.getRecord(true);
 
@@ -116,9 +116,9 @@ public class BucketIterator implements Iterator<Record> {
               var record = database.getRecordFactory()
                   .newImmutableRecord(database, database.getSchema().getType(database.getSchema().getTypeNameByBucketId(rid.getBucketId())), rid, view, null);
 
-              // if (!AuthorizationUtils.checkPermissionsOnDocumentToRead(record.asDocument(true), database.getContext().getCurrentUser())) {
-              //   continue;
-              // }
+              if (!AuthorizationUtils.checkPermissionsOnDocumentToRead(record.asDocument(true), database.getContext().getCurrentUser())) {
+                continue;
+              }
 
               // TODO strip out properties the user doesn't have access to
 

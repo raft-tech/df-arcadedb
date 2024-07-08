@@ -495,8 +495,8 @@ public class ArcadeDBServer {
       db = databases.get(databaseName);
 
       if (db == null || !db.isOpen()) {
-        // if (!allowLoad)
-        //   throw new DatabaseOperationException("Database '" + databaseName + "' is not available");
+        if (!allowLoad)
+          throw new DatabaseOperationException("Database '" + databaseName + "' is not available");
 
         final String path =
             configuration.getValueAsString(GlobalConfiguration.SERVER_DATABASE_DIRECTORY) + File.separator + databaseName;
