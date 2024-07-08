@@ -134,7 +134,7 @@ public class Argument {
     public boolean evaluate(JSONObject json) {
         var result = evaluateInternal(json);
 
-        LogManager.instance().log(this, Level.INFO, "Result: " + result + " for argument: " + this.toString() + " on json: " + json.toString(2));
+        LogManager.instance().log(this, Level.FINE, "Result: " + result + " for argument: " + this.toString() + " on json: " + json.toString(2));
 
         return result;
     }
@@ -173,7 +173,7 @@ public class Argument {
                 }
 
                 for (Object val : (Object[]) this.value) {
-                    LogManager.instance().log(this, Level.INFO, "val: " + val + "; vt: " + val.getClass().getName());
+                    LogManager.instance().log(this, Level.FINE, "val: " + val + "; vt: " + val.getClass().getName());
 
                     if (val.equals(docFieldValue)) {
                         return true;
@@ -218,8 +218,8 @@ public class Argument {
                         // Split the string by commas
                         String[] stringArray = str.split(", ");
 
-                        LogManager.instance().log(this, Level.INFO, "stringArray: " + stringArray);
-                        LogManager.instance().log(this, Level.INFO, "docVal: " + docVal);
+                        LogManager.instance().log(this, Level.FINE, "stringArray: " + stringArray);
+                        LogManager.instance().log(this, Level.FINE, "docVal: " + docVal);
 
                         for (String val : stringArray) {
                             if (val.equals(docVal)) {

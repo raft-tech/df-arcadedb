@@ -78,7 +78,7 @@ public class ServerSecurityUser implements SecurityUser {
       databasesNames = Collections.emptySet();
     }
 
-    LogManager.instance().log(this, Level.INFO, "User %s created with databases %s", null, name, databasesNames);
+    LogManager.instance().log(this, Level.FINE, "User %s created with databases %s", null, name, databasesNames);
 
     this.arcadeRoles = arcadeRoles;
     this.attributes = attributes;
@@ -126,7 +126,6 @@ public class ServerSecurityUser implements SecurityUser {
     if (dbu == null) {
       // USER HAS NO ACCESS TO THE DATABASE, RETURN A USER WITH NO AX
       dbu = new ServerSecurityDatabaseUser(databaseName, name, new String[0], getRelevantRoles(arcadeRoles, databaseName), attributes, policy);
-      System.out.println("user has no access to db. ServerSecurityUser.getDatabaseUser: " + dbu);
       LogManager.instance().log(this, Level.INFO, "User %s has no access to database '%s'", null, name, databaseName);
     }
 
@@ -146,6 +145,7 @@ public class ServerSecurityUser implements SecurityUser {
    * @return
    */
   private List<ArcadeRole> getRelevantRoles(List<ArcadeRole> arcadeRoles, String databaseName) {
+    LogManager.instance().log(this, Level.FINE, "getRelevantRoles: {} {}", name, databaseName);
     return arcadeRoles.stream()
                 .filter(role -> role.isDatabaseMatch(databaseName))
                 .collect(Collectors.toList());
@@ -188,7 +188,7 @@ public class ServerSecurityUser implements SecurityUser {
       return true;
     }
 
-    log.info("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
+    log.debug("canAccessToDatabase: {} {} {} {}", name, databaseName, databasesNames.contains(SecurityManager.ANY), databasesNames.contains(databaseName));
     return databasesNames.contains(SecurityManager.ANY) || databasesNames.contains(databaseName);
   }
 
