@@ -284,7 +284,7 @@ public class AuthorizationUtils {
 
     // Supporting regex match on dbnames as well
     if (databasePolicy == null) {
-      // TODO change back to regex match
+      // TODO change back to regex match HERE
       databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals("*")).findFirst().orElse(null);
     }
 
@@ -297,6 +297,7 @@ public class AuthorizationUtils {
 
     // java regex string matcher
     if (typeRestriction == null) {
+      // TODO change back to regex match HERE
       typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().equals("*")).findFirst().orElse(null);
     }
 
@@ -336,8 +337,8 @@ public class AuthorizationUtils {
   // TODO looking at classification payload only to determine if document has the proper markings. Since OPA is not aware of record schema columns/record attributes will not be available hence we are narrowing down the validation to classification object only.
   private static boolean evalutateAccm(final TypeRestriction typeRestriction, final JSONObject classificationJson, final RecordAction action) {
     // TODO support multiple type restrictions for a single document type. Could be an explicit, and multiple regex matches.
-    System.out.println("evaluateAccm");
-    LogManager.instance().log(AuthorizationUtils.class, Level.WARNING, "evaluateAccm: " + action);
+    // System.out.println("evaluateAccm");
+    // LogManager.instance().log(AuthorizationUtils.class, Level.WARNING, "evaluateAccm: " + action);
     
     switch (action) {
       case CREATE:
