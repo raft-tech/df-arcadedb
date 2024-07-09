@@ -53,10 +53,15 @@ public class TypeRestriction {
     }
 
     private boolean evaluateRestrictions(List<Expression> restrictions, JSONObject json) {
+     //   System.out.println("Evaluating restrictions");
         boolean result = true;
         for (Expression restriction : restrictions) {
+       //     var temp = restriction.evaluate(json);
+    //        System.out.println("Restriction result: " + temp +"; restriction: " + restriction + "; json: " + json);
             result = result && restriction.evaluate(json);
         }
+
+  //      System.out.println("Result: " + result);
         return result;
     }
 }

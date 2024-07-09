@@ -10,7 +10,6 @@ import com.arcadedb.database.MutableDocument;
 import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.exception.ValidationException;
 import com.arcadedb.log.LogManager;
-import com.arcadedb.security.serializers.OpaPolicy;
 import com.arcadedb.serializer.json.JSONArray;
 import com.arcadedb.serializer.json.JSONObject;
 import com.arcadedb.security.ACCM.Argument;
@@ -30,14 +29,14 @@ public class AuthorizationUtils {
   // todo move to opa since it needs to be configurable
   public static final Map<String, Integer> classificationOptions = Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
 
-  private static TypeRestriction getTypeRestriction() {
-    Argument classificationArg = new Argument("classificationTest", ArgumentOperator.ANY_OF, new String[]{"U", "S"});
-    Argument releasableToArg = new Argument("releaseableTo", ArgumentOperator.ANY_IN, new String[]{"USA"});
+  // private static TypeRestriction getTypeRestriction() {
+  //   Argument classificationArg = new Argument("classificationTest", ArgumentOperator.ANY_OF, new String[]{"U", "S"});
+  //   Argument releasableToArg = new Argument("releaseableTo", ArgumentOperator.ANY_IN, new String[]{"USA"});
 
-    Expression expression = new Expression(ExpressionOperator.AND, classificationArg, releasableToArg);
-    TypeRestriction typeRestriction = new TypeRestriction("beta", GraphType.VERTEX, List.of(expression), List.of(expression), List.of(expression), List.of(expression));
-    return typeRestriction;
-  }
+  //   Expression expression = new Expression(ExpressionOperator.AND, classificationArg, releasableToArg);
+  //   TypeRestriction typeRestriction = new TypeRestriction("beta", GraphType.VERTEX, List.of(expression), List.of(expression), List.of(expression), List.of(expression));
+  //   return typeRestriction;
+  // }
 
   /**
    * Checks if the provided classification is permitted given the deployment classification.
@@ -68,29 +67,29 @@ public class AuthorizationUtils {
    * @param resourceClassification
    * @return
    */
-  public static boolean isUserAuthorizedForResourceMarking(final String userClearance, final String nationality, final String tetragraphs,
-        final String resourceClassification) {
+  // public static boolean isUserAuthorizedForResourceMarking(final String userClearance, final String nationality, final String tetragraphs,
+  //       final String resourceClassification) {
     
-    // TODO are tetrapgrahs that group countries auto applicable to users of those countires, or do users need explicit authoirzation for their data?
-    var processedResourceClassification = resourceClassification.replace("FVEY", "USA,AUS,CAN,GBR,NZL");
-    if (!isClearanceAuthorized(userClearance, processedResourceClassification)) {
-      // System.out.println("blocked by clearance");
-      return false;
-    }
+  //   // TODO are tetrapgrahs that group countries auto applicable to users of those countires, or do users need explicit authoirzation for their data?
+  //   var processedResourceClassification = resourceClassification.replace("FVEY", "USA,AUS,CAN,GBR,NZL");
+  //   if (!isClearanceAuthorized(userClearance, processedResourceClassification)) {
+  //     // System.out.println("blocked by clearance");
+  //     return false;
+  //   }
 
-    // NO FORN takes precedence over REL TO?
-    if (isBlockedByNoForn(nationality, processedResourceClassification)) {
-      // System.out.println("blocked by noforn");
-      return false;
-    }
+  //   // NO FORN takes precedence over REL TO?
+  //   if (isBlockedByNoForn(nationality, processedResourceClassification)) {
+  //     // System.out.println("blocked by noforn");
+  //     return false;
+  //   }
 
-    if (isBlockedByReleaseableTo(nationality, tetragraphs, processedResourceClassification)) {
-      // System.out.println("blocked by noforn");
-      return false;
-    }
+  //   if (isBlockedByReleaseableTo(nationality, tetragraphs, processedResourceClassification)) {
+  //     // System.out.println("blocked by noforn");
+  //     return false;
+  //   }
 
-    return true;
-  }
+  //   return true;
+  // }
 
   /**
    * Checks if the user has sufficient clearance to view the resource, outside of any other ACCM restrictions.
@@ -98,27 +97,27 @@ public class AuthorizationUtils {
    * @param resourceClassificationMarking
    * @return
    */
-  public static boolean isClearanceAuthorized(final String userClearance, final String resourceClassificationMarking) {
-    if (userClearance == null || userClearance.isEmpty())
-      return false;
+  // public static boolean isClearanceAuthorized(final String userClearance, final String resourceClassificationMarking) {
+  //   if (userClearance == null || userClearance.isEmpty())
+  //     return false;
 
-    String processedUserClearance = userClearance.toUpperCase();
-    processedUserClearance = processedUserClearance.trim();
+  //   String processedUserClearance = userClearance.toUpperCase();
+  //   processedUserClearance = processedUserClearance.trim();
 
-    String processedResourceClearance = getClassificationFromResourceMarkings(resourceClassificationMarking);
-    processedResourceClearance = processedResourceClearance.trim();
+  //   String processedResourceClearance = getClassificationFromResourceMarkings(resourceClassificationMarking);
+  //   processedResourceClearance = processedResourceClearance.trim();
 
-    if (!classificationOptions.containsKey(processedUserClearance))
-      throw new IllegalArgumentException("Clearance must be one of " + classificationOptions);
+  //   if (!classificationOptions.containsKey(processedUserClearance))
+  //     throw new IllegalArgumentException("Clearance must be one of " + classificationOptions);
 
-    if (resourceClassificationMarking == null || resourceClassificationMarking.isEmpty())
-      return false;
+  //   if (resourceClassificationMarking == null || resourceClassificationMarking.isEmpty())
+  //     return false;
 
-    if (!classificationOptions.containsKey(processedResourceClearance))
-      throw new IllegalArgumentException("Invalid resource classification " + processedResourceClearance);
+  //   if (!classificationOptions.containsKey(processedResourceClearance))
+  //     throw new IllegalArgumentException("Invalid resource classification " + processedResourceClearance);
 
-    return classificationOptions.get(processedUserClearance) >= classificationOptions.get(processedResourceClearance);
-  }
+  //   return classificationOptions.get(processedUserClearance) >= classificationOptions.get(processedResourceClearance);
+  // }
 
   /**
    * Checks if the classification markings contains a releaseable to block, and if so, checks if the user
@@ -126,40 +125,40 @@ public class AuthorizationUtils {
    * @param nationality
    * @return
    */
-  private static boolean isBlockedByReleaseableTo(final String nationality, final String tetragraphs, 
-        final String resourceClassificationMarkings) {
-    // TODO add support for banner barking AUTHORIZED FOR RELEASE TO
-    if (resourceClassificationMarkings.contains("REL TO")) {
-        if (nationality == null || nationality.isEmpty()) {
-          return true;
-        }
+  // private static boolean isBlockedByReleaseableTo(final String nationality, final String tetragraphs, 
+  //       final String resourceClassificationMarkings) {
+  //   // TODO add support for banner barking AUTHORIZED FOR RELEASE TO
+  //   if (resourceClassificationMarkings.contains("REL TO")) {
+  //       if (nationality == null || nationality.isEmpty()) {
+  //         return true;
+  //       }
 
-        var releaseableTo = resourceClassificationMarkings.substring(resourceClassificationMarkings.indexOf("REL TO"));
-        if (releaseableTo.contains("//")) {
-            releaseableTo.substring(0, releaseableTo.indexOf("//"));
-        }
+  //       var releaseableTo = resourceClassificationMarkings.substring(resourceClassificationMarkings.indexOf("REL TO"));
+  //       if (releaseableTo.contains("//")) {
+  //           releaseableTo.substring(0, releaseableTo.indexOf("//"));
+  //       }
 
-        releaseableTo = releaseableTo.substring("REL TO".length() + 1);
-        releaseableTo = releaseableTo.replaceAll(" ", "");
+  //       releaseableTo = releaseableTo.substring("REL TO".length() + 1);
+  //       releaseableTo = releaseableTo.replaceAll(" ", "");
 
-        if (releaseableTo.contains(",")) {
-            return !Set.of(releaseableTo.split(",")).stream().map(r -> r.toString()).anyMatch(r -> {
-              if (r.trim().isEmpty()) {
-                return false;
-              } else if (r.length() == 3) {
-                return r.equals(nationality);
-              } else if (tetragraphs != null && !tetragraphs.isEmpty() && r.length() == 4) {
-                return tetragraphs.contains(r);
-              }
-              return false;
-            });
-        } else {
-            return !releaseableTo.equals(nationality);
-        }
-    }
+  //       if (releaseableTo.contains(",")) {
+  //           return !Set.of(releaseableTo.split(",")).stream().map(r -> r.toString()).anyMatch(r -> {
+  //             if (r.trim().isEmpty()) {
+  //               return false;
+  //             } else if (r.length() == 3) {
+  //               return r.equals(nationality);
+  //             } else if (tetragraphs != null && !tetragraphs.isEmpty() && r.length() == 4) {
+  //               return tetragraphs.contains(r);
+  //             }
+  //             return false;
+  //           });
+  //       } else {
+  //           return !releaseableTo.equals(nationality);
+  //       }
+  //   }
 
-    return false;
-  }
+  //   return false;
+  // }
 
   /**
    * Checks if the user is unable to see the resource due to a NOFORN marking.
@@ -167,10 +166,10 @@ public class AuthorizationUtils {
    * @param resourceClassification
    * @return
    */
-  private static boolean isBlockedByNoForn(final String nationality, final String resourceClassification) {
-    return (containsBlockText("NOFORN", resourceClassification) || containsBlockText("NF", resourceClassification)) 
-        && (nationality == null || !nationality.equals("USA"));
-  }
+  // private static boolean isBlockedByNoForn(final String nationality, final String resourceClassification) {
+  //   return (containsBlockText("NOFORN", resourceClassification) || containsBlockText("NF", resourceClassification)) 
+  //       && (nationality == null || !nationality.equals("USA"));
+  // }
 
   /**
    * Checks if the resource classification markings contains the text between single forward slash blocks.
@@ -253,6 +252,8 @@ public class AuthorizationUtils {
       return true;
     }
 
+    LogManager.instance().log(AuthorizationUtils.class, Level.WARNING, "check perms on doc: " + action);
+
     // TODO short term - check classification, attribution on document
 
     // TODO long term - replace with filtering by low classification of related/linked document.
@@ -276,13 +277,15 @@ public class AuthorizationUtils {
             (RecordAction.CREATE != action && RecordAction.UPDATE != action)) {
       throw new ValidationException("Classification markings are missing on document");
     }
+    
     // todo add check for type if edge or vertex. Check if vertex or edge can have the same names.
     String dbName = document.getDatabase().getName();
     var databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals(dbName)).findFirst().orElse(null);
 
     // Supporting regex match on dbnames as well
     if (databasePolicy == null) {
-      databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> dbName.matches(policy.getDatabase())).findFirst().orElse(null);
+      // TODO change back to regex match HERE
+      databasePolicy = currentUser.getOpaPolicy().stream().filter(policy -> policy.getDatabase().equals("*")).findFirst().orElse(null);
     }
 
     if (databasePolicy == null) {
@@ -290,35 +293,53 @@ public class AuthorizationUtils {
     }
 
     // get typerestriction for document type name, support regex type restriction name
-    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().matches(document.getTypeName())).findFirst().orElse(null);
+    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().equals(document.getTypeName())).findFirst().orElse(null);
 
     // java regex string matcher
     if (typeRestriction == null) {
-      typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> document.getTypeName().matches(tr.getName())).findFirst().orElse(null);
+      // TODO change back to regex match HERE
+      typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().equals("*")).findFirst().orElse(null);
     }
 
     if (typeRestriction == null) {
       throw new ValidationException("Missing type restrictions for user");
     }
 
-    if (document.toJSON().has("sources")) {
-      // Combining all results
-      boolean results = true;
-      JSONArray sources = document.toJSON().getJSONArray("sources");
-      for (int i = 0; i < sources.length(); i++) {
-        results &= evalutateAccm(typeRestriction, sources.getJSONObject(i), action);
-      }
-      return results;
-    } else if (document.toJSON().has("classification")) {
-      return evalutateAccm(typeRestriction, document.toJSON().getJSONObject("classification"), action);
-    } else {
-      throw new ValidationException("Misformated classification payload");
+    // if (document.toJSON().has("sources")) {
+    //   // Combining all results
+    //   boolean results = true;
+    //   JSONArray sources = document.toJSON().getJSONArray("sources");
+    //   for (int i = 0; i < sources.length(); i++) {
+    //     results &= evalutateAccm(typeRestriction, sources.getJSONObject(i), action);
+    //   }
+    //   return results;
+    // } else if (document.toJSON().has("classification")) {
+    //   return evalutateAccm(typeRestriction, document.toJSON().getJSONObject("classification"), action);
+    // } else {
+    //   throw new ValidationException("Misformated classification payload");
+    // }
+
+    if (document.has("classification")) {
+
+      var map = document.getMap("classification");
+      // map to json
+      JSONObject classification = new JSONObject(map);
+
+      return evalutateAccm(typeRestriction, classification, action);
     }
+   //)
+
+   // TODO add sources back in
+   return true;
+
   }
 
   // TODO looking at classification payload only to determine if document has the proper markings. Since OPA is not aware of record schema columns/record attributes will not be available hence we are narrowing down the validation to classification object only.
   private static boolean evalutateAccm(final TypeRestriction typeRestriction, final JSONObject classificationJson, final RecordAction action) {
     // TODO support multiple type restrictions for a single document type. Could be an explicit, and multiple regex matches.
+    // System.out.println("evaluateAccm");
+    // LogManager.instance().log(AuthorizationUtils.class, Level.WARNING, "evaluateAccm: " + action);
+    
     switch (action) {
       case CREATE:
         return typeRestriction.evaluateCreateRestrictions(classificationJson);

@@ -99,6 +99,9 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
 
   @Override
   public boolean requestAccessOnFile(final int fileId, final ACCESS access) {
+
+   // return true;
+
     // Allow root user to access all files for HA syncing between nodes
     if (this.getName().equals("root")) {
       return true;

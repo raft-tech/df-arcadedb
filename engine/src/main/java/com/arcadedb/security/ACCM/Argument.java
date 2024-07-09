@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 
 import com.arcadedb.log.LogManager;
@@ -18,6 +19,10 @@ public class Argument {
     private ArgumentOperator operator;
     private Object value;
 
+    private boolean not = false;
+
+    private boolean nullEvaluatesToGrantAccess = true;
+
     // is null/missing field value treated as true or false? presumably false for now
 
     public Argument(String field, ArgumentOperator operator, Object value) {
@@ -26,7 +31,14 @@ public class Argument {
         this.value = value;
     }
 
-    // overload constructor for each of boolean, int, double, string, array
+    public Argument(String field, ArgumentOperator operator, Object value, boolean not) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+        this.not = not;
+    }
+
+  //  overload constructor for each of boolean, int, double, string, array
     public Argument(String field, ArgumentOperator operator, boolean value) {
         this.field = field;
         this.operator = operator;
@@ -57,6 +69,12 @@ public class Argument {
         this.value = value;
     }
 
+    public Argument(String field, ArgumentOperator operator, List<String> value) {
+        this.field = field;
+        this.operator = operator;
+        this.value = value;
+    }
+
     // TODO add date comparison
 
     // TODO add support for crawling through arrays
@@ -75,11 +93,20 @@ public class Argument {
 
             current = current.getJSONObject(path[i]);
         }
+
+        if (!current.has(path[path.length - 1])) {
+            return null;
+        }
+
         return current.get(path[path.length - 1]);
     }
 
     // TODO - remove seems like dead code.
     public boolean isValid() {
+
+        if (not) {
+            return !validate();
+        }
         return validate();
     }
 
@@ -105,6 +132,14 @@ public class Argument {
     }
 
     public boolean evaluate(JSONObject json) {
+        var result = evaluateInternal(json);
+
+        LogManager.instance().log(this, Level.FINE, "Result: " + result + " for argument: " + this.toString() + " on json: " + json.toString(2));
+
+        return result;
+    }
+
+    private boolean evaluateInternal(JSONObject json) {
 
         if (json == null) {
             return false;
@@ -116,7 +151,7 @@ public class Argument {
 
         // TODO configurably handle null values- could eval to true or false
         if (docFieldValue == null) {
-            return false;
+            return this.nullEvaluatesToGrantAccess;
         }
 
         // evaluate if the value satisfies the argument, and validate the value is valid for the argument type
@@ -126,8 +161,19 @@ public class Argument {
             case NEQ:
                 return !this.value.equals(docFieldValue);
             case ANY_OF:
+
+                // check if this.value is a list
+                if (this.value instanceof List) {
+                    for (Object val : (List<Object>) this.value) {
+                        if (val.equals(docFieldValue)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
                 for (Object val : (Object[]) this.value) {
-                    LogManager.instance().log(this, Level.INFO, "val: " + val + "; vt: " + val.getClass().getName());
+                    LogManager.instance().log(this, Level.FINE, "val: " + val + "; vt: " + val.getClass().getName());
 
                     if (val.equals(docFieldValue)) {
                         return true;
@@ -171,6 +217,10 @@ public class Argument {
                         
                         // Split the string by commas
                         String[] stringArray = str.split(", ");
+
+                        LogManager.instance().log(this, Level.FINE, "stringArray: " + stringArray);
+                        LogManager.instance().log(this, Level.FINE, "docVal: " + docVal);
+
                         for (String val : stringArray) {
                             if (val.equals(docVal)) {
                                 return true;

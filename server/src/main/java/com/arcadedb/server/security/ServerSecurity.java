@@ -24,6 +24,12 @@ import com.arcadedb.database.DatabaseFactory;
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.log.LogManager;
 import com.arcadedb.security.SecurityManager;
+import com.arcadedb.security.ACCM.Argument;
+import com.arcadedb.security.ACCM.ArgumentOperator;
+import com.arcadedb.security.ACCM.Expression;
+import com.arcadedb.security.ACCM.ExpressionOperator;
+import com.arcadedb.security.ACCM.GraphType;
+import com.arcadedb.security.ACCM.TypeRestriction;
 import com.arcadedb.security.serializers.OpaResult;
 import com.arcadedb.serializer.json.JSONException;
 import com.arcadedb.serializer.json.JSONObject;
@@ -274,7 +280,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   private OpaResult getAuthorization(String username) {
-      return OpaClient.getPolicy(username).getResult();
+    return OpaClient.getPolicy(username, server.getDatabaseNames()).getResult();
   }
 
   /**
@@ -384,7 +390,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     List<ArcadeRole> arcadeRoles = getArcadeRolesFromString(result.getRoles());
     userArcadeRoles.put(username, arcadeRoles);
 
-    log.debug("getOrCreateuser - parsed arcade roles {}", arcadeRoles);
+    log.info("getOrCreateuser - parsed arcade roles {}", arcadeRoles);
 
     // 3. Convert arcade roles to groups
     List<Group> neededGroups = arcadeRoles.stream()
@@ -434,7 +440,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     // 6. get user attribtues for ACCM
     Map<String, Object> attributes = result.getAttributes();
 
-    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, System.currentTimeMillis(), result.getPolicy());
+    ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, 
+            System.currentTimeMillis(), result.getPolicy());
     users.put(serverSecurityUser);
 
     return serverSecurityUser;
@@ -467,6 +474,8 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     if (databaseName != null) {
       final Set<String> allowedDatabases = su.getAuthorizedDatabases();
       if (!allowedDatabases.contains(SecurityManager.ANY) && !su.getAuthorizedDatabases().contains(databaseName)) {
+        LogManager.instance().log(this, Level.SEVERE, "User '%s' does not have access to database '%s'", userName,
+            databaseName);
         throw new ServerSecurityException("User does not have access to database '" + databaseName + "'");
       }
     }

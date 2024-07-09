@@ -20,6 +20,7 @@ package com.arcadedb.database;
 
 import com.arcadedb.database.EmbeddedDatabase.RecordAction;
 import com.arcadedb.exception.ValidationException;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
@@ -87,9 +88,9 @@ public class DocumentValidator {
     }
 
     if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-        && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY)) {
+        && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has("components") && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components").has(MutableDocument.CLASSIFICATION_PROPERTY)) {
 
-      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY)
+      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components")
           .getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
 
       if (classificationMarkings.trim().isEmpty()) {
@@ -121,9 +122,11 @@ public class DocumentValidator {
           .count();
 
       // TODO this check only matters if there are non system attributes on the object.
-      if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
-        throw new ValidationException("Missing classification attributes on document");
-      }
+
+      // TODO reenable attribute classification checks.s
+      // if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
+      //   throw new ValidationException("Missing classification attributes on document");
+      // }
 
       validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser, action);
     } else if (!validSources){

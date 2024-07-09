@@ -1,13 +1,15 @@
 package com.arcadedb.security.serializers;
 
 import com.arcadedb.security.ACCM.TypeRestriction;
+
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.jackson.Jacksonized;
 
 import java.util.List;
-import java.util.Map;
 
 @Data
+@AllArgsConstructor
 @Jacksonized
 public class OpaPolicy {
     private String database;
