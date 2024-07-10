@@ -290,7 +290,7 @@ public class Property {
 
   public JSONObject toJSON() {
     final JSONObject json = new JSONObject();
-
+    json.put("name", name);
     json.put("type", type.name);
 
     if (ofType != null)
