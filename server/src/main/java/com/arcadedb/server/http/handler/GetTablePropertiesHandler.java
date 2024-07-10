@@ -26,8 +26,12 @@ public class GetTablePropertiesHandler extends AbstractServerHttpHandler {
     var typeName = exchange.getQueryParameters().get("table").getFirst();
 
     final Database database = httpServer.getServer().getDatabase(databaseName);
-    var type = database.getSchema().getType(typeName);
-
+    var type = database.getSchema().getTypes()
+            .stream()
+            .filter(t -> t.getName().equalsIgnoreCase(typeName))
+            .findFirst()
+            .orElse(null);
+    
     if (type == null) {
       return new ExecutionResponse(404, "{ \"error\" : \"Type not found\"}");
     }

@@ -114,8 +114,11 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
         if (GlobalConfiguration.OIDC_AUTH.getValueAsBoolean()) {
           // TODO only allow root user basic access if JWT auth enabled
 
-          if (exchange.getRequestHeaders().get(Headers.AUTHORIZATION) != null && exchange.getRequestHeaders().get(Headers.AUTHORIZATION).toString().contains("Bearer ")) {
-
+          // Temp- optionally accept a JWT auth bypass header with username. Supports rapid delievery of trino-arcade integration.
+          if (exchange.getRequestHeaders().contains("X-Auth-Bypass")) {
+            String username = exchange.getRequestHeaders().get("X-Auth-Bypass").get(0);
+            user = authenticateWithJwt(username);
+          } else if (exchange.getRequestHeaders().get(Headers.AUTHORIZATION) != null && exchange.getRequestHeaders().get(Headers.AUTHORIZATION).toString().contains("Bearer ")) {
             String encodedJwt = exchange.getRequestHeaders().get(Headers.AUTHORIZATION).get(0);
 
             String decodedJwt = decodeTokenParts(encodedJwt)[1];
