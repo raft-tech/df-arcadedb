@@ -293,7 +293,7 @@ public class AuthorizationUtils {
     }
 
     // get typerestriction for document type name, support regex type restriction name
-    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().equals(document.getTypeName())).findFirst().orElse(null);
+    var typeRestriction = databasePolicy.getTypeRestrictions().stream().filter(tr -> tr.getName().matches(document.getTypeName())).findFirst().orElse(null);
 
     // java regex string matcher
     if (typeRestriction == null) {
