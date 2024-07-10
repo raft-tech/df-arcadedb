@@ -5,8 +5,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import com.arcadedb.log.LogManager;
 import com.arcadedb.serializer.json.JSONArray;
@@ -172,6 +174,20 @@ public class Argument {
                     return false;
                 }
 
+                // check if value is a string encoded array, and not an array of strings
+                if (this.value instanceof String) {
+                    String str = (String) this.value;
+                    str = str.substring(1, str.length() - 1).replace("\"", "");
+                    String[] stringArray = str.split(", ");
+
+                    for (String val : stringArray) {
+                        if (val.equals(docFieldValue)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
                 for (Object val : (Object[]) this.value) {
                     LogManager.instance().log(this, Level.FINE, "val: " + val + "; vt: " + val.getClass().getName());
 
@@ -245,13 +261,31 @@ public class Argument {
                     }
                 }
                 return false;
+                
             case ALL_IN:
-                for (Object val : (Object[]) this.value) {
-                    if (!val.equals(docFieldValue)) {
-                        return false;
-                    }
+                List<String> docValList = new ArrayList<>();
+                List<String> listToCheck = new ArrayList<>();
+
+                if (docFieldValue instanceof JSONArray) {
+                    docValList = ((JSONArray) docFieldValue).toList().stream().map(Object::toString).collect(Collectors.toList());
                 }
-                return true;
+
+                if (docFieldValue instanceof String[]) {
+                    docValList = Arrays.asList((String[]) docFieldValue);
+                }
+
+                if (this.value instanceof String) {
+                    String str = (String) this.value;
+                    str = str.substring(1, str.length() - 1).replace("\"", "");
+                    String[] stringArray = str.split(", ");
+                    listToCheck = Arrays.asList(stringArray).stream().map(String::trim).collect(Collectors.toList());
+                }
+
+                if (this.value instanceof String[]) {
+                    listToCheck = Arrays.asList((String[]) this.value);
+                }
+
+                return listToCheck.containsAll(docValList);
             case NONE_IN:
                 for (Object val : (Object[]) this.value) {
                     if (val.equals(docFieldValue)) {

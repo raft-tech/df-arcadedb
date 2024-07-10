@@ -44,7 +44,7 @@ public class DocumentValidator {
   public static final Map<String, Integer> classificationOptions = 
       Map.of("U", 0, "CUI", 1, "C", 2, "S", 3, "TS", 4);
 
-  public static void verifyDocumentClassificationValidForDeployment(String toCheck, MutableDocument document) {
+  public static void verifyDocumentClassificationValidForDeployment(String toCheck, String databaseClassification) {
     if (toCheck == null || toCheck.isEmpty())
       throw new IllegalArgumentException("Classification cannot be null or empty");
 
@@ -55,7 +55,6 @@ public class DocumentValidator {
     if (classificationOptions.get(deploymentClassification) < classificationOptions.get(toCheck))
       throw new ValidationException("Classification " + toCheck + " is not allowed in this deployment");
 
-    var databaseClassification = document.getDatabase().getSchema().getEmbedded().getClassification();
     if (classificationOptions.get(databaseClassification) < classificationOptions.get(toCheck))
       throw new ValidationException("Classification " + toCheck + " is not allowed in this database");
   }
@@ -109,7 +108,8 @@ public class DocumentValidator {
       }
 
       try {
-        verifyDocumentClassificationValidForDeployment(classification, document);
+        var databaseClassification = document.getDatabase().getSchema().getEmbedded().getClassification();
+        verifyDocumentClassificationValidForDeployment(classification, databaseClassification);
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification: " + classification);
       }
@@ -160,7 +160,13 @@ public class DocumentValidator {
       var value = entry.getValue().toString();
 
       if (value != null && value.trim() != "") {
-        if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
+
+        verifyDocumentClassificationValidForDeployment(value, document.getDatabase().getSchema().getEmbedded().getClassification());
+
+        var inputIndex = AuthorizationUtils.classificationOptions.get(value);
+        var userClearanceIndex = AuthorizationUtils.classificationOptions.get(securityDatabaseUser.getClearanceForCountryOrTetragraphCode("USA"));
+
+        if (inputIndex > userClearanceIndex) {
           throw new ValidationException("User cannot set attribute classification markings on documents higher than or outside their current access.");
         }
       } else {
@@ -200,7 +206,8 @@ public class DocumentValidator {
       }
 
       try {
-        verifyDocumentClassificationValidForDeployment(classification, document);
+        var databaseClassification = document.getDatabase().getSchema().getEmbedded().getClassification();
+        verifyDocumentClassificationValidForDeployment(classification, databaseClassification);
       } catch (IllegalArgumentException e) {
         throw new ValidationException("Invalid classification for source: " + classification);
       }

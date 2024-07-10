@@ -143,7 +143,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   }
 
   public static final int LATEST_VERSION = 1;
-  private static final int CHECK_USER_RELOAD_EVERY_MS = 5_000;
+  private static final int CHECK_USER_RELOAD_EVERY_MS = 1_000;
   private final ArcadeDBServer server;
   private final SecurityUserFileRepository usersRepository;
   private final SecurityGroupFileRepository groupRepository;
