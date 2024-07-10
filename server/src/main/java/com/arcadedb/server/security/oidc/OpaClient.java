@@ -1,7 +1,7 @@
 package com.arcadedb.server.security.oidc;
 
+import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
@@ -53,7 +53,9 @@ public class OpaClient extends DataFabricRestClient {
             return null;
         }
 
+        // TODO make configurable
         var possibleClassifications = new String[] { "U", "C", "S", "TS" };
+
         var clearance = responseJson.get("clearance_usa").asText();
 
         List<String> authorizedClassificationsList = new ArrayList<>();
@@ -67,9 +69,9 @@ public class OpaClient extends DataFabricRestClient {
         var hasAccessToNoforn = responseJson.has(NOFORN) ? responseJson.get(NOFORN).asBoolean() : false;
 
         // relto
-        List<String> relTo = new ArrayList<>();// Arrays.asList(responseJson.get("releasable_to").asText().split(","));
+        List<String> relTo = new ArrayList<>(); // TODO Arrays.asList(responseJson.get("releasable_to").asText().split(","));
 
-        String nationality = responseJson.get("user_attributes").get("nationality").asText();
+        String nationality = responseJson.get("nationality").asText();
         var hasAccessToFvey = responseJson.has(FVEY) ? responseJson.get(FVEY).asBoolean() : false;
         var hasAccessToAcgu = responseJson.has(ACGU) ? responseJson.get(ACGU).asBoolean() : false;
 
@@ -87,24 +89,58 @@ public class OpaClient extends DataFabricRestClient {
 
         Expression disclosedData = new Expression();
 
-        List<Argument> accmArgs = new ArrayList<>();
+        List<Argument> disseminationArgs = new ArrayList<>();
 
-        accmArgs.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
+        List<Argument> classificationArguments = new ArrayList<>();
+
+        classificationArguments.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
     
         if (!hasAccessToNoforn || relTo.isEmpty()) {
-          accmArgs.add(new Argument("components.disseminationControls", ArgumentOperator.ANY_OF, "NOFORN", true));
+            disseminationArgs.add(new Argument("components.disseminationControls", ArgumentOperator.ANY_OF, "NOFORN", true));
         }
 
-        accmArgs.add(new Argument("components.releasableTo", ArgumentOperator.ANY_IN, relTo));
 
-        Expression accm = new Expression();
-        accm.setOperator(ExpressionOperator.AND);
-        accm.setArguments(accmArgs);
+        // If foreign national, block access to data with releasable to that doesn't include nationality to tetra they belong to
 
-        Expression expressionOuter = new Expression();
+
+        // nationality is USA OR nationality/tetra listed in rel to
+        
+        var argRelTo = new Argument("components.releasableTo", ArgumentOperator.ANY_IN, relTo);
+
+        if (nationality.equals("USA")) {
+            argRelTo.setNullEvaluatesToGrantAccess(true);
+        }
+
+        disseminationArgs.add(argRelTo);
+
+        // if user has no readons, block all ACCM
+        List<Argument> accmArgs = new ArrayList<>();
+        // if user has readons, only permit rows where all required readons are present
+        if (responseJson.get("user_has_access_to_accm").asBoolean()) {
+            var readons = responseJson.get("programReadons").asText().split(",");
+            Arrays.asList(readons);
+
+            Argument arg = new Argument("components.programNicknames", ArgumentOperator.ALL_IN, readons);
+            arg.setNullEvaluatesToGrantAccess(true);
+            accmArgs.add(arg);
+        } else {
+            var arg = new Argument("components.nonICmarkings", ArgumentOperator.ANY_OF, "ACCM", true);
+            accmArgs.add(arg);
+        }
+
+        var allOuterArgs = new ArrayList<Argument>();
+        allOuterArgs.addAll(classificationArguments);
+        allOuterArgs.addAll(accmArgs);
+        allOuterArgs.addAll(disseminationArgs);
+
+
+        Expression outer = new Expression();
+        outer.setOperator(ExpressionOperator.AND);
+        outer.setArguments(allOuterArgs);
+
 
         List<Expression> expressions = new ArrayList<>();
-        expressions.add(accm);
+        expressions.add(outer);
 
         TypeRestriction typeRestrictionEdge = new TypeRestriction("*", GraphType.EDGE, expressions, expressions, expressions, expressions);
         TypeRestriction typeRestrictionVertex = new TypeRestriction("*", GraphType.VERTEX, expressions, expressions, expressions, expressions);
@@ -120,11 +156,11 @@ public class OpaClient extends DataFabricRestClient {
             policies.add(policy);
         });
 
-        JSONObject json = new JSONObject(policyResponseString);
+        JSONObject json = new JSONObject(policyResponseString).getJSONObject("result");
 
-        List<String> roles = json.getJSONObject("result").getJSONArray("role_mappings").toList().stream().map(Object::toString).collect(Collectors.toList());
+        List<String> roles = json.getJSONArray("role_mappings").toList().stream().map(Object::toString).collect(Collectors.toList());
 
-        OpaResult result = new OpaResult(true, roles, new HashMap<>(), policies);
+        OpaResult result = new OpaResult(true, roles, json.getJSONObject("user_attributes").toMap(), policies);
         return new OpaResponse(result);
     }
 }
