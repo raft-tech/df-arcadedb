@@ -1,6 +1,6 @@
 {
   "language": "sql",
-  "command": "INSERT INTO People CONTENT\n{\n  firstName: &#039;Enzo&#039;,\n  lastName: &#039;Ferrari&#039;,\n  classification: {general: &#039;TS&#039;}\n}",
+  "command": "INSERT INTO People CONTENT\n{\n  firstName: &#039;Enzo&#039;,\n  lastName: &#039;Ferrari&#039;,\n  classification:{\n  \tcomponents: {\n    \tclassification: &#039;TS&#039;\n    }\n  }\n}",
   "limit": 25,
   "profileExecution": "basic",
   "serializer": "studio"

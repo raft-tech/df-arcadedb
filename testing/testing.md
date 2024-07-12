@@ -3,7 +3,7 @@
 
 In Keycloak, add the following attributes to the admin user:
 ```
-clearance-usa = U
+clearance_usa = U
 nationality = USA
 ```
 
@@ -58,14 +58,7 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < delete_u_person.json
 ```
 
-8. Confirm that the user can add an object with correct source-based classification
-```shell
-TOKEN=$(dfdev auth token | tr -d '\n' ) \
-&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
-< insert_u_source_person.json
-```
-
-9. Confirm that there are two users - one with general classification, another with source classification
+8. Confirm that there is one user
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
@@ -74,18 +67,17 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 
 In Keycloak, update the user's attributes:
 ```
-clearance-usa = S
+clearance_usa = S
 nationality = USA
 ```
-
-10. Confirm that the user can add an object with correct general classification
+9. Confirm that the user can add an object with correct general classification
 ```shell 
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < insert_s_person.json
 ```
 
-11. Confirm that the user can delete an object with correct general classification
+10. Confirm that the user can delete an object with correct general classification
 ```shell 
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
@@ -94,21 +86,22 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < delete_s_person.json
 ```
 
-12. Confirm that the user can add an object with correct source-based classification
+11. Confirm that the user can add an object with source S//NF classification
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
-< insert_s_source_person.json
+< insert_snf_person.json
 ```
 
-13. Confirm that the user can add an object with source S//NF classification
+13. Confirm that the user cannot create a S//NF document with a FVEY releaseability
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
-< insert_snf_source_person.json
+< insert_snf_fvey.json
 ```
 
-14. Confirm that there are five users - four with secret classification, two unclassified
+
+13. Confirm that there are three people
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
