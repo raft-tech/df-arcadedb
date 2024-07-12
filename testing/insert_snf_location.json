@@ -1,6 +1,6 @@
 {
   "language": "sql",
-  "command": "INSERT INTO Location CONTENT \n{ \n  name: &#039;Huntsville&#039;,\n  type: &#039;City&#039;,\n  sources: [\n     {\n       name: &#039;IIR 123456&#039;,\n       classification: &#039;S//NF&#039;,\n       attributes: {\n         name: &#039;S&#039;,\n         type: &#039;U&#039;\n       }\n     }\n   ]\n}",
+  "command": "INSERT INTO Location CONTENT \n{ \n  name: &#039;Hunstville&#039;, \n  type: &#039;City&#039;, \n  classification: { \n  \tcomponents: {\n    \tclassification: &#039;S&#039;,\n        dissemination: [&#039;NOFORN&#039;]\n    },\n    attributes: {\n      name: &#039;U&#039;,\n      type: &#039;U&#039;\n    }\n  }\n}",
   "limit": 25,
   "profileExecution": "basic",
   "serializer": "studio"

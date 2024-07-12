@@ -93,7 +93,7 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < insert_snf_person.json
 ```
 
-13. Confirm that the user cannot create a S//NF document with a FVEY releaseability
+12. Confirm that the user cannot create a S//NF document with a FVEY releaseability (FAILED)
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
@@ -101,7 +101,7 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 ```
 
 
-13. Confirm that there are three people
+13. Confirm that there are three people (FAILED)
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
@@ -110,62 +110,70 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 
 In Keycloak, update the user's attributes. Make sure the user is not in the Data Steward Admin group:
 ```
-clearance-usa = S
+clearance_usa = S
 nationality = GBR
 ```
 
-15. Confirm that the only **four** records are returned - the S//NF records **should not** be present
+14. Confirm that only **two** records are returned - the S//NF records **should not** be present (FAILED)
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < select_from_people.json
 ```
 
-16. Confirm that the user **cannot** delete S//NF objects.
+15. Confirm that the user **cannot** delete S//NF objects (FAILED)
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < delete_snf_person.json
 ```
 
-Switch the user's nationality attribute back to `USA` and confirm that Enzo5 is still present.
+
+15. Confirm that the user **cannot** add S//NF objects (FAILED)
+```shell
+TOKEN=$(dfdev auth token | tr -d '\n' ) \
+&& http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
+< insert_snf_person.json
+```
+
+Switch the user's nationality attribute back to `USA` and confirm that Enzo3 (S//NF) is still present. (FAILED)
 
 
 In Keycloak, update the user's attributes:
 ```
-clearance-usa = U
+clearance_usa = U
 nationality = USA
 ```
 
-18. Confirm that only unclassified objects are returned
+16. Confirm that only unclassified objects are returned
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < select_from_people.json
 ```
 
-19. Create a new Location vertex type
+17. Create a new Location vertex type
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < create_location_vertex.json
 ```
 
-20. As an unclassified user, create a new Location
+18. As an unclassified user, create a new Location
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < insert_u_location.json
 ```
 
-21. As an unclassified user, create an Edge type
+19. As an unclassified user, create an Edge type
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
 < create_edge.json
 ```
 
-22. As an unclassified user, add an edge from S//NF person (Enzo5) to U location
+20. As an unclassified user, add an edge from S//NF person (Enzo3) to U location - PROBABLY BROKEN - MISSING COMPONENT STILL SAVED(******)
 This command should fail.
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
@@ -173,10 +181,10 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < create_snf_person_edge.json
 ```
 
-23. Bump user to secret and try again. This should work.
+21. Bump user to secret and try again. This should work.
 Keycloak attributes:
 ```
-clearance-usa = S
+clearance_usa = S
 nationality = USA
 ```
 
@@ -186,7 +194,7 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < create_snf_person_edge.json
 ```
 
-24. Create a new S//NF location, create an edge to a S//NF person
+22. Create a new S//NF location, create an edge to a S//NF person - PROBABLY BROKEN - MISSING COMPONENT STILL SAVED(******)
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
@@ -199,11 +207,10 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < create_snf_edge.json
 ```
 
-25. With an unclassified user, query for edges
-This command should return no edges.
+23. With an unclassified user, query for edges -- this command should return no edges. (FAILED)
 Keycloak attributes:
 ```
-clearance-usa = U
+clearance_usa = U
 nationality = USA
 ```
 
