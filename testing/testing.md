@@ -181,7 +181,7 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < create_snf_person_edge.json
 ```
 
-21. Bump user to secret and try again. This should work.
+21. Bump user to secret and try again. This should work. - PROBABLY BROKEN - MISSING COMPONENT STILL SAVED(******)
 Keycloak attributes:
 ```
 clearance_usa = S
@@ -194,7 +194,7 @@ TOKEN=$(dfdev auth token | tr -d '\n' ) \
 < create_snf_person_edge.json
 ```
 
-22. Create a new S//NF location, create an edge to a S//NF person - PROBABLY BROKEN - MISSING COMPONENT STILL SAVED(******)
+22. Create a new S//NF location, create an edge to a S//NF person
 ```shell
 TOKEN=$(dfdev auth token | tr -d '\n' ) \
 && http post :/api/v1/arcadedb/command/secret_people "Authorization: Bearer ${TOKEN}" \
