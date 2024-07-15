@@ -1,6 +1,6 @@
 {
   "language": "sql",
-  "command": "delete from `People` where firstName=&#039;Enzo5&#039;",
+  "command": "delete from `People` where firstName=&#039;Enzo3&#039;",
   "limit": 25,
   "profileExecution": "basic",
   "serializer": "studio"
