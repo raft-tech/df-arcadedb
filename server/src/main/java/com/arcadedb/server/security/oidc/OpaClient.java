@@ -161,6 +161,7 @@ public class OpaClient extends DataFabricRestClient {
         List<String> roles = json.getJSONArray("role_mappings").toList().stream().map(Object::toString).collect(Collectors.toList());
 
         OpaResult result = new OpaResult(true, roles, json.getJSONObject("user_attributes").toMap(), policies);
+        LogManager.instance().log(OpaClient.class, Level.INFO, "OpaResult " + result);
         return new OpaResponse(result);
     }
 }
