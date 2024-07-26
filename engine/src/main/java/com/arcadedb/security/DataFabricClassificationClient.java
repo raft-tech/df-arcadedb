@@ -1,7 +1,6 @@
-package com.arcadedb.server;
+package com.arcadedb.security;
 
 import com.arcadedb.GlobalConfiguration;
-import com.arcadedb.database.DocumentValidator;
 import com.arcadedb.log.LogManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
