@@ -1,6 +1,7 @@
 package com.arcadedb.security;
 
 import com.arcadedb.GlobalConfiguration;
+import com.arcadedb.database.DocumentValidator;
 import com.arcadedb.log.LogManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,8 +23,10 @@ public class DataFabricClassificationClient {
      * @return true if the classification structure is valid and meets classification level of the data fabric deployment
      */
     public static boolean validateDocumentClassification(String classification) {
-        String url = String.format("%s/api/v1/classification/validate", GlobalConfiguration.DF_CLASSIFICATION_URL);
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        String url = String.format("%s/api/v1/classification/validate", GlobalConfiguration.DF_CLASSIFICATION_URL.getValueAsString());
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .POST(HttpRequest.BodyPublishers.ofString(new ObjectMapper().writeValueAsString(classification)))
