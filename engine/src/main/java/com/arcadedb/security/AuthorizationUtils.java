@@ -26,6 +26,7 @@ public class AuthorizationUtils {
    * @param classification
    * @return
    */
+  @Deprecated // Possibly remove. Handled by df-classification.
   public static boolean isClassificationValidForDeployment(final String classification) {
     if (classification == null || classification.isEmpty())
       return false;
@@ -89,28 +90,30 @@ public class AuthorizationUtils {
 
   // split out crud actions
   public static boolean checkPermissionsOnDocument(final Document document, final SecurityDatabaseUser currentUser, final RecordAction action) {
+    String message = "Checking permissions on document " + document.toJSON(true)
+            + " against user '" + currentUser + "' and CRUD op '" + action + "'...";
+    LogManager.instance().log(AuthorizationUtils.class, Level.INFO, message);
+
     // Allow root user to access all documents for HA syncing between nodes
     if (currentUser.getName().equals("root")) {
       return true;
     }
-
-    LogManager.instance().log(AuthorizationUtils.class, Level.WARNING, "check perms on doc: " + action);
-
-    // TODO short term - check classification, attribution on document
-
-    // TODO long term - replace with filtering by low classification of related/linked document.
-    // Expensive to do at read time. Include linkages and classification at write time?
-    // Needs performance testing and COA analysis.
 
     // TODO prevent data stewards from seeing data outside their access
     if (currentUser.isServiceAccount() || currentUser.isDataSteward(document.getTypeName())) {
       return true;
     }
 
-    // If classification is not enabled on database it does not make sense to keep going. is not enabled.
+    // If classification is not enabled on database it does not make sense to keep going.
     if (!document.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
       return true;
     }
+
+    // TODO short term - check classification, attribution on document
+
+    // TODO long term - replace with filtering by low classification of related/linked document.
+    // Expensive to do at read time. Include linkages and classification at write time?
+    // Needs performance testing and COA analysis.
 
     // Prevent users from accessing documents that have not been marked, unless we're evaluating a user's permission to a doc that hasn't been created yet.
     // The action where we do not want to raise exception is on create and update. The update is included because on edge creation there is technically
