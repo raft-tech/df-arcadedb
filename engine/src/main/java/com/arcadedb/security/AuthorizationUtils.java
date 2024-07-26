@@ -147,20 +147,6 @@ public class AuthorizationUtils {
       throw new ValidationException("Missing type restrictions for user");
     }
 
-    // if (document.toJSON().has("sources")) {
-    //   // Combining all results
-    //   boolean results = true;
-    //   JSONArray sources = document.toJSON().getJSONArray("sources");
-    //   for (int i = 0; i < sources.length(); i++) {
-    //     results &= evalutateAccm(typeRestriction, sources.getJSONObject(i), action);
-    //   }
-    //   return results;
-    // } else if (document.toJSON().has("classification")) {
-    //   return evalutateAccm(typeRestriction, document.toJSON().getJSONObject("classification"), action);
-    // } else {
-    //   throw new ValidationException("Misformated classification payload");
-    // }
-
     if (document.has("classification")) {
 
       var map = document.getMap("classification");
@@ -169,7 +155,6 @@ public class AuthorizationUtils {
 
       return evalutateAccm(typeRestriction, classification, action);
     }
-   //)
 
    // TODO add sources back in
    return true;
