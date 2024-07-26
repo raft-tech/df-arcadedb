@@ -25,11 +25,13 @@ import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 import com.arcadedb.security.AuthorizationUtils;
+import com.arcadedb.security.DataFabricClassificationClient;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.serializer.json.JSONObject;
 
 import java.math.*;
 import java.util.*;
+import java.util.logging.Level;
 
 /**
  * Validates documents against constraints defined in the schema.
@@ -51,6 +53,7 @@ public class DocumentValidator {
     if (!classificationOptions.containsKey(toCheck))
       throw new ValidationException("Classification must be one of " + classificationOptions);
 
+    // TODO: Do not default to S. App should not come up if no deployment classification is set.
     var deploymentClassification = System.getProperty("deploymentClassification", "S");
     if (classificationOptions.get(deploymentClassification) < classificationOptions.get(toCheck))
       throw new ValidationException("Classification " + toCheck + " is not allowed in this deployment");
@@ -60,78 +63,59 @@ public class DocumentValidator {
   }
 
   public static void validateClassificationMarkings(final MutableDocument document, 
-          SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
+          SecurityDatabaseUser securityDatabaseUser, RecordAction action) throws ValidationException {
 
     if (document == null) {
-      throw new ValidationException("Document is null");
+      throw new ValidationException("Document is null!");
     }
 
+    String message = "Validating classification markings on " + document.toJSON(true)
+            + ". CRUD op '" + action + "'...";
+    LogManager.instance().log(DocumentValidator.class, Level.INFO, message);
+
     if (document instanceof MutableEmbeddedDocument) {
+      LogManager.instance().log(DocumentValidator.class, Level.INFO,
+              "Document is a MutableEmbeddedDocument. Skipping validation.");
       return;
     }
 
     if (document.getRecordType() == EmbeddedDocument.RECORD_TYPE) {
+      LogManager.instance().log(DocumentValidator.class, Level.INFO,
+              "Document is a RECORD_TYPE. Skipping validation.");
       return;
     }
 
     // Skip validation checks if classification validation is disabled for the database
     if (!document.getDatabase().getSchema().getEmbedded().isClassificationValidationEnabled()) {
+      LogManager.instance().log(DocumentValidator.class, Level.INFO,
+              "Classification validation is disabled on database. Skipping validation.");
       return;
     }
 
-    boolean validSources = false;
-    // validate sources, if present
-    if (document.has(MutableDocument.SOURCES_ARRAY_ATTRIBUTE) && !document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE).isEmpty()) {
-      validateSources(document, securityDatabaseUser, action);
-      validSources = true;
+    // TODO: Add sources validation back in.
+
+    if (!document.has(MutableDocument.CLASSIFICATION_PROPERTY)) {
+      throw new ValidationException("Document has no classification property!");
     }
 
-    if (document.has(MutableDocument.CLASSIFICATION_PROPERTY) 
-        && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has("components") && document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components").has(MutableDocument.CLASSIFICATION_PROPERTY)) {
-
-      var classificationMarkings = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components")
-          .getString(MutableDocument.CLASSIFICATION_GENERAL_PROPERTY);
-
-      if (classificationMarkings.trim().isEmpty()) {
-        throw new ValidationException("Classification " + classificationMarkings + " is not valid");
-      }
-
-      // TODO handle SBU, LES, etc.
-      String classification = classificationMarkings;
-      if (classificationMarkings.contains("//")) {
-        classification = classificationMarkings.substring(0, classificationMarkings.indexOf("//"));
-      }
-
-      // Validate the user can set the classification of the document. Can't create higher than what you can access.
-      if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
-        throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
-      }
-
-      try {
-        var databaseClassification = document.getDatabase().getSchema().getEmbedded().getClassification();
-        verifyDocumentClassificationValidForDeployment(classification, databaseClassification);
-      } catch (IllegalArgumentException e) {
-        throw new ValidationException("Invalid classification: " + classification);
-      }
-
-      var classificationObj = new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
-
-      var nonSystemPropsCount = document.getPropertyNames().stream()
-          .filter(prop -> !prop.startsWith("@"))
-          .filter(prop -> !MutableDocument.CUSTOM_SYSTEM_PROPERTIES.contains(prop))
-          .count();
-
-      // TODO this check only matters if there are non system attributes on the object.
-
-      // TODO reenable attribute classification checks.s
-      // if (nonSystemPropsCount > 0 && !classificationObj.has(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY)) {
-      //   throw new ValidationException("Missing classification attributes on document");
-      // }
-
-      validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser, action);
-    } else if (!validSources){
-      throw new ValidationException("Missing overall classification data on document");
+    if (!document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has("components")) {
+      throw new ValidationException("Document has no classification.components property!");
     }
+
+    var component = document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).getJSONObject("components").toString();
+    boolean valid = DataFabricClassificationClient.validateDocumentClassification(component);
+    if (!valid) {
+      throw new ValidationException("Document has no valid classification defined!");
+    }
+    // TODO handle SBU, LES, etc.
+
+    // Validate the user can set the classification of the document. Can't create higher than what you can access.
+    if (!AuthorizationUtils.checkPermissionsOnDocument(document, securityDatabaseUser, action)) {
+      throw new ValidationException("User cannot set classification markings on documents higher than or outside their current access.");
+    }
+
+    var classificationObj = new JSONObject(document.get(MutableDocument.CLASSIFICATION_PROPERTY).toString());
+    validateAttributeClassificationTagging(document, classificationObj.getJSONObject(MutableDocument.CLASSIFICATION_ATTRIBUTES_PROPERTY), securityDatabaseUser, action);
   }
 
   private static void validateAttributeClassificationTagging(final MutableDocument document, final JSONObject attributes, SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
@@ -149,6 +133,8 @@ public class DocumentValidator {
 
     var numProps = propNames.size();
 
+    LogManager.instance().log(DocumentValidator.class, Level.INFO, "Validating attributes " + attributes);
+
     attributes.toMap().entrySet().forEach(entry -> {
       var key = entry.getKey();
 
@@ -160,7 +146,7 @@ public class DocumentValidator {
       var value = entry.getValue().toString();
 
       if (value != null && value.trim() != "") {
-
+        // TODO: possibly redundant. Call to df-classification earlier in call stack factors in deployment classification.
         verifyDocumentClassificationValidForDeployment(value, document.getDatabase().getSchema().getEmbedded().getClassification());
 
         var inputIndex = AuthorizationUtils.classificationOptions.get(value);
@@ -186,6 +172,8 @@ public class DocumentValidator {
    */
   private static void validateSources(final MutableDocument document, SecurityDatabaseUser securityDatabaseUser, RecordAction action) {
     var sources = document.toJSON().getJSONArray(MutableDocument.SOURCES_ARRAY_ATTRIBUTE);
+
+    LogManager.instance().log(DocumentValidator.class, Level.INFO, "Validating source classifications...");
     sources.forEach(obj -> {
 
       var jo = (JSONObject) obj;
