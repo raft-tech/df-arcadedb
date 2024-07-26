@@ -439,6 +439,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
     // 6. get user attribtues for ACCM
     Map<String, Object> attributes = result.getAttributes();
+    log.info("User attributes are  {}", attributes);
 
     ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, 
             System.currentTimeMillis(), result.getPolicy());
@@ -465,7 +466,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
   // matches and database schema last updated is older than expiration time.
 
   public ServerSecurityUser authenticate(final String userName, final String databaseName) {
-
+    LogManager.instance().log(this, Level.INFO, "Authenticating '%s' to database '%s'", userName, databaseName);
     final ServerSecurityUser su = getOrCreateUser(userName);
     if (su == null) {
       throw new ServerSecurityException("User not valid");
