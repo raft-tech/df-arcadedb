@@ -155,7 +155,7 @@ public class AuthorizationUtils {
       var map = document.getMap("classification");
       // map to json
       JSONObject classification = new JSONObject(map);
-
+      LogManager.instance().log(AuthorizationUtils.class, Level.INFO, "Authorizing against type restrictions: " + typeRestriction);
       return evalutateAccm(typeRestriction, classification, action);
     }
 
