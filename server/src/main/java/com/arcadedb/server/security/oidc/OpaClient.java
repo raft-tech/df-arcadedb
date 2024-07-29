@@ -56,7 +56,9 @@ public class OpaClient extends DataFabricRestClient {
         // TODO make configurable
         var possibleClassifications = new String[] { "U", "C", "S", "TS" };
 
+        // TODO: Bug -> if clearance_usa is ever the full name (e.g. SECRET) this breaks. All classifications are added.
         var clearance = responseJson.get("clearance_usa").asText();
+
 
         List<String> authorizedClassificationsList = new ArrayList<>();
         for (String classification : possibleClassifications) {
