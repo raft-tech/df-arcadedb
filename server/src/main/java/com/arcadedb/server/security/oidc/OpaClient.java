@@ -56,7 +56,7 @@ public class OpaClient extends DataFabricRestClient {
         // TODO make configurable
         var possibleClassifications = new String[] { "U", "C", "S", "TS" };
 
-        var clearance = responseJson.get("classification").asText();
+        var clearance = responseJson.get("clearance").asText();
 
         List<String> authorizedClassificationsList = new ArrayList<>();
         for (String classification : possibleClassifications) {
@@ -71,7 +71,7 @@ public class OpaClient extends DataFabricRestClient {
         // relto
         List<String> relTo = new ArrayList<>(); // TODO Arrays.asList(responseJson.get("releasable_to").asText().split(","));
 
-        String nationality = responseJson.get("country").asText();
+        String nationality = responseJson.get("nationality").asText();
         var hasAccessToFvey = responseJson.has(FVEY) ? responseJson.get(FVEY).asBoolean() : false;
         var hasAccessToAcgu = responseJson.has(ACGU) ? responseJson.get(ACGU).asBoolean() : false;
 

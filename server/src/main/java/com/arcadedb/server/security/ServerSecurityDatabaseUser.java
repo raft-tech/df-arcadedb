@@ -347,11 +347,11 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   }
 
   public String getClearanceForCountryOrTetragraphCode(String code) {
-    return getStringValueFromKeycloakAttribute("classification");
+    return getStringValueFromKeycloakAttribute("clearance");
   }
 
   public String getNationality() {
-    return getStringValueFromKeycloakAttribute("country");
+    return getStringValueFromKeycloakAttribute("nationality");
   }
 
   /**
