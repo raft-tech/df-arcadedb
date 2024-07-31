@@ -39,23 +39,23 @@ public class OpaClient extends DataFabricRestClient {
         var policyResponseString = sendAuthenticatedPostAndGetResponse(getBaseOpaUrl(), username);
 
         ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode responseJson = null;
+        JsonNode opaPolicyJson = null;
 
         try {
             // Convert string to JSON object
-            responseJson = objectMapper.readTree(policyResponseString);
-            responseJson = responseJson.get("result");
+            opaPolicyJson = objectMapper.readTree(policyResponseString);
+            opaPolicyJson = opaPolicyJson.get("result");
         } catch (JsonProcessingException e) {
             LogManager.instance().log(OpaClient.class, Level.SEVERE, "Error parsing JSON response from OPA.");
             return null;
         }
 
-        LogManager.instance().log(OpaClient.class, Level.INFO, "OPA policy response: " + responseJson.toPrettyString());
+        LogManager.instance().log(OpaClient.class, Level.INFO, "OPA policy response: " + opaPolicyJson.toPrettyString());
 
         // TODO make configurable
         var possibleClassifications = new String[] { "U", "C", "S", "TS" };
 
-        var clearance = responseJson.get("clearance").asText();
+        var clearance = opaPolicyJson.get("clearance").asText();
 
         List<String> authorizedClassificationsList = new ArrayList<>();
         for (String classification : possibleClassifications) {
@@ -65,14 +65,14 @@ public class OpaClient extends DataFabricRestClient {
             }
         }
 
-        var hasAccessToNoforn = responseJson.has(NOFORN) ? responseJson.get(NOFORN).asBoolean() : false;
+        var hasAccessToNoForn = opaPolicyJson.has(NOFORN) && opaPolicyJson.get(NOFORN).asBoolean();
 
         // relto
         List<String> relTo = new ArrayList<>(); // TODO Arrays.asList(responseJson.get("releasable_to").asText().split(","));
 
-        String nationality = responseJson.get("nationality").asText();
-        var hasAccessToFvey = responseJson.has(FVEY) ? responseJson.get(FVEY).asBoolean() : false;
-        var hasAccessToAcgu = responseJson.has(ACGU) ? responseJson.get(ACGU).asBoolean() : false;
+        String nationality = opaPolicyJson.get("nationality").asText();
+        var hasAccessToFvey = opaPolicyJson.has(FVEY) && opaPolicyJson.get(FVEY).asBoolean();
+        var hasAccessToAcgu = opaPolicyJson.has(ACGU) && opaPolicyJson.get(ACGU).asBoolean();
 
         relTo.add(nationality);
 
@@ -94,7 +94,7 @@ public class OpaClient extends DataFabricRestClient {
 
         classificationArguments.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
     
-        if (!hasAccessToNoforn || relTo.isEmpty()) {
+        if (!hasAccessToNoForn || relTo.isEmpty()) {
             disseminationArgs.add(new Argument("components.disseminationControls", ArgumentOperator.ANY_OF, "NOFORN", true));
         }
 
@@ -115,8 +115,8 @@ public class OpaClient extends DataFabricRestClient {
         // if user has no readons, block all ACCM
         List<Argument> accmArgs = new ArrayList<>();
         // if user has readons, only permit rows where all required readons are present
-        if (responseJson.get("user_has_access_to_accm").asBoolean()) {
-            var readons = responseJson.get("programReadons").asText().split(",");
+        if (opaPolicyJson.get("user_has_access_to_accm").asBoolean()) {
+            var readons = opaPolicyJson.get("programReadons").asText().split(",");
             Arrays.asList(readons);
 
             Argument arg = new Argument("components.programNicknames", ArgumentOperator.ALL_IN, readons);
