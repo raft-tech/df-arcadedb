@@ -38,8 +38,6 @@ public class OpaClient extends DataFabricRestClient {
     public static OpaResponse getPolicy(String username, Set<String> databaseNames) {
         var policyResponseString = sendAuthenticatedPostAndGetResponse(getBaseOpaUrl(), username);
 
-        LogManager.instance().log(OpaClient.class, Level.INFO, "policy response string: " + policyResponseString);
-
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode responseJson = null;
 
@@ -48,10 +46,11 @@ public class OpaClient extends DataFabricRestClient {
             responseJson = objectMapper.readTree(policyResponseString);
             responseJson = responseJson.get("result");
         } catch (JsonProcessingException e) {
-            LogManager.instance().log(OpaClient.class, Level.SEVERE, "Error parsing JSON response from OPA");
-            e.printStackTrace();
+            LogManager.instance().log(OpaClient.class, Level.SEVERE, "Error parsing JSON response from OPA.");
             return null;
         }
+
+        LogManager.instance().log(OpaClient.class, Level.INFO, "OPA policy response: " + responseJson.toPrettyString());
 
         // TODO make configurable
         var possibleClassifications = new String[] { "U", "C", "S", "TS" };
