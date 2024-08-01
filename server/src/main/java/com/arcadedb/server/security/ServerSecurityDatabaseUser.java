@@ -20,6 +20,7 @@ package com.arcadedb.server.security;
 
 import com.arcadedb.database.DatabaseInternal;
 import com.arcadedb.engine.ComponentFile;
+import com.arcadedb.log.LogManager;
 import com.arcadedb.schema.DocumentType;
 import com.arcadedb.security.SecurityDatabaseUser;
 import com.arcadedb.security.SecurityManager;
@@ -32,6 +33,7 @@ import com.arcadedb.security.serializers.OpaPolicy;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
+import java.util.logging.Level;
 
 @Slf4j
 public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
@@ -347,17 +349,30 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
   }
 
   public String getClearanceForCountryOrTetragraphCode(String code) {
-    return getStringValueFromKeycloakAttribute("clearance" + "_" + code.toLowerCase());
+    /* TODO: implement clearances from other countries. Since we only support
+        USA clearances at the moment, this just returns the user's clearance level from keycloak. */
+    return getStringValueFromKeycloakAttribute("classification");
   }
 
   public String getNationality() {
-    return getStringValueFromKeycloakAttribute("nationality");
+    // Checks for two keycloak attributes that can be evaluated to determine nationality
+    String nationality = getStringValueFromKeycloakAttribute("country");
+    boolean citizenOfCountry =
+            Objects.requireNonNullElse(
+                    getStringValueFromKeycloakAttribute("citizenship"), "N")
+                    .equalsIgnoreCase("Y");
+
+    if (!citizenOfCountry) {
+        throw new RuntimeException("Unknown user nationality!");
+    }
+    return nationality;
   }
 
   /**
    * Checks if the user has the specific Tetragraph, or 4 character code representing an organization, like NATO, etc.
    */
   public boolean hasTetragraph(String tetraGraph) {
+    // TODO: This KC attribute does not exist yet. Needs implementation.
     String tetras = getStringValueFromKeycloakAttribute("tetragraphs");
     if (tetras != null) {
       return tetras.contains(tetraGraph);
@@ -370,6 +385,7 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
    * Gets any Tetragraphs, or 4 character codes representing organizations, like NATO, etc. that the user may be a member of.
    */
   public String getTetragraphs() {
+    // TODO: This KC attribute does not exist yet. Needs implementation.
     return getStringValueFromKeycloakAttribute("tetragraphs");
   }
 
@@ -385,11 +401,12 @@ public class ServerSecurityDatabaseUser implements SecurityDatabaseUser {
    * @return
    */
   private String getStringValueFromKeycloakAttribute(String attributeName) {
+    LogManager.instance().log(ServerSecurityDatabaseUser.class, Level.INFO, "Keycloak attributes are " + attributes);
     if (attributes != null && attributes.containsKey(attributeName)) {
-      var nationality = attributes.get(attributeName).toString();
-      nationality = nationality.replace("[", "");
-      nationality = nationality.replace("]", "");
-      return nationality;
+      var atrribute = attributes.get(attributeName).toString();
+      atrribute = atrribute.replace("[", "");
+      atrribute = atrribute.replace("]", "");
+      return atrribute;
     } else { 
       return null;
     }

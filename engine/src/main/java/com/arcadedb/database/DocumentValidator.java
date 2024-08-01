@@ -132,32 +132,35 @@ public class DocumentValidator {
     propNames.remove(Utils.LAST_MODIFIED_DATE);
 
     var numProps = propNames.size();
+    LogManager.instance().log(DocumentValidator.class, Level.INFO, "Validating document attribute classifications: " + attributes);
+    attributes.toMap().forEach((attribute, value) -> {
 
-    LogManager.instance().log(DocumentValidator.class, Level.INFO, "Validating attributes " + attributes);
-
-    attributes.toMap().entrySet().forEach(entry -> {
-      var key = entry.getKey();
-
-      // validate valid key
-      if (!document.has(key)) {
-        throw new ValidationException("Invalid attribute key: " + key);
-      }
-
-      var value = entry.getValue().toString();
-
-      if (value != null && value.trim() != "") {
-        // TODO: possibly redundant. Call to df-classification earlier in call stack factors in deployment classification.
-        verifyDocumentClassificationValidForDeployment(value, document.getDatabase().getSchema().getEmbedded().getClassification());
-
-        var inputIndex = AuthorizationUtils.classificationOptions.get(value);
-        var userClearanceIndex = AuthorizationUtils.classificationOptions.get(securityDatabaseUser.getClearanceForCountryOrTetragraphCode("USA"));
-
-        if (inputIndex > userClearanceIndex) {
-          throw new ValidationException("User cannot set attribute classification markings on documents higher than or outside their current access.");
+        // validate valid key
+        if (!document.has(attribute)) {
+            throw new ValidationException("Invalid attribute key: " + attribute);
         }
-      } else {
-        throw new ValidationException("Invalid attribute classification marking for: " + key);
-      }
+
+        var attributeClassification = value.toString();
+
+        if (attributeClassification != null && !attributeClassification.trim().isEmpty()) {
+            // TODO: This call might not be necessary after integrating with df-classification.
+            verifyDocumentClassificationValidForDeployment(
+                    attributeClassification,
+                    document.getDatabase().getSchema().getEmbedded().getClassification());
+
+            // Taking the attribute's classification value and fetching its numerical representation.
+            var inputIndex = AuthorizationUtils.classificationOptions.get(attributeClassification);
+            var userClearance = securityDatabaseUser.getClearanceForCountryOrTetragraphCode("USA");
+            var userClearanceIndex = AuthorizationUtils.classificationOptions.get(userClearance);
+
+            if (inputIndex > userClearanceIndex) {
+                throw new ValidationException(
+                        "User cannot set attribute classification markings on documents higher than or outside their current access!" +
+                                " User clearance is " + userClearance + " but attribute classification was " + attributeClassification);
+            }
+        } else {
+            throw new ValidationException("Invalid attribute classification marking for: " + attribute);
+        }
     });
 
     if (attributes.length() < numProps) {

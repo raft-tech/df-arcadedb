@@ -390,7 +390,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
     List<ArcadeRole> arcadeRoles = getArcadeRolesFromString(result.getRoles());
     userArcadeRoles.put(username, arcadeRoles);
 
-    log.info("getOrCreateuser - parsed arcade roles {}", arcadeRoles);
+    log.info("getOrCreateUser - parsed arcade roles {}", arcadeRoles);
 
     // 3. Convert arcade roles to groups
     List<Group> neededGroups = arcadeRoles.stream()
@@ -439,7 +439,7 @@ public class ServerSecurity implements ServerPlugin, com.arcadedb.security.Secur
 
     // 6. get user attribtues for ACCM
     Map<String, Object> attributes = result.getAttributes();
-    log.info("User attributes are  {}", attributes);
+    log.info("OPA policy attributes are  {}", attributes);
 
     ServerSecurityUser serverSecurityUser = new ServerSecurityUser(server, userJson, arcadeRoles, attributes, 
             System.currentTimeMillis(), result.getPolicy());
