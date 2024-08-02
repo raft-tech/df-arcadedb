@@ -95,7 +95,7 @@ public class OpaClient extends DataFabricRestClient {
         classificationArguments.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
     
         if (!hasAccessToNoForn || relTo.isEmpty()) {
-            disseminationArgs.add(new Argument("components.disseminationControls", ArgumentOperator.ANY_OF, "NOFORN", true));
+            disseminationArgs.add(new Argument("components.disseminationControls", ArgumentOperator.CONTAINS, "NOFORN", true));
         }
 
 
@@ -119,11 +119,12 @@ public class OpaClient extends DataFabricRestClient {
             var readons = opaPolicyJson.get("programReadons").asText().split(",");
             Arrays.asList(readons);
 
+            // need an or expression to support any valid combo of program nicknames
             Argument arg = new Argument("components.programNicknames", ArgumentOperator.ALL_IN, readons);
             arg.setNullEvaluatesToGrantAccess(true);
             accmArgs.add(arg);
         } else {
-            var arg = new Argument("components.nonICmarkings", ArgumentOperator.ANY_OF, "ACCM", true);
+            var arg = new Argument("components.nonICmarkings", ArgumentOperator.CONTAINS, "ACCM", true);
             accmArgs.add(arg);
         }
 

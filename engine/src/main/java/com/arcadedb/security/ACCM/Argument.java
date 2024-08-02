@@ -136,6 +136,10 @@ public class Argument {
     public boolean evaluate(JSONObject json) {
         var result = evaluateInternal(json);
 
+        if (getValueForFieldJsonPath(json) != null && isNot()) {
+            result = !result;
+        }
+
         LogManager.instance().log(this, Level.FINE, "Result: " + result + " for argument: " + this.toString() + " on json: " + json.toString(2));
 
         return result;
@@ -149,7 +153,13 @@ public class Argument {
 
         Object docFieldValue = getValueForFieldJsonPath(json);
 
-        LogManager.instance().log(this, Level.INFO, "docFieldValue: " + docFieldValue);
+        LogManager.instance().log(this, Level.INFO, "field: " + field +"; docFieldValue: " + docFieldValue);
+        
+        try {
+          LogManager.instance().log(this, Level.INFO,  docFieldValue != null ? docFieldValue.getClass().getName() : "NA");
+        } catch (Exception e) {
+
+        }
 
         // TODO configurably handle null values- could eval to true or false
         if (docFieldValue == null) {
@@ -163,7 +173,6 @@ public class Argument {
             case NEQ:
                 return !this.value.equals(docFieldValue);
             case ANY_OF:
-
                 // check if this.value is a list
                 if (this.value instanceof List) {
                     for (Object val : (List<Object>) this.value) {
@@ -194,6 +203,30 @@ public class Argument {
                     if (val.equals(docFieldValue)) {
                         return true;
                     }
+                }
+                return false;
+
+            case CONTAINS:
+                if (docFieldValue instanceof JSONArray) {
+                    for (Object docVal :  ((JSONArray) docFieldValue).toList()) {
+
+                        String str = valueToString();
+                        str = str.substring(1, str.length() - 1).replace("\"", "");
+
+                        // Split the string by commas
+                        String[] stringArray = str.split(", ");
+
+                        LogManager.instance().log(this, Level.FINE, "Evaluation Values: " + Arrays.toString(stringArray));
+                        LogManager.instance().log(this, Level.FINE, "Doc Value: " + docVal);
+
+                        for (String val : stringArray) {
+                            if (val.equals(docVal)) {
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
                 }
                 return false;
             case GT: {
@@ -274,16 +307,23 @@ public class Argument {
                     docValList = Arrays.asList((String[]) docFieldValue);
                 }
 
+                LogManager.instance().log(this, Level.INFO, "this.value type: " + this.value.getClass().getSimpleName());
+
                 if (this.value instanceof String) {
                     String str = (String) this.value;
                     str = str.substring(1, str.length() - 1).replace("\"", "");
-                    String[] stringArray = str.split(", ");
+                    String[] stringArray = str.split(",");
                     listToCheck = Arrays.asList(stringArray).stream().map(String::trim).collect(Collectors.toList());
                 }
 
                 if (this.value instanceof String[]) {
-                    listToCheck = Arrays.asList((String[]) this.value);
+                    listToCheck = Arrays.asList((String[]) this.value).stream().map(String::trim).collect(Collectors.toList());
                 }
+
+                LogManager.instance().log(this, Level.INFO, "docValuList: " + docValList + " " + docValList.size());
+                LogManager.instance().log(this, Level.INFO, "list2Check: " + listToCheck + " " + listToCheck.size());
+
+                LogManager.instance().log(this, Level.INFO, "result: " + listToCheck.containsAll(docValList));
 
                 return listToCheck.containsAll(docValList);
             case NONE_IN:
