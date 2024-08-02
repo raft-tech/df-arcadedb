@@ -153,14 +153,6 @@ public class Argument {
 
         Object docFieldValue = getValueForFieldJsonPath(json);
 
-        LogManager.instance().log(this, Level.INFO, "field: " + field +"; docFieldValue: " + docFieldValue);
-        
-        try {
-          LogManager.instance().log(this, Level.INFO,  docFieldValue != null ? docFieldValue.getClass().getName() : "NA");
-        } catch (Exception e) {
-
-        }
-
         // TODO configurably handle null values- could eval to true or false
         if (docFieldValue == null) {
             return this.nullEvaluatesToGrantAccess;
@@ -306,8 +298,6 @@ public class Argument {
                 if (docFieldValue instanceof String[]) {
                     docValList = Arrays.asList((String[]) docFieldValue);
                 }
-
-                LogManager.instance().log(this, Level.INFO, "this.value type: " + this.value.getClass().getSimpleName());
 
                 if (this.value instanceof List) {
                     List<?> list = (List<?>) this.value;
