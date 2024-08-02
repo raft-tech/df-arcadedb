@@ -9,6 +9,8 @@ public enum ArgumentOperator {
     CONTAINS,
     NOT_CONTAINS,
 
+    FIELD_NOT_PRESENT,
+
     // provided values contains 
 
     GT,

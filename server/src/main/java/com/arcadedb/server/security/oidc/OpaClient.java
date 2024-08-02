@@ -95,13 +95,10 @@ public class OpaClient extends DataFabricRestClient {
         classificationArguments.add(new Argument("components.classification", ArgumentOperator.ANY_OF, authorizedClassificationsList));
     
         if (!hasAccessToNoForn || relTo.isEmpty()) {
-            disseminationArgs.add(new Argument("components.disseminationControls", ArgumentOperator.CONTAINS, "NOFORN", true));
+            disseminationArgs.add(new Argument("components.disseminationControls", ArgumentOperator.CONTAINS, "NF", true));
         }
 
-
         // If foreign national, block access to data with releasable to that doesn't include nationality to tetra they belong to
-
-
         // nationality is USA OR nationality/tetra listed in rel to
         
         var argRelTo = new Argument("components.releasableTo", ArgumentOperator.ANY_IN, relTo);
@@ -129,8 +126,7 @@ public class OpaClient extends DataFabricRestClient {
                 accmArgs.add(arg);
             }
         } else {
-            var arg = new Argument("components.nonICmarkings", ArgumentOperator.NOT_CONTAINS, "ACCM");
-        //   arg.setNullEvaluatesToGrantAccess(false);
+            var arg = new Argument("components.programNicknames", ArgumentOperator.FIELD_NOT_PRESENT, "doesn't matter");
             accmArgs.add(arg);
         }
 

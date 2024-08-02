@@ -159,8 +159,16 @@ public class Argument {
 
         // TODO configurably handle null values- could eval to true or false
         if (docFieldValue == null) {
-            LogManager.instance().log(this, Level.INFO, "Doc field value is null, returning null handling: " + this.nullEvaluatesToGrantAccess);
+            if (operator == ArgumentOperator.FIELD_NOT_PRESENT) {
+                LogManager.instance().log(this, Level.FINE, "NOT PRESENT and doc value is null");
+                return true;
+            }
+
+            LogManager.instance().log(this, Level.FINE, "Doc field value is null, returning null handling: " + this.nullEvaluatesToGrantAccess);
             return this.nullEvaluatesToGrantAccess;
+        } else if (operator == ArgumentOperator.FIELD_NOT_PRESENT) {
+            LogManager.instance().log(this, Level.FINE, "NOT PRESENT and doc value is NOT null");
+            return false;
         }
 
         // evaluate if the value satisfies the argument, and validate the value is valid for the argument type
@@ -319,9 +327,6 @@ public class Argument {
     }
 
     private boolean valueContains(Object docFieldValue){
-
-        LogManager.instance().log(this, Level.INFO, "doc field value: " + docFieldValue.getClass().getSimpleName());
-
         if (docFieldValue instanceof JSONArray) {
             for (Object docVal :  ((JSONArray) docFieldValue).toList()) {
 
