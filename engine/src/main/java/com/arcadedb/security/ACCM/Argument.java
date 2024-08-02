@@ -168,28 +168,6 @@ public class Argument {
                 return !this.value.equals(docFieldValue);
             case ANY_OF:
 
-                if (docFieldValue instanceof JSONArray) {
-                    for (Object docVal :  ((JSONArray) docFieldValue).toList()) {
-
-                        String str = valueToString();
-                        str = str.substring(1, str.length() - 1).replace("\"", "");
-
-                        // Split the string by commas
-                        String[] stringArray = str.split(", ");
-
-                        LogManager.instance().log(this, Level.INFO, "Evaluation Values: " + Arrays.toString(stringArray));
-                        LogManager.instance().log(this, Level.INFO, "Doc Value: " + docVal);
-
-                        for (String val : stringArray) {
-                            if (val.equals(docVal)) {
-                                return true;
-                            }
-                        }
-                    }
-
-                    return false;
-                }
-
                 // check if this.value is a list
                 if (this.value instanceof List) {
                     for (Object val : (List<Object>) this.value) {
