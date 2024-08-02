@@ -7,6 +7,7 @@ public enum ArgumentOperator {
 
     // Doc value contains the following option
     CONTAINS,
+    NOT_CONTAINS,
 
     // provided values contains 
 

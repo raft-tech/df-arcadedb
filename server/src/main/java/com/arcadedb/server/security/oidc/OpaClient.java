@@ -119,14 +119,18 @@ public class OpaClient extends DataFabricRestClient {
             var readons = opaPolicyJson.get("programReadons").asText().replaceAll(" ","").split(",");
             Arrays.asList(readons);
 
+            List<List<String>> allCombos = getAllCombinations(Arrays.asList(readons));
+            allCombos.remove(0); // Remove first empty array option
+
             // need an or expression to support any valid combo of program nicknames
-            for (List<String> combo : getAllCombinations(Arrays.asList(readons))) {
+            for (List<String> combo : allCombos) {
                 Argument arg = new Argument("components.programNicknames", ArgumentOperator.ALL_IN, combo);
                 arg.setNullEvaluatesToGrantAccess(true);
                 accmArgs.add(arg);
             }
         } else {
-            var arg = new Argument("components.nonICmarkings", ArgumentOperator.CONTAINS, "ACCM", true);
+            var arg = new Argument("components.nonICmarkings", ArgumentOperator.NOT_CONTAINS, "ACCM");
+        //   arg.setNullEvaluatesToGrantAccess(false);
             accmArgs.add(arg);
         }
 
