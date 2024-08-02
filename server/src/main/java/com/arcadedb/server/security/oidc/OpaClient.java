@@ -116,27 +116,30 @@ public class OpaClient extends DataFabricRestClient {
         List<Argument> accmArgs = new ArrayList<>();
         // if user has readons, only permit rows where all required readons are present
         if (opaPolicyJson.get("user_has_access_to_accm").asBoolean()) {
-            var readons = opaPolicyJson.get("programReadons").asText().split(",");
+            var readons = opaPolicyJson.get("programReadons").asText().replaceAll(" ","").split(",");
             Arrays.asList(readons);
 
             // need an or expression to support any valid combo of program nicknames
-            Argument arg = new Argument("components.programNicknames", ArgumentOperator.ALL_IN, readons);
-            arg.setNullEvaluatesToGrantAccess(true);
-            accmArgs.add(arg);
+            for (List<String> combo : getAllCombinations(Arrays.asList(readons))) {
+                Argument arg = new Argument("components.programNicknames", ArgumentOperator.ALL_IN, combo);
+                arg.setNullEvaluatesToGrantAccess(true);
+                accmArgs.add(arg);
+            }
         } else {
             var arg = new Argument("components.nonICmarkings", ArgumentOperator.CONTAINS, "ACCM", true);
             accmArgs.add(arg);
         }
 
+        Expression accm = new Expression(ExpressionOperator.OR, new ArrayList<>(), accmArgs);
+
         var allOuterArgs = new ArrayList<Argument>();
         allOuterArgs.addAll(classificationArguments);
-        allOuterArgs.addAll(accmArgs);
         allOuterArgs.addAll(disseminationArgs);
-
 
         Expression outer = new Expression();
         outer.setOperator(ExpressionOperator.AND);
         outer.setArguments(allOuterArgs);
+        outer.setExpressions(List.of(accm));
 
 
         List<Expression> expressions = new ArrayList<>();
@@ -162,5 +165,23 @@ public class OpaClient extends DataFabricRestClient {
 
         OpaResult result = new OpaResult(true, roles, json.getJSONObject("user_attributes").toMap(), policies);
         return new OpaResponse(result);
+    }
+
+    public static List<List<String>> getAllCombinations(List<String> list) {
+        List<List<String>> result = new ArrayList<>();
+        generateCombinations(list, 0, new ArrayList<>(), result);
+        return result;
+    }
+
+    private static void generateCombinations(List<String> list, int index, List<String> current, List<List<String>> result) {
+        // Add the current combination to the result
+        result.add(new ArrayList<>(current));
+
+        // Generate further combinations
+        for (int i = index; i < list.size(); i++) {
+            current.add(list.get(i));
+            generateCombinations(list, i + 1, current, result);
+            current.remove(current.size() - 1);
+        }
     }
 }

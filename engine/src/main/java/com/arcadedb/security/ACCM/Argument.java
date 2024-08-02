@@ -309,6 +309,15 @@ public class Argument {
 
                 LogManager.instance().log(this, Level.INFO, "this.value type: " + this.value.getClass().getSimpleName());
 
+                if (this.value instanceof List) {
+                    List<?> list = (List<?>) this.value;
+                    for (Object element : list) {
+                        if (element instanceof String) {
+                            listToCheck.add((String) element);
+                        }
+                    }
+                }
+
                 if (this.value instanceof String) {
                     String str = (String) this.value;
                     str = str.substring(1, str.length() - 1).replace("\"", "");
@@ -319,11 +328,6 @@ public class Argument {
                 if (this.value instanceof String[]) {
                     listToCheck = Arrays.asList((String[]) this.value).stream().map(String::trim).collect(Collectors.toList());
                 }
-
-                LogManager.instance().log(this, Level.INFO, "docValuList: " + docValList + " " + docValList.size());
-                LogManager.instance().log(this, Level.INFO, "list2Check: " + listToCheck + " " + listToCheck.size());
-
-                LogManager.instance().log(this, Level.INFO, "result: " + listToCheck.containsAll(docValList));
 
                 return listToCheck.containsAll(docValList);
             case NONE_IN:
