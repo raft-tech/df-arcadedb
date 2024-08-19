@@ -151,7 +151,21 @@ public class DocumentValidator {
             // Taking the attribute's classification value and fetching its numerical representation.
             var inputIndex = AuthorizationUtils.classificationOptions.get(attributeClassification);
             var userClearance = securityDatabaseUser.getClearanceForCountryOrTetragraphCode("USA");
-            var userClearanceIndex = AuthorizationUtils.classificationOptions.get(userClearance);
+
+            // TODO temp fix. refactor this to depend on the same deployment config specifying classification/clearance options.
+            int userClearanceIndex = 0;
+
+            switch(userClearance.toUpperCase()) {
+              case "UNCLASSIFIED": userClearanceIndex = 0;
+              case "CUI": userClearanceIndex = 1;
+              case "CONFIDENTIAL": userClearanceIndex = 2;
+              case "SECRET": userClearanceIndex = 3;
+              case "TOP SECRET": userClearanceIndex = 4;
+            }
+
+           // var userClearanceIndex = AuthorizationUtils.classificationOptions.get(userClearance);
+
+            LogManager.instance().log(DocumentValidator.class, Level.INFO, inputIndex + "_" + userClearanceIndex);
 
             if (inputIndex > userClearanceIndex) {
                 throw new ValidationException(
