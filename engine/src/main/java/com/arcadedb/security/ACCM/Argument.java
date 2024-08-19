@@ -181,6 +181,7 @@ public class Argument {
                 // check if this.value is a list
                 if (this.value instanceof List) {
                     for (Object val : (List<Object>) this.value) {
+                        LogManager.instance().log(this, Level.INFO, "val type: " + val.getClass().getName());
                         if (val.equals(docFieldValue)) {
                             return true;
                         }

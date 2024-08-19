@@ -8,7 +8,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,23 +62,6 @@ public class DataFabricRestClient {
         return tokenJO.getString("access_token");
     }
 
-    // todo this can go away
-    public static String getAccessTokenJsonFromResponse(String token) {
-        if (token != null) {
-            JSONObject tokenJO = new JSONObject(token);
-            String accessTokenString = tokenJO.getString("access_token");
-            String encodedString = accessTokenString.substring(accessTokenString.indexOf(".") + 1,
-                    accessTokenString.lastIndexOf("."));
-            byte[] decodedBytes = Base64.getDecoder().decode(encodedString);
-            String decodedString = new String(decodedBytes);
-            log.debug("getAccessTokenFromResponse {}", decodedString);
-
-            return decodedString;
-        }
-
-        return null;
-    }
-
     protected static String postUnauthenticatedAndGetResponse(String url, Map<String, String> formData) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -99,20 +81,6 @@ public class DataFabricRestClient {
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + accessTokenString)
                 .timeout(Duration.ofSeconds(20))
-                .build();
-
-        return sendAndGetResponse(request);
-    }
-
-    // todo this can be removed
-    protected static String putAuthenticatedAndGetResponse(String url, String jsonPayload) {
-        String accessTokenString = loginAndGetEncodedAccessString();
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .PUT(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + accessTokenString)
                 .build();
 
         return sendAndGetResponse(request);

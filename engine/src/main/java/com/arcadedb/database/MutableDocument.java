@@ -24,7 +24,6 @@ import com.arcadedb.schema.DocumentType;
 import com.arcadedb.schema.Property;
 import com.arcadedb.schema.Type;
 import com.arcadedb.security.SecurityDatabaseUser;
-import com.arcadedb.security.ACCM.AccmProperty;
 import com.arcadedb.serializer.json.JSONObject;
 
 import java.lang.reflect.*;
@@ -76,8 +75,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   public synchronized void setBuffer(final Binary buffer) {
     super.setBuffer(buffer);
     dirty = false;
-    // map = null; // AVOID RESETTING HERE FOR INDEXES THAT CAN LOOKUP UP FOR FIELDS
-    // CAUSING AN UNMARSHALLING
   }
 
   @Override
@@ -138,39 +135,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
   }
 
   /**
-   * Convert externally configurable required proeprty defintiions into arcade internal required properties.
-   * Not used at the moment, leaving short term for possible use.
-   * @return
-   */
-  public List<Property> getAccmProperties() {
-
-    List<AccmProperty> accmProperties = new ArrayList<>();
-    List<Property> properties = new ArrayList<>();
-
-    for (AccmProperty accmProperty : accmProperties) {
-      DocumentType parentType = database.getSchema().getType(accmProperty.parentType());
-
-      if (parentType == null) {
-        continue;
-      }
-
-      Property p = new Property(parentType, 
-          accmProperty.name(), accmProperty.dataType());
-      p.setMandatory(accmProperty.required());
-      p.setNotNull(accmProperty.notNull());
-
-      if (!accmProperty.options().isEmpty()) {
-        p.setRegexp(String.join("|", accmProperty.options()));
-      } else if (accmProperty.validationRegex() != null) {
-        p.setRegexp(accmProperty.validationRegex());
-      }
-      properties.add(p);
-    }
-
-    return properties;
-  }
-
-  /**
    * Triggers the native required property valiation of arcade, as well as the one time ACCM validation.
    * ACCM validation follows a different recursive type checking pattern than arcade, so it is done separately.
    * @param securityDatabaseUser
@@ -225,29 +189,6 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
    */
   public void validate() throws ValidationException {
     DocumentValidator.validate(this);
-  }
-
-  private MutableEmbeddedDocument getEmbeddedDocumentToValidate(MutableDocument mutableDocument, final String name) {
-    // form of embeddedDoc.property
-    // could be embeddedDoc1.embeddedDoc2.property
-
-    if (name == null || name == "" || !name.contains(".")) {
-      return (MutableEmbeddedDocument) mutableDocument;
-    }
-
-    String embeddedDocName = name.substring(0, name.indexOf("."));
-    String remainingPropertyName = name.substring(name.indexOf(".") + 1);
-    final Object fieldValue = mutableDocument.get(embeddedDocName);
-
-    if (fieldValue != null && fieldValue instanceof MutableEmbeddedDocument) {
-      if (remainingPropertyName.split(".").length > 1) {
-        return getEmbeddedDocumentToValidate((MutableDocument) fieldValue, remainingPropertyName);
-      } else {
-        return (MutableEmbeddedDocument) fieldValue;
-      }
-    } else {
-       throw new ValidationException("Document classification incomplete for property: " + name);
-    }
   }
 
   @Override

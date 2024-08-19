@@ -66,6 +66,29 @@ public class OpaClient extends DataFabricRestClient {
         }
 
         var hasAccessToNoForn = opaPolicyJson.has(NOFORN) && opaPolicyJson.get(NOFORN).asBoolean();
+        List<String> completeClassifications = new ArrayList<>();
+        // Add the full name of classifications to the list. Prevents documents with BlackCape classifications from being blocked.
+        for (String classification : authorizedClassificationsList) {
+            switch (classification) {
+                case "U":
+                    completeClassifications.add("UNCLASSIFIED");
+                    break;
+                case "C":
+                    completeClassifications.add("CONFIDENTIAL");
+                    break;
+                case "S":
+                    completeClassifications.add("SECRET");
+                    break;
+                case "TS":
+                    completeClassifications.add("TOP SECRET");
+                    break;
+                default:
+                    LogManager.instance().log(OpaClient.class, Level.INFO, "No valid short-hand classifications found.");
+                    break;
+            }
+        }
+
+        authorizedClassificationsList.addAll(completeClassifications);
 
         // relto
         List<String> relTo = new ArrayList<>(); // TODO Arrays.asList(responseJson.get("releasable_to").asText().split(","));
