@@ -3,4 +3,3 @@ include:
     ref: main
     file:
       - "std-image.yml"
-
