@@ -9,6 +9,7 @@ on:
       - 'VERSION'
 
 env:
+  DOCKER_JOBS_RUNS_ON: ${{ vars.DOCKER_JOBS_RUNS_ON || 'ubuntu-latest' }}
   GHCR_REGISTRY: ghcr.io
   GHCR_REPOSITORY: raft-tech
   IB_REGISTRY: registry1.dso.mil
@@ -20,7 +21,7 @@ env:
 
 jobs:
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ${{ env.DOCKER_JOBS_RUNS_ON }}
     steps:
       # - name: Random Delay to avoid DDoS behavior against registries.
       #   run: sleep $((RANDOM % 31))
