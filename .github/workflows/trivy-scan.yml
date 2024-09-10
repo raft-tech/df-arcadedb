@@ -6,7 +6,6 @@ on:
   pull_request:
 
 env:
-  DOCKER_JOBS_RUNS_ON: ${{ vars.DOCKER_JOBS_RUNS_ON || 'ubuntu-latest' }}
   GHCR_REGISTRY: ghcr.io
   GHCR_REPOSITORY: raft-tech
   IB_REGISTRY: registry1.dso.mil
@@ -17,7 +16,7 @@ env:
 
 jobs:
   docker:
-    runs-on: ${{ env.DOCKER_JOBS_RUNS_ON }}
+    runs-on: ${{ vars.DOCKER_JOBS_RUNS_ON || 'ubuntu-latest' }}
     steps:
 
       - name: Checkout repository
