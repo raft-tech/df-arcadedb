@@ -166,10 +166,26 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
       }
     } catch (ValidationException e) {
       // Only ignore data validation errors on writes for service accounts.
-      if (database.getContext().getCurrentUser().isServiceAccount()) {
+      try {
+        var db = database.getContext();
+        if (db == null) {
+          System.out.println("Database context is null");
+          return;
+        }
 
-        // Setting this property as false will prevent non data stewards from reading or modifying the document.
-        set(CLASSIFICATION_MARKED, false);
+        var currentUser = db.getCurrentUser();
+        if (currentUser == null) {
+          System.out.println("Current user is null");
+          return;
+        }
+
+        if (currentUser.isServiceAccount()) {
+          // Setting this property as false will prevent non data stewards from reading or modifying the document.
+          set(CLASSIFICATION_MARKED, false);
+          return;
+        }
+      } catch (Exception ex) {
+        System.out.println("Error checking service account: " + ex.getMessage());
         return;
       }
       throw e;
