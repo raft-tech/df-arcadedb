@@ -407,3 +407,7 @@ server/backups
 integration/server-users.jsonl
 server/replication/
 replication/
+*.swp
+*.swo
+
+tags

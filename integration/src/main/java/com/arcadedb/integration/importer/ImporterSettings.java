@@ -25,6 +25,7 @@ import java.util.*;
 public class ImporterSettings {
   public String  database     = "./databases/imported";
   public String  url          = null;
+  public String  urlWithoutParameters  = null;
   public boolean wal          = false;
   public int     verboseLevel = 2;
 
@@ -94,6 +95,7 @@ public class ImporterSettings {
       database = value;
     else if ("url".equals(name))
       url = value;
+      urlWithoutParameters = value.replaceAll("[?][^?]*","");
     else if ("forceDatabaseCreate".equals(name))
       forceDatabaseCreate = Boolean.parseBoolean(value);
     else if ("wal".equals(name))
