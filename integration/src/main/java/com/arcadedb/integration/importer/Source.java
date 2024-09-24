@@ -26,6 +26,7 @@ import java.util.logging.*;
 
 public class Source {
   public final  String                                      url;
+  public String                                      urlWithoutParameters;
   public        InputStream                                 inputStream;
   public final  long                                        totalSize;
   public final  boolean                                     compressed;
@@ -35,6 +36,8 @@ public class Source {
   public Source(final String url, final InputStream inputStream, final long totalSize, final boolean compressed,
       final com.arcadedb.utility.Callable<Void, Source> resetCallback, final Callable<Void> closeCallback) {
     this.url = url;
+    this.urlWithoutParameters = url.replaceAll("[?][^?]*",""); // sometimes urls have params like 'http://bob.com/thing?name=jo'
+                                                               // and we sometimes don't need those params
     this.inputStream = inputStream;
     this.totalSize = totalSize;
     this.compressed = compressed;
