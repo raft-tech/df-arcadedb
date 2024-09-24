@@ -194,12 +194,7 @@ public class SourceDiscovery {
 
     case DATABASE:
       // NO SPECIAL SETTINGS
-      // first try the url without parameters
-      knownFileType = getFileTypeByExtension(settings.urlWithoutParameters);
-      if(knownFileType == null){
-          // then if that doesn't match a type, try the url as is
-          knownFileType = getFileTypeByExtension(settings.url);
-      }
+      knownFileType = getFileTypeByExtension(settings.url);
       break;
 
     default:
