@@ -38,27 +38,27 @@ public class KafkaEventListener implements AfterRecordCreateListener, AfterRecor
          */
         this.databaseUsername = databaseUsername == null ? "admin" : databaseUsername;
 
-        this.client.createTopicIfNotExists(this.client.getTopicNameForDatabase(this.databaseName, this.databaseUsername));
+    //    this.client.createTopicIfNotExists(this.client.getTopicNameForDatabase(this.databaseName, this.databaseUsername));
     }
 
     @Override
     public void onAfterCreate(Record record) {
-        Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_CREATE, record);
+    //    Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_CREATE, record);
 
-        this.client.sendMessage(this.databaseName, this.databaseUsername, message);
+    //    this.client.sendMessage(this.databaseName, this.databaseUsername, message);
     }
 
     @Override
     public void onAfterDelete(Record record) {
-        Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_DELETE, record);
+    //    Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_DELETE, record);
 
-        this.client.sendMessage(this.databaseName, this.databaseUsername, message);
+    //    this.client.sendMessage(this.databaseName, this.databaseUsername, message);
     }
 
     @Override
     public void onAfterUpdate(Record record) {
-        Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_UPDATE, record);
+    //    Message message = KafkaRecordUtil.createMessage(RecordEvents.AFTER_RECORD_UPDATE, record);
 
-        this.client.sendMessage(this.databaseName, this.databaseUsername, message);
+    //    this.client.sendMessage(this.databaseName, this.databaseUsername, message);
     }
 }
