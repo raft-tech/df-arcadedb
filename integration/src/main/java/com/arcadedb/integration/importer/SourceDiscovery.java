@@ -194,7 +194,13 @@ public class SourceDiscovery {
 
     case DATABASE:
       // NO SPECIAL SETTINGS
-      knownFileType = getFileTypeByExtension(settings.url);
+      // first try the url without parameters
+      String urlWithoutParameters = settings.url.replaceAll("[?][^?]*","");
+      knownFileType = getFileTypeByExtension(urlWithoutParameters);
+      // if that doesn't have a known extension then try the original url
+      if(knownFileType == null){
+          knownFileType = getFileTypeByExtension(settings.url);
+      }
       break;
 
     default:
