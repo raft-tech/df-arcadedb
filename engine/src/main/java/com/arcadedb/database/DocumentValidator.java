@@ -95,7 +95,8 @@ public class DocumentValidator {
     // TODO: Add sources validation back in.
 
     if (!document.has(MutableDocument.CLASSIFICATION_PROPERTY)) {
-      throw new ValidationException("Document has no classification property!");
+        // LogManager.instance().log(DocumentValidator.class, Level.INFO, document.toJSON(true).toString(3));
+        throw new ValidationException("Document has no classification property!");
     }
 
     if (!document.toJSON().getJSONObject(MutableDocument.CLASSIFICATION_PROPERTY).has("components")) {
