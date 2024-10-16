@@ -145,7 +145,7 @@ public class MutableDocument extends BaseDocument implements RecordInternal {
      * Skip validitng during initial edge creation, as they don't have properties set yet.
      * Arcade uses a multi step process to create edges, and the last step will apply the classification payload to the new edge.
     */ 
-    if (toJSON().getString("@cat").equals("e") && !toJSON().has("@rid")) {
+    if ((toJSON().getString("@cat").equals("e") || toJSON().getString("@cat").equals("v")) && !toJSON().has("@rid")) {
       return;
     }
 
