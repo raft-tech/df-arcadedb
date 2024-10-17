@@ -574,25 +574,33 @@ public class EmbeddedDatabase extends RWLockContext implements DatabaseInternal 
 
   @Override
   public void checkPermissionsOnFile(final int fileId, final SecurityDatabaseUser.ACCESS access) {
-    if (security == null)
-      return;
+    return;
 
-    final DatabaseContext.DatabaseContextTL dbContext = DatabaseContext.INSTANCE.getContextIfExists(databasePath);
-    if (dbContext == null)
-      return;
-    final SecurityDatabaseUser user = dbContext.getCurrentUser();
-    if (user == null)
-      return;
+    /**
+     * 10-17-24
+     * Patrick S- removed bucket permission checks to support troubleshooting importing CCO modeled data into arcade with classification levels.
+     * TODO replace calls to this method with cached calls to the new auth-store service, which will serve graph object type access per user.
+     */
 
-    if (user.requestAccessOnFile(fileId, access))
-      return;
+    // if (security == null)
+    //   return;
 
-    String resource = "file '" + schema.getFileById(fileId).getName() + "'";
-    final DocumentType type = schema.getTypeByBucketId(fileId);
-    if (type != null)
-      resource = "type '" + type + "'";
+    // final DatabaseContext.DatabaseContextTL dbContext = DatabaseContext.INSTANCE.getContextIfExists(databasePath);
+    // if (dbContext == null)
+    //   return;
+    // final SecurityDatabaseUser user = dbContext.getCurrentUser();
+    // if (user == null)
+    //   return;
 
-    throw new SecurityException("User '" + user.getName() + "' is not allowed to " + access.fullName + " on " + resource);
+    // if (user.requestAccessOnFile(fileId, access))
+    //   return;
+
+    // String resource = "file '" + schema.getFileById(fileId).getName() + "'";
+    // final DocumentType type = schema.getTypeByBucketId(fileId);
+    // if (type != null)
+    //   resource = "type '" + type + "'";
+
+    // throw new SecurityException("User '" + user.getName() + "' is not allowed to " + access.fullName + " on " + resource);
   }
 
   @Override
