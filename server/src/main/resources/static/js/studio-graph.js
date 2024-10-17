@@ -9,11 +9,138 @@ var globalLayout = null;
 var globalCy = null;
 var globalSelected = null;
 var globalEnableElementPanel = true;
-var globalGraphSettings = {
-  graphSpacing: 50,
-  cumulativeSelection: false,
-  types: {},
-};
+// var globalGraphSettings = {
+//   graphSpacing: 50,
+//   cumulativeSelection: false,
+//   types: {},
+// };
+// i know this is not ideal to embed it here but i don't know how to easirly reference this json from another file
+var globalGraphSettings = JSON.parse(`
+{
+  "graphSpacing": 50,
+  "cumulativeSelection": false,
+  "types": {
+    "cco-IntentionalAct": {
+      "labelColor": "black",
+      "shapeColor": "aqua",
+      "element": "v",
+      "icon": "fas fa-chess",
+      "labelPosition": "bottom center"
+    },
+    "bfo-temporal_region": {
+      "labelColor": "black",
+      "shapeColor": "orange",
+      "element": "v",
+      "icon": "fas fa-calendar",
+      "labelPosition": "bottom center"
+    },
+    "cco-Target": {
+      "labelColor": "black",
+      "shapeColor": "green",
+      "element": "v",
+      "icon": "fas fa-crosshairs",
+      "labelPosition": "bottom center",
+      "iconColor": "purple"
+    },
+    "todo-connected_to": {
+      "element": "e"
+    },
+    "cco-DesignativeInformationContentEntity": {
+      "labelColor": "black",
+      "shapeColor": "purple",
+      "element": "v",
+      "icon": "fas fa-tag",
+      "labelPosition": "bottom center",
+      "labelText": "cco-has_text_value"
+    },
+    "cco-ActOfCommunication": {
+      "labelColor": "black",
+      "shapeColor": "lime",
+      "element": "v",
+      "icon": "fas fa-comment",
+      "labelPosition": "bottom center",
+      "iconColor": "teal"
+    },
+    "cco-designated_by": {
+      "element": "e"
+    },
+    "cco-has_object": {
+      "element": "e"
+    },
+    "cco-Agent": {
+      "labelColor": "black",
+      "shapeColor": "teal",
+      "element": "v",
+      "icon": "far fa-user",
+      "labelPosition": "bottom center",
+      "iconColor": "orange"
+    },
+    "bfo-exists_at": {
+      "element": "e"
+    },
+    "cco-has_agent": {
+      "element": "e"
+    },
+    "bfo-temporal_instant": {
+      "labelColor": "black",
+      "shapeColor": "maroon",
+      "element": "v",
+      "icon": "fas fa-calendar-alt",
+      "labelPosition": "bottom center",
+      "labelText": "cco-has_date_value"
+    },
+    "bfo-has_last_instant": {
+      "element": "e"
+    },
+    "cco-DescriptiveInformationContentEntity": {
+      "labelColor": "black",
+      "shapeColor": "navy",
+      "element": "v",
+      "icon": "fas fa-align-left",
+      "labelPosition": "bottom center",
+      "iconColor": "blue",
+      "labelText": "cco-has_text_value"
+    },
+    "cco-DesignativeName": {
+      "labelColor": "black",
+      "shapeColor": "olive",
+      "element": "v",
+      "icon": "fas fa-tag",
+      "labelPosition": "bottom center",
+      "labelText": "cco-has_text_value"
+    },
+    "cco-GeospatialLocation": {
+      "labelColor": "black",
+      "shapeColor": "silver",
+      "element": "v",
+      "icon": "fas fa-map-marker",
+      "labelPosition": "bottom center",
+      "iconColor": "lime"
+    },
+    "cco-described_by": {
+      "element": "e"
+    },
+    "bfo-located_in": {
+      "element": "e"
+    },
+    "cco-ActOfEstimation": {
+      "labelColor": "black",
+      "shapeColor": "blue",
+      "element": "v",
+      "icon": "fas fa-weight",
+      "labelPosition": "bottom center"
+    },
+    "cco-Objective": {
+      "labelColor": "black",
+      "shapeColor": "yellow",
+      "element": "v",
+      "icon": "fas fa-bullseye",
+      "labelPosition": "bottom center",
+      "iconColor": "aqua"
+    }
+  }
+}
+`)
 
 function toggleSidebar(){
   $("#graphPropertiesPanel").toggleClass("collapsed");
