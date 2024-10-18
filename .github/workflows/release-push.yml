@@ -54,8 +54,8 @@ jobs:
 
       - name: Set GHCR password # Defaults to the GHCR_PAT if set, otherwise uses the built in GITHUB_TOKEN
         run: |
-          if [[ -n "${{ secrets.GHCR_PAT }}" ]]; then
-            echo "GHCR_PASSWORD=${{ secrets.GHCR_PAT }}" >> $GITHUB_ENV
+          if [[ -n "${{ secrets.DF_PAT }}" ]]; then
+            echo "GHCR_PASSWORD=${{ secrets.DF_PAT }}" >> $GITHUB_ENV
           else
             echo "GHCR_PASSWORD=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
           fi

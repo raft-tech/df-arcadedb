@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GHCR_PAT }}
+          token: ${{ secrets.DF_PAT }}
 
       - name: Get TAG var
         if: env.SKIP_REMAINING_STEPS != 'true'
@@ -47,5 +47,5 @@ jobs:
         if: env.SKIP_REMAINING_STEPS != 'true'
         uses: ad-m/github-push-action@master
         with:
-          github_token: ${{ secrets.GHCR_PAT }}
+          github_token: ${{ secrets.DF_PAT }}
           branch: ${{ env.BRANCH_NAME }}
