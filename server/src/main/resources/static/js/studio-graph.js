@@ -15,7 +15,9 @@ var globalEnableElementPanel = true;
 //   types: {},
 // };
 // i know this is not ideal to embed it here but i don't know how to easirly reference this json from another file
-var globalGraphSettings = JSON.parse(`
+
+function getGraphVizConfig(){
+    return JSON.parse(`
 {
   "graphSpacing": 50,
   "cumulativeSelection": false,
@@ -141,6 +143,11 @@ var globalGraphSettings = JSON.parse(`
   }
 }
 `)
+}
+
+var globalGraphSettings = getGraphVizConfig();
+
+document.addEventListener("DOMContentLoaded", function(){ globalGraphSettings = getGraphVizConfig() } );
 
 function toggleSidebar(){
   $("#graphPropertiesPanel").toggleClass("collapsed");
