@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GHCR_PAT }}
+          token: ${{ secrets.DF_PAT }}
 
       - name: Increment version number
         run: |
